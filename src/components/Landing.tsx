@@ -4,7 +4,7 @@
 // Full marketing page, paper-dominant. Auth buttons enter the web app.
 import React from 'react';
 import { Icon } from './Icon';
-import { Avatar, Button, ListingCard, USCBadge, Wordmark } from './ui';
+import { Avatar, Button, ListingCard, Wordmark } from './ui';
 import type { Listing } from '@/lib/types';
 
 type HeroVariant = 'editorial' | 'centered' | 'split-dark';
@@ -310,7 +310,6 @@ function LandingNav({ onEnter }: { onEnter: () => void }) {
   return (
     <header style={{ padding: '20px 64px', background: '#fff', borderBottom: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <USCBadge size={26} />
         <Wordmark size={22} />
       </div>
       <nav style={{ display: 'flex', gap: 32, alignItems: 'center' }}>

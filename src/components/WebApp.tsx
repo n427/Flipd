@@ -6,7 +6,7 @@
 // All wired to the in-memory store.
 import React from 'react';
 import { Icon } from './Icon';
-import { Avatar, Button, Callout, CategoryChip, ListingCard, Pill, Placeholder, USCBadge, Wordmark } from './ui';
+import { Avatar, Button, Callout, CategoryChip, ListingCard, Pill, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
 import type { ActivityItem, ContactMethod, Listing, PhotoTone } from '@/lib/types';
@@ -74,7 +74,6 @@ export function WebAppHeader({
   return (
     <header style={{ padding: '14px 32px', background: '#fff', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', gap: 28, position: 'sticky', top: 0, zIndex: 30 }}>
       <button onClick={onLogo} style={{ background: 'none', border: 0, padding: 0, display: 'flex', alignItems: 'center', gap: 10 }} aria-label="Go to feed">
-        <USCBadge size={26} />
         <Wordmark size={22} />
       </button>
       <div style={{ flex: 1, maxWidth: 520, position: 'relative' }}>

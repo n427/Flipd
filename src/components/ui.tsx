@@ -10,26 +10,8 @@ export function Wordmark({ size = 22, onDark = false }: { size?: number; onDark?
       className={`wordmark ${onDark ? 'wordmark-on-dark' : ''}`}
       style={{ fontSize: size, lineHeight: 1, display: 'inline-flex', alignItems: 'baseline' }}
     >
-      Flipd<span className="dot">.</span>
+      flipd<span className="dot">.</span>
     </span>
-  );
-}
-
-// ── USC monogram badge (generic SC roundel — cardinal + gold) ────────
-export function USCBadge({ size = 26 }: { size?: number }) {
-  return (
-    <div
-      style={{
-        width: size, height: size, borderRadius: '50%',
-        background: 'var(--cardinal)', color: 'var(--gold)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'var(--sans)', fontWeight: 800,
-        fontSize: size * 0.42, letterSpacing: '0.02em',
-        flexShrink: 0, lineHeight: 1,
-      }}
-    >
-      SC
-    </div>
   );
 }
 
@@ -40,27 +22,20 @@ export function Pill({
   return <span className={`pill pill-${kind}`} style={style}>{children}</span>;
 }
 
-// ── Avatar (initials, cream bg, ink text) ────────────────────────────
+// ── Avatar (initials, neutral palette) ──────────────────────────────
 export function Avatar({
   name = '?', size = 28, tone = 'cream',
 }: { name?: string; size?: number; tone?: PhotoTone }) {
   const initials = name.split(' ').map((s) => s[0]).slice(0, 2).join('').toUpperCase();
-  const bgs: Record<string, string> = {
-    cream: 'var(--cream-2)',
-    cardinal: 'var(--cardinal)',
-    gold: 'var(--gold)',
-    ink: 'var(--ink)',
-  };
-  const fg = tone === 'cardinal' || tone === 'ink' ? '#fff' : 'var(--ink)';
+  const dark = tone === 'cardinal' || tone === 'ink';
   return (
     <div
       style={{
         width: size, height: size, borderRadius: '50%',
-        background: bgs[tone], color: fg,
+        background: dark ? 'var(--ink)' : 'var(--surface-2)',
+        color: dark ? '#fff' : 'var(--ink)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'var(--sans)', fontWeight: 600,
-        fontSize: size * 0.4, letterSpacing: '0.02em',
-        flexShrink: 0,
+        fontWeight: 600, fontSize: size * 0.4, letterSpacing: '0.02em', flexShrink: 0,
       }}
     >
       {initials}
@@ -133,17 +108,17 @@ export function Button({
   );
 }
 
-// ── Listing card (V3 stamp style: price tag, no verified pill / star) ─
+// ── Listing card (A1: photo tile, price-first text block) ──────────
 export function ListingCard({
   listing, onClick, compact = false,
 }: { listing: Listing; onClick?: () => void; compact?: boolean }) {
   return (
     <div
-      className="card"
+      className={onClick ? 'card-hover' : undefined}
       onClick={onClick}
-      style={{ cursor: onClick ? 'pointer' : 'default', display: 'flex', flexDirection: 'column' }}
+      style={{ cursor: onClick ? 'pointer' : 'default', display: 'flex', flexDirection: 'column', transition: 'transform 160ms ease-out' }}
     >
-      <div style={{ position: 'relative', aspectRatio: '1 / 1' }}>
+      <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 'var(--r-img)', overflow: 'hidden', background: 'var(--surface)' }}>
         {listing.photo_urls?.[0] ? (
           <img
             src={listing.photo_urls[0]}
@@ -153,42 +128,29 @@ export function ListingCard({
         ) : (
           <Placeholder label={listing.photoLabel} tone={listing.photoTone} height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
         )}
-        {/* Price tag — cardinal pill overlapping bottom-left */}
-        <div
-          style={{
-            position: 'absolute', bottom: -12, left: 14,
-            background: 'var(--cardinal)', color: '#fff',
-            padding: '6px 12px', borderRadius: 'var(--r-pill)',
-            fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 14,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-          }}
-        >
-          {listing.priceLabel}
-        </div>
         {listing.eventPill && (
           <div style={{ position: 'absolute', top: 8, left: 8 }}>
             <Pill kind="event">{listing.eventPill}</Pill>
           </div>
         )}
       </div>
-      <div style={{ padding: compact ? '20px 14px 12px' : '22px 16px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <h3 className="t-h3" style={{ margin: 0, fontSize: 14, lineHeight: 1.25 }}>{listing.title}</h3>
-        <hr className="rule" style={{ margin: '8px 0 4px' }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <Avatar name={listing.seller.name} size={20} />
-          <span
-            className="t-meta"
-            style={{ fontSize: 11, color: 'var(--ink-2)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-          >
-            {listing.seller.name.split(' ')[0]} {listing.seller.name.split(' ')[1]?.[0]}.
-          </span>
+      <div style={{ padding: compact ? '8px 2px 0' : '9px 2px 0', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)', letterSpacing: '-0.01em' }}>
+          {listing.priceLabel}
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+          {listing.title}
+        </div>
+        <div className="t-meta" style={{ fontSize: 11.5, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {listing.meta.split(' · ')[0]} · {listing.seller.name.split(' ')[0]}
+          {listing.seller.year ? `, ${listing.seller.year}` : ''}
         </div>
       </div>
     </div>
   );
 }
 
-// ── Category chip (filter bar) ───────────────────────────────────────
+// ── Category chip (text-only pill, active = near-black fill) ────────
 export function CategoryChip({
   category, active, onClick,
 }: { category: { id: string; label: string; icon: string }; active: boolean; onClick: () => void }) {
@@ -196,17 +158,14 @@ export function CategoryChip({
     <button
       onClick={onClick}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        padding: '8px 14px', borderRadius: 'var(--r-pill)',
-        border: '1px solid ' + (active ? 'var(--cardinal)' : 'var(--rule)'),
-        background: active ? 'var(--cardinal)' : '#fff',
-        color: active ? '#fff' : 'var(--ink)',
-        fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5,
-        letterSpacing: '0.01em', cursor: 'pointer',
-        transition: 'all 180ms ease-out', whiteSpace: 'nowrap', flexShrink: 0,
+        display: 'inline-flex', alignItems: 'center',
+        padding: '8px 16px', borderRadius: 'var(--r-pill)', border: 0,
+        background: active ? 'var(--ink)' : 'var(--surface)',
+        color: active ? '#fff' : 'var(--ink-2)',
+        fontWeight: 600, fontSize: 13,
+        transition: 'all 160ms ease-out', whiteSpace: 'nowrap', flexShrink: 0,
       }}
     >
-      <Icon name={category.icon} size={13} stroke={1.8} />
       {category.label}
     </button>
   );
