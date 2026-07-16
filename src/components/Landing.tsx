@@ -145,7 +145,7 @@ function Hero() {
 
 function HowItWorks() {
   const steps = [
-    { n: '1', title: 'Verify with your USC email', body: 'Magic-link sign-in. No passwords. You\'re tied to your @usc.edu the whole way through.' },
+    { n: '1', title: 'Verify with your USC email', body: "Magic-link sign-in. No passwords. You're tied to your @usc.edu the whole way through." },
     { n: '2', title: 'Browse the campus feed', body: 'Services, food, popups, sublets, goods — every listing from a real, signed-in USC student.' },
     { n: '3', title: 'Reveal contact', body: 'The seller sees your name, school, and year, and has 72 hours to approve. Then you connect and meet up.' },
   ];
@@ -218,10 +218,10 @@ function Trust() {
       <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
         <Reveal>
           <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', margin: '0 0 16px' }}>
-            Verification isn\'t a feature.<br />It\'s the whole product.
+            Verification isn't a feature.<br />It's the whole product.
           </h2>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', maxWidth: 520, margin: '0 auto 48px', lineHeight: 1.6 }}>
-            When you reveal contact on Flipd, both sides know exactly who\'s on the other end — name, school, year. Accountability is built in.
+            When you reveal contact on Flipd, both sides know exactly who's on the other end — name, school, year. Accountability is built in.
           </p>
         </Reveal>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
@@ -263,10 +263,10 @@ function JoinCTA() {
     <section id="join" style={{ padding: '110px 24px', textAlign: 'center', scrollMarginTop: 60 }}>
       <Reveal>
         <h2 style={{ fontSize: 'clamp(30px, 5vw, 44px)', fontWeight: 800, letterSpacing: '-0.04em', margin: '0 0 12px' }}>
-          Got an @usc.edu email?<br />You\'re already in.
+          Got an @usc.edu email?<br />You're already in.
         </h2>
         <p style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 500, margin: '0 0 30px' }}>
-          Enter it below and we\'ll email you a sign-in link. That\'s the whole sign-up.
+          Enter it below and we'll email you a sign-in link. That's the whole sign-up.
         </p>
         {state === 'sent' ? (
           <div style={{ maxWidth: 420, margin: '0 auto', background: 'var(--surface)', borderRadius: 14, padding: '22px 26px', textAlign: 'left' }}>
