@@ -26,7 +26,7 @@ function WebDropdown({
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           padding: '8px 14px', borderRadius: 'var(--r-pill)',
-          border: '1px solid ' + (open ? 'var(--cardinal)' : 'var(--rule)'), background: '#fff',
+          border: '1px solid ' + (open ? 'var(--accent)' : 'var(--rule)'), background: '#fff',
           color: 'var(--ink-2)', fontFamily: 'var(--sans)', fontWeight: 500, fontSize: 12.5,
         }}
       >
@@ -47,10 +47,10 @@ function WebDropdown({
                   width: '100%', textAlign: 'left', background: 'none', border: 0,
                   padding: '9px 10px', borderRadius: 6,
                   fontFamily: 'var(--sans)', fontSize: 13,
-                  color: value === o.id ? 'var(--cardinal)' : 'var(--ink)',
+                  color: value === o.id ? 'var(--accent)' : 'var(--ink)',
                   fontWeight: value === o.id ? 700 : 500,
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--cream)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
               >
                 {o.label}
@@ -66,15 +66,16 @@ function WebDropdown({
 
 // ── Header ───────────────────────────────────────────────────────────
 export function WebAppHeader({
-  onLogo, query, setQuery, onPost, onProfile, onBell, pendingCount,
+  onLogo, query, setQuery, onPost, onProfile, onBell, pendingCount, meName,
 }: {
   onLogo: () => void; query: string; setQuery: (q: string) => void;
   onPost: () => void; onProfile: () => void; onBell: () => void; pendingCount: number;
+  meName: string;
 }) {
   return (
-    <header style={{ padding: '14px 32px', background: '#fff', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', gap: 28, position: 'sticky', top: 0, zIndex: 30 }}>
+    <header style={{ padding: '14px 32px', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', gap: 28, position: 'sticky', top: 0, zIndex: 30 }}>
       <button onClick={onLogo} style={{ background: 'none', border: 0, padding: 0, display: 'flex', alignItems: 'center', gap: 10 }} aria-label="Go to feed">
-        <Wordmark size={22} />
+        <Wordmark size={24} />
       </button>
       <div style={{ flex: 1, maxWidth: 520, position: 'relative' }}>
         <Icon name="search" size={15} color="var(--muted)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
@@ -84,7 +85,7 @@ export function WebAppHeader({
           placeholder="Search Flipd"
           aria-label="Search Flipd"
           className="field"
-          style={{ paddingLeft: 38, fontSize: 13.5, padding: '10px 16px 10px 38px', borderRadius: 'var(--r-pill)' }}
+          style={{ background: 'var(--surface)', border: 'none', paddingLeft: 38, fontSize: 13.5, padding: '10px 16px 10px 38px', borderRadius: 999 }}
         />
         {query && (
           <button onClick={() => setQuery('')} aria-label="Clear search" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 0, padding: 4, display: 'flex' }}>
@@ -96,12 +97,12 @@ export function WebAppHeader({
         <button onClick={onBell} aria-label="Notifications" style={{ background: 'none', border: 0, padding: 8, position: 'relative' }}>
           <Icon name="bell" size={18} color="var(--ink)" />
           {pendingCount > 0 && (
-            <span style={{ position: 'absolute', top: 2, right: 2, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 999, background: 'var(--cardinal)', color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>{pendingCount}</span>
+            <span style={{ position: 'absolute', top: 2, right: 2, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>{pendingCount}</span>
           )}
         </button>
         <Button kind="primary" size="sm" icon="plus" onClick={onPost}>Post a listing</Button>
         <button onClick={onProfile} aria-label="Your profile" style={{ background: 'none', border: 0, padding: 0 }}>
-          <Avatar name="Alex Park" size={30} tone="cardinal" />
+          <Avatar name={meName} size={30} tone="ink" />
         </button>
       </div>
     </header>
@@ -113,14 +114,14 @@ function ActivityRow({
   a, onApprove, onDecline, last, compact,
 }: { a: ActivityItem; onApprove?: (id: string) => void; onDecline?: (id: string) => void; last?: boolean; compact?: boolean }) {
   const statusColor = ({
-    APPROVED: { bg: 'var(--gold)', fg: 'var(--ink)' },
-    EXPIRED: { bg: 'var(--rule)', fg: 'var(--muted)' },
-    DECLINED: { bg: 'var(--rule)', fg: 'var(--muted)' },
-    PENDING: { bg: 'var(--cardinal)', fg: '#fff' },
-  } as Record<string, { bg: string; fg: string }>)[a.status] || { bg: 'var(--rule)', fg: 'var(--muted)' };
+    APPROVED: { bg: 'var(--ink)', fg: '#fff' },
+    EXPIRED: { bg: 'var(--surface)', fg: 'var(--muted)' },
+    DECLINED: { bg: 'var(--surface)', fg: 'var(--muted)' },
+    PENDING: { bg: 'var(--accent)', fg: '#fff' },
+  } as Record<string, { bg: string; fg: string }>)[a.status] || { bg: 'var(--surface)', fg: 'var(--muted)' };
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: compact ? '14px 18px' : '16px 0', borderBottom: last ? 0 : '1px solid var(--rule)' }}>
-      <Avatar name={a.who} size={36} tone={a.dir === 'in' ? 'cardinal' : 'cream'} />
+      <Avatar name={a.who} size={36} tone={a.dir === 'in' ? 'ink' : 'cream'} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.4 }}>
           <strong style={{ fontWeight: 700 }}>{a.who}</strong>{' '}
@@ -132,22 +133,22 @@ function ActivityRow({
         {a.dir === 'out' && a.status === 'APPROVED' && a.contact && (
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
             {a.contact.instagram && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--cream)', border: '1px solid var(--rule)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--cardinal)' }}>
+              <a href={`https://instagram.com/${a.contact.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}>
                 <Icon name="instagram" size={13} />
                 {a.contact.instagram}
-              </div>
+              </a>
             )}
             {a.contact.phone && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--cream)', border: '1px solid var(--rule)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--cardinal)' }}>
+              <a href={`tel:${a.contact.phone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}>
                 <Icon name="phone" size={13} />
                 {a.contact.phone}
-              </div>
+              </a>
             )}
             {a.contact.email && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--cream)', border: '1px solid var(--rule)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--cardinal)' }}>
+              <a href={`mailto:${a.contact.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}>
                 <Icon name="mail" size={13} />
                 {a.contact.email}
-              </div>
+              </a>
             )}
           </div>
         )}
@@ -181,9 +182,13 @@ export function WebNotifications({
           </button>
         </div>
         <div style={{ maxHeight: 420, overflow: 'auto' }}>
-          {activity.map((a, i) => (
-            <ActivityRow key={a.id} a={a} compact onApprove={onApprove} onDecline={onDecline} last={i === activity.length - 1} />
-          ))}
+          {activity.length === 0 ? (
+            <EmptyState icon="bell" title="No activity yet" sub="Reveal requests you send and receive show up here." />
+          ) : (
+            activity.map((a, i) => (
+              <ActivityRow key={a.id} a={a} compact onApprove={onApprove} onDecline={onDecline} last={i === activity.length - 1} />
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -204,8 +209,8 @@ export function WebAppFeed({
     <div style={{ padding: '32px 32px 64px', maxWidth: 1280, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 32, letterSpacing: '-0.015em', color: 'var(--ink)', margin: 0 }}>
-            {query ? <>Results for <em style={{ color: 'var(--cardinal)' }}>&quot;{query}&quot;</em></> : "What's on Flipd today"}
+          <h1 style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em', color: 'var(--ink)', margin: 0 }}>
+            {query ? <>Results for <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>&quot;{query}&quot;</em></> : 'Today on Flipd'}
           </h1>
         </div>
         <div className="t-meta" style={{ fontSize: 12 }}>{items.length} listing{items.length === 1 ? '' : 's'}</div>
@@ -242,19 +247,19 @@ export function WebAppFeed({
           <div className="t-meta" style={{ fontSize: 12.5, marginTop: 6 }}>Try a different category or clear your search.</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
           {items.map((l) => (
             <div key={l.id} style={{ position: 'relative' }}>
               <ListingCard listing={l} onClick={() => onListing(l)} />
               <button
                 onClick={(e) => { e.stopPropagation(); store.toggleSave(l.id); }}
                 aria-label={store.isSaved(l.id) ? 'Remove from saved' : 'Save listing'}
-                style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 30, height: 30, borderRadius: '50%', border: 0, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow)' }}
+                style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 30, height: 30, borderRadius: '50%', border: 0, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow)' }}
               >
-                <Icon name="bookmark" size={15} color={store.isSaved(l.id) ? 'var(--cardinal)' : 'var(--muted)'} stroke={store.isSaved(l.id) ? 0 : 1.6} />
+                <Icon name="bookmark" size={15} color={store.isSaved(l.id) ? 'var(--accent)' : 'var(--muted)'} stroke={store.isSaved(l.id) ? 0 : 1.6} />
                 {store.isSaved(l.id) && (
                   <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--cardinal)"><path d="M6 4h12v17l-6-4-6 4z" /></svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--accent)"><path d="M6 4h12v17l-6-4-6 4z" /></svg>
                   </span>
                 )}
               </button>
@@ -271,8 +276,8 @@ export function WebListingDetail({
   store, listing, onBack, onReveal, preview = false,
 }: { store: FlipdStore; listing: Listing; onBack: () => void; onReveal: () => void; preview?: boolean }) {
   const saved = preview ? false : store.isSaved(listing.id);
-  const isFood = listing.category === 'food';
   const thumbTones = [listing.photoTone, 'cream', 'gold', 'ink'] as const;
+  const reveal = preview ? undefined : store.myRevealFor(listing.id);
   const [activePhoto, setActivePhoto] = React.useState(0);
   return (
     <div style={{ padding: '24px 32px 64px', maxWidth: 1180, margin: '0 auto' }}>
@@ -332,22 +337,30 @@ export function WebListingDetail({
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 20 }}>
-            <span style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 28, color: 'var(--cardinal)' }}>{listing.priceLabel}</span>
-            <span className="t-meta" style={{ fontSize: 12 }}>negotiable</span>
+            <span style={{ fontWeight: 800, fontSize: 26, color: 'var(--ink)' }}>{listing.priceLabel}</span>
+            {listing.negotiable && <span className="t-meta" style={{ fontSize: 12 }}>negotiable</span>}
           </div>
 
-          <p style={{ fontFamily: 'var(--sans)', fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)', margin: '0 0 24px', whiteSpace: 'pre-wrap' }}>
-            {listing.description?.trim()
-              ? listing.description
-              : isFood
-              ? "Homemade weekly out of my apartment near campus - fresh, small-batch, and made to order. Cash, Venmo, or Zelle. Message me with your pickup time and I'll confirm."
-              : "In great condition and ready to go. I'm on campus most days, so pickup is easy - flexible on timing and happy to answer any questions before we connect."}
-          </p>
+          {listing.description?.trim() && (
+            <p style={{ fontFamily: 'var(--sans)', fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)', margin: '0 0 24px', whiteSpace: 'pre-wrap' }}>
+              {listing.description}
+            </p>
+          )}
 
-          <div style={{ background: 'var(--cream)', border: '1px solid var(--rule)', borderRadius: 6, padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
-            <Avatar name={listing.seller.name} size={36} tone="cardinal" />
-            <div style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>
-              {listing.seller.name}
+          <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 12, padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
+            <Avatar name={listing.seller.name} size={36} tone="ink" />
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>
+                  {listing.seller.name}
+                </div>
+                {listing.seller.isDemo && <Pill kind="verified">FLIPD TEAM</Pill>}
+              </div>
+              {(listing.seller.unit || listing.seller.year) && (
+                <div className="t-meta" style={{ fontSize: 11.5, marginTop: 2 }}>
+                  {[listing.seller.unit, listing.seller.year].filter(Boolean).join(' ')}
+                </div>
+              )}
             </div>
           </div>
 
@@ -371,10 +384,35 @@ export function WebListingDetail({
                 </div>
               </>
             )
+          ) : reveal?.status === 'APPROVED' && reveal.contact ? (
+            <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 12, padding: '16px 18px' }}>
+              <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 12 }}>CONTACT</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {reveal.contact.instagram && (
+                  <a href={`https://instagram.com/${reveal.contact.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
+                    <Icon name="instagram" size={16} color="var(--ink)" /> {reveal.contact.instagram}
+                  </a>
+                )}
+                {reveal.contact.phone && (
+                  <a href={`tel:${reveal.contact.phone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
+                    <Icon name="phone" size={16} color="var(--ink)" /> {reveal.contact.phone}
+                  </a>
+                )}
+                {reveal.contact.email && (
+                  <a href={`mailto:${reveal.contact.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
+                    <Icon name="mail" size={16} color="var(--ink)" /> {reveal.contact.email}
+                  </a>
+                )}
+              </div>
+            </div>
           ) : (
             <>
               <div style={{ display: 'flex', gap: 10 }}>
-                <Button kind="primary" full size="lg" onClick={preview ? () => {} : onReveal} icon="shield" disabled={preview}>Reveal Contact</Button>
+                {reveal?.status === 'PENDING' ? (
+                  <Button kind="secondary" full size="lg" icon="shield" disabled>Requested — waiting on seller</Button>
+                ) : (
+                  <Button kind="primary" full size="lg" onClick={preview ? () => {} : onReveal} icon="shield" disabled={preview}>Reveal Contact</Button>
+                )}
                 <Button kind={saved ? 'primary' : 'secondary'} size="lg" icon="bookmark" onClick={() => { if (!preview) store.toggleSave(listing.id); }} disabled={preview}>
                   {saved ? 'Saved' : 'Save'}
                 </Button>
@@ -547,7 +585,7 @@ export function WebCreate({
         </button>
         <div style={{ flex: 1 }} />
         {[1, 2, 3].map((n) => (
-          <span key={n} style={{ width: n === step ? 22 : 7, height: 7, borderRadius: 999, background: n <= step ? 'var(--cardinal)' : 'var(--rule-strong)', transition: 'all 180ms' }} />
+          <span key={n} style={{ width: n === step ? 22 : 7, height: 7, borderRadius: 999, background: n <= step ? 'var(--ink)' : 'var(--rule-strong)', transition: 'all 180ms' }} />
         ))}
         <div style={{ flex: 1 }} />
         <span className="t-eyebrow" style={{ color: 'var(--muted)' }}>STEP {step} OF 3</span>
@@ -559,12 +597,12 @@ export function WebCreate({
           <p className="t-meta" style={{ fontSize: 13, marginBottom: 24 }}>Picking one shapes the rest of the form.</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {cats.map((c) => (
-              <button key={c.id} onClick={() => { setCategory(c.id); setStep(2); }} style={{ background: '#fff', border: '1.5px solid ' + (category === c.id ? 'var(--cardinal)' : 'var(--rule)'), borderRadius: 8, padding: '18px', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
-                <div style={{ width: 46, height: 46, borderRadius: 8, flexShrink: 0, background: 'var(--cardinal)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={c.icon} size={22} color="var(--gold)" />
+              <button key={c.id} onClick={() => { setCategory(c.id); setStep(2); }} style={{ background: '#fff', border: '1.5px solid ' + (category === c.id ? 'var(--accent)' : 'var(--rule)'), borderRadius: 8, padding: '18px', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                <div style={{ width: 46, height: 46, borderRadius: 8, flexShrink: 0, background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name={c.icon} size={22} color="var(--ink)" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{c.label}</div>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{c.label}</div>
                   <div className="t-meta" style={{ fontSize: 11, marginTop: 2 }}>{c.sub}</div>
                 </div>
               </button>
@@ -664,7 +702,7 @@ export function WebCreate({
                 background: 'none', border: '1px solid var(--rule-strong)', borderRadius: 6,
                 padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 5,
                 fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 11.5,
-                color: (!title.trim() || aiLoading) ? 'var(--muted-2)' : 'var(--cardinal)',
+                color: (!title.trim() || aiLoading) ? 'var(--muted-2)' : 'var(--accent)',
                 cursor: (!title.trim() || aiLoading) ? 'default' : 'pointer',
               }}
             >
@@ -820,29 +858,29 @@ export function WebProfile({
   return (
     <div>
       {/* Banner */}
-      <div style={{ background: 'var(--cardinal-dark)', color: '#fff', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, width: 44, height: 4, background: 'var(--gold)' }} />
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 32px 28px', display: 'flex', alignItems: 'center', gap: 20 }}>
-          <Avatar name={displayName} size={76} tone="gold" />
+      <div style={{ background: '#fff', borderBottom: '1px solid var(--rule)', position: 'relative' }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 32px 0', display: 'flex', alignItems: 'center', gap: 20 }}>
+          <Avatar name={displayName} size={76} tone="ink" />
           <div style={{ flex: 1 }}>
-            <h1 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 28, letterSpacing: '-0.015em', margin: '0 0 4px' }}>
+            <h1 style={{ fontWeight: 800, fontSize: 26, color: 'var(--ink)', letterSpacing: '-0.03em', margin: '0 0 4px' }}>
               {displayName}
             </h1>
-            <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, opacity: 0.85 }}>
-              {store.me?.school_unit} · joined {formatPostedDate(store.me?.created_at) || 'recently'}
+            <div className="t-meta" style={{ fontSize: 13.5 }}>
+              {[store.me?.school_unit, store.me?.class_year].filter(Boolean).join(' ')} · joined {formatPostedDate(store.me?.created_at) || 'recently'}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 28 }}>
             {[{ v: store.myListings.length, l: 'Listings' }].map((s) => (
               <div key={s.l} style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 26 }}>{s.v}</div>
-                <div className="t-meta" style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{s.l}</div>
+                <div style={{ fontWeight: 800, fontSize: 26, color: 'var(--ink)' }}>{s.v}</div>
+                <div className="t-meta" style={{ fontSize: 10.5, marginTop: 2 }}>{s.l}</div>
               </div>
             ))}
           </div>
+          <Button kind="ghost" size="sm" onClick={() => store.signOut()}>Sign out</Button>
         </div>
         {/* Tabs */}
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 32px', display: 'flex', gap: 28 }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '20px 32px 0', display: 'flex', gap: 28 }}>
           {([
             { id: 'listings', label: 'My Listings', count: store.myListings.length },
             { id: 'past', label: 'Past Listings', count: store.pastListings.length },
@@ -851,9 +889,9 @@ export function WebProfile({
           ] as const).map((t) => {
             const active = tab === t.id;
             return (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ background: 'none', border: 0, padding: '14px 2px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: active ? '#fff' : 'rgba(255,255,255,0.6)', borderBottom: '2px solid ' + (active ? 'var(--gold)' : 'transparent'), display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button key={t.id} onClick={() => setTab(t.id)} style={{ background: 'none', border: 0, padding: '14px 2px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: active ? 'var(--ink)' : 'var(--muted)', borderBottom: '2px solid ' + (active ? 'var(--ink)' : 'transparent'), display: 'flex', alignItems: 'center', gap: 6 }}>
                 {t.label}
-                {t.count ? <span style={{ background: 'rgba(255,255,255,0.18)', borderRadius: 999, fontSize: 10, fontWeight: 700, padding: '1px 7px' }}>{t.count}</span> : null}
+                {t.count ? <span style={{ background: 'var(--surface)', color: 'var(--ink)', borderRadius: 999, fontSize: 10, fontWeight: 700, padding: '1px 7px' }}>{t.count}</span> : null}
               </button>
             );
           })}
@@ -866,7 +904,7 @@ export function WebProfile({
           (store.myListings.length === 0 ? (
             <EmptyState icon="tag" title="No listings yet" sub="Tap Post a listing to put your first item on the feed." />
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
               {store.myListings.map((l) => <ListingCard key={l.id} listing={l} onClick={() => onListing(l)} />)}
             </div>
           ))}
@@ -874,7 +912,7 @@ export function WebProfile({
           (store.pastListings.length === 0 ? (
             <EmptyState icon="clock" title="No past listings" sub="Listings you move to past from their detail page show up here." />
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
               {store.pastListings.map((l) => <ListingCard key={l.id} listing={l} onClick={() => onListing(l)} />)}
             </div>
           ))}
@@ -882,7 +920,7 @@ export function WebProfile({
           (store.savedListings.length === 0 ? (
             <EmptyState icon="bookmark" title="Nothing saved" sub="Tap the bookmark on any listing to keep it here." />
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
               {store.savedListings.map((l) => <ListingCard key={l.id} listing={l} onClick={() => onListing(l)} />)}
             </div>
           ))}
@@ -914,21 +952,20 @@ export function RevealModal({ listing, onClose, onContinue }: { listing: Listing
       particleCount: 120,
       spread: 80,
       origin: { y: 0.55 },
-      colors: ['#990000', '#FFCC00', '#ffffff'],
+      colors: ['#990000', '#111111', '#ffffff'],
     });
     onContinue();
   };
   return (
     <ModalScrim onClose={onClose}>
       <div style={{ background: '#fff', borderRadius: 8, padding: 0, width: 460, overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.18)', fontFamily: 'var(--sans)' }}>
-        <div style={{ background: 'var(--cardinal-dark)', color: '#fff', padding: '28px 28px', display: 'flex', alignItems: 'center', gap: 14, position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 28, height: 4, background: 'var(--gold)' }} />
-          <Icon name="shield" size={26} color="var(--gold)" />
-          <div className="t-eyebrow" style={{ color: 'var(--gold)', fontSize: 14, letterSpacing: '0.2em' }}>REVEAL CONTACT</div>
+        <div style={{ background: 'var(--ink)', color: '#fff', padding: '28px 28px', display: 'flex', alignItems: 'center', gap: 14, position: 'relative' }}>
+          <Icon name="shield" size={26} color="#fff" />
+          <div className="t-eyebrow" style={{ color: '#fff', fontSize: 14, letterSpacing: '0.2em' }}>REVEAL CONTACT</div>
         </div>
         <div style={{ padding: '24px 28px' }}>
-          <h2 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 24, lineHeight: 1.2, letterSpacing: '-0.01em', margin: '0 0 10px' }}>
-            Share your info with <em style={{ color: 'var(--cardinal)' }}>{listing.seller.name.split(' ')[0]}</em>?
+          <h2 style={{ fontWeight: 800, fontSize: 24, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 10px' }}>
+            Share your info with <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>{listing.seller.name.split(' ')[0]}</em>?
           </h2>
           <p className="t-body" style={{ fontSize: 13.5, margin: '0 0 20px' }}>
             We&apos;ll share your <strong>name</strong> and <strong>@usc.edu email</strong> with this seller. They have 72 hours to approve. If they do, you&apos;ll see their preferred contact method.
@@ -971,6 +1008,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         onProfile={() => setView('profile')}
         onBell={() => setNotifOpen(true)}
         pendingCount={store.pendingCount}
+        meName={store.me?.display_name ?? 'Me'}
       />
 
       {view === 'feed' && store.listingsLoading && (
@@ -1008,7 +1046,15 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
       {view === 'profile' && <WebProfile store={store} onListing={goDetail} onApprove={approve} onDecline={decline} />}
 
       {modal === 'reveal' && selected && (
-        <RevealModal listing={selected} onClose={() => setModal(null)} onContinue={() => { store.requestReveal(selected.id); setModal(null); }} />
+        <RevealModal
+          listing={selected}
+          onClose={() => setModal(null)}
+          onContinue={async () => {
+            const r = await store.requestReveal(selected.id);
+            if (!r.ok && r.error) alert(r.error);
+            setModal(null);
+          }}
+        />
       )}
 
       {notifOpen && <WebNotifications activity={store.activity} onClose={() => setNotifOpen(false)} onApprove={approve} onDecline={decline} />}

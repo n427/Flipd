@@ -31,6 +31,7 @@ function AppChrome({ children }: { children: React.ReactNode }) {
         onProfile={() => router.push('/profile')}
         onBell={() => setNotifOpen(true)}
         pendingCount={store.pendingCount}
+        meName={store.me?.display_name ?? 'Me'}
       />
       {children}
       {notifOpen && (

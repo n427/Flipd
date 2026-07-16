@@ -33,6 +33,7 @@ export interface Listing {
   title: string;
   price?: number;
   priceLabel: string;
+  negotiable?: boolean;
   seller: Seller;
   meta: string;
   photoTone: PhotoTone;
