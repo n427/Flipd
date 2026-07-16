@@ -1,130 +1,171 @@
 'use client';
 
-// Flipd — Marketing landing page (ported from screens/landing.jsx)
-// Full marketing page, paper-dominant. Auth buttons enter the web app.
+// Flipd — marketing page. P1 "pure Apple": frosted sticky nav, centered hero,
+// app visual rising into view, scroll-revealed sections, real magic-link CTA.
 import React from 'react';
 import { Icon } from './Icon';
-import { Avatar, Button, ListingCard, Wordmark } from './ui';
-import type { Listing } from '@/lib/types';
+import { Wordmark } from './ui';
 
-type HeroVariant = 'editorial' | 'centered' | 'split-dark';
-
-// Static placeholder cards for the marketing hero — decorative only, never
-// hit the store or the API.
-const HERO_LISTINGS: Listing[] = [
-  {
-    id: 'hero-1', category: 'food', categoryLabel: 'Food',
-    title: 'Sourdough loaves - Sunday pickup',
-    price: 12, priceLabel: '$12',
-    seller: { id: 'hero-seller-1', name: 'Maya Mendoza', unit: 'Marshall', year: '’26' },
-    meta: '30th & Hoover · Sun 10–2',
-    photoTone: 'gold', photoLabel: 'sourdough loaf',
-  },
-  {
-    id: 'hero-2', category: 'services', categoryLabel: 'Services',
-    title: 'Press-on nails, custom sets',
-    price: 35, priceLabel: '$35',
-    seller: { id: 'hero-seller-2', name: 'Jada Park', unit: 'Annenberg', year: '’25' },
-    meta: 'In Cardinal Gardens · 48h turnaround',
-    photoTone: 'cardinal', photoLabel: 'nail set',
-  },
-  {
-    id: 'hero-3', category: 'event', categoryLabel: 'Event',
-    title: 'Trousdale Block Party - Friday',
-    price: 0, priceLabel: 'Free',
-    seller: { id: 'hero-seller-3', name: 'SC Korean Student Assoc.', unit: 'Org', year: '' },
-    meta: 'Trousdale Pkwy · Fri 7–11p',
-    photoTone: 'cardinal', photoLabel: 'event flyer',
-    eventPill: 'NEW POSTING',
-  },
-];
-
-const scrollTo = (id: string) => {
-  if (typeof document === 'undefined') return;
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-};
-
-function LandingHero({ variant = 'editorial', onEnter }: { variant?: HeroVariant; onEnter: () => void }) {
-  if (variant === 'editorial') {
-    return (
-      <section style={{ padding: '88px 64px 72px', background: '#fff', borderBottom: '1px solid var(--rule)' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 64, alignItems: 'center' }}>
-          <div>
-            <div className="t-eyebrow" style={{ color: 'var(--cardinal)', marginBottom: 20 }}>
-              An edu-verified marketplace · USC <span style={{ color: 'var(--gold)' }}>✶</span>
-            </div>
-            <h1 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 64, lineHeight: 1.02, letterSpacing: '-0.02em', color: 'var(--ink)', margin: 0 }}>
-              The person you&apos;re buying from is the same person who&nbsp;
-              <em style={{ color: 'var(--cardinal)', fontStyle: 'italic' }}>shows up</em>.
-            </h1>
-            <p style={{ fontFamily: 'var(--sans)', fontSize: 17, lineHeight: 1.55, color: 'var(--ink-2)', maxWidth: 480, marginTop: 24, marginBottom: 32 }}>
-              Flipd is a marketplace only for verified{' '}
-              <span className="t-mono" style={{ background: 'var(--cream)', padding: '2px 6px', borderRadius: 3, fontSize: 13 }}>@usc.edu</span> students.
-              Buy and sell on campus - services, food, popups, sublets, stuff - without the scams.
-            </p>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <Button kind="primary" size="lg" onClick={onEnter}>Get the app</Button>
-              <Button kind="ghost" size="lg" icon="arrowRight" onClick={() => scrollTo('how-it-works')}>How it works</Button>
-            </div>
-            <div style={{ marginTop: 36, display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div style={{ display: 'flex' }}>
-                {['Maya M', 'Jada P', 'Aaron L', 'Sofia R'].map((n, i) => (
-                  <div key={n} style={{ marginLeft: i === 0 ? 0 : -8 }}>
-                    <Avatar name={n} size={28} tone={(['cream', 'cardinal', 'gold', 'ink'] as const)[i]} />
-                  </div>
-                ))}
-              </div>
-              <div className="t-meta" style={{ fontSize: 12 }}>
-                <span style={{ color: 'var(--ink)', fontWeight: 700 }}>1,240</span> Trojans on the founding list
-              </div>
-            </div>
-          </div>
-
-          {/* Right: floating listing card preview */}
-          <div style={{ position: 'relative', height: 540 }}>
-            <div style={{ position: 'absolute', top: 0, right: 0, width: 290, transform: 'rotate(2deg)' }}>
-              <ListingCard listing={HERO_LISTINGS[0]} onClick={onEnter} />
-            </div>
-            <div style={{ position: 'absolute', top: 180, left: 0, width: 290, transform: 'rotate(-3deg)' }}>
-              <ListingCard listing={HERO_LISTINGS[2]} onClick={onEnter} />
-            </div>
-            <div style={{ position: 'absolute', bottom: 0, right: 30, width: 290, transform: 'rotate(1.5deg)' }}>
-              <ListingCard listing={HERO_LISTINGS[1]} onClick={onEnter} />
-            </div>
-          </div>
-        </div>
-      </section>
+// Scroll-reveal wrapper: fades content up the first time it enters the viewport.
+function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [shown, setShown] = React.useState(false);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setShown(true); obs.disconnect(); } },
+      { threshold: 0.15 },
     );
-  }
-  return null;
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div
+      ref={ref}
+      style={{
+        opacity: shown ? 1 : 0,
+        transform: shown ? 'translateY(0)' : 'translateY(24px)',
+        transition: `opacity 700ms cubic-bezier(.2,.7,.3,1) ${delay}ms, transform 700ms cubic-bezier(.2,.7,.3,1) ${delay}ms`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+const scrollTo = (id: string) =>
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+function Nav() {
+  return (
+    <header
+      style={{
+        position: 'sticky', top: 0, zIndex: 20,
+        display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28,
+        padding: '14px 32px', background: 'rgba(255,255,255,0.8)',
+        backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+        borderBottom: '1px solid var(--rule)',
+      }}
+    >
+      <Wordmark size={18} />
+      {[
+        { label: 'How it works', id: 'how' },
+        { label: 'Categories', id: 'categories' },
+        { label: 'Trust', id: 'trust' },
+      ].map((l) => (
+        <a
+          key={l.id}
+          href={`#${l.id}`}
+          onClick={(e) => { e.preventDefault(); scrollTo(l.id); }}
+          style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-2)', textDecoration: 'none' }}
+        >
+          {l.label}
+        </a>
+      ))}
+      <button className="btn" onClick={() => scrollTo('join')}
+        style={{ background: 'var(--ink)', color: '#fff', padding: '8px 18px', fontSize: 12.5 }}>
+        Sign in
+      </button>
+    </header>
+  );
+}
+
+// Mini feed mockup used as the hero visual.
+function HeroAppVisual() {
+  const tiles = [
+    { price: '$12', title: 'Sourdough loaves', img: 'https://picsum.photos/seed/flipd-bread/400/400' },
+    { price: '$35', title: 'Press-on nails', img: 'https://picsum.photos/seed/flipd-nails/400/400' },
+    { price: '$90', title: 'IKEA Markus chair', img: 'https://picsum.photos/seed/flipd-chair/400/400' },
+    { price: '$7', title: 'Matcha drinks', img: 'https://picsum.photos/seed/flipd-matcha/400/400' },
+  ];
+  const floatCard = (t: typeof tiles[number], dur: string) => (
+    <div className="card" style={{ width: 168, animation: `drift ${dur} ease-in-out infinite`, boxShadow: 'var(--shadow-strong)' }}>
+      <img src={t.img} alt="" style={{ width: '100%', height: 96, objectFit: 'cover', display: 'block' }} />
+      <div style={{ padding: '8px 12px 12px' }}>
+        <div style={{ fontWeight: 800, fontSize: 14 }}>{t.price}</div>
+        <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>{t.title}</div>
+      </div>
+    </div>
+  );
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28, padding: '56px 24px 0', animation: 'riseIn 1s cubic-bezier(.2,.7,.3,1) both 500ms' }}>
+      <div style={{ display: 'none' }} className="hide-sm" />
+      {floatCard(tiles[2], '5.4s')}
+      <div className="card" style={{ width: 300, boxShadow: 'var(--shadow-strong)' }}>
+        <div style={{ padding: '14px 16px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Wordmark size={17} />
+          <Icon name="search" size={15} color="var(--ink)" />
+        </div>
+        <div style={{ display: 'flex', gap: 6, padding: '0 16px 12px' }}>
+          {['All', 'Food', 'Services'].map((c, i) => (
+            <span key={c} style={{ fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: i === 0 ? 'var(--ink)' : 'var(--surface)', color: i === 0 ? '#fff' : 'var(--ink-2)' }}>{c}</span>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px 18px' }}>
+          {tiles.slice(0, 2).map((t) => (
+            <div key={t.title}>
+              <img src={t.img} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+              <div style={{ fontWeight: 800, fontSize: 13, marginTop: 6 }}>{t.price}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--ink-2)' }}>{t.title}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {floatCard(tiles[3], '6.1s')}
+    </div>
+  );
+}
+
+function Hero() {
+  return (
+    <section style={{ textAlign: 'center', padding: '84px 24px 96px', overflow: 'hidden' }}>
+      <div style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 100ms', fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>
+        The marketplace for USC.
+      </div>
+      <h1 style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 250ms', fontSize: 'clamp(40px, 7vw, 68px)', fontWeight: 800, letterSpacing: '-0.045em', lineHeight: 1.02, color: 'var(--ink)', margin: '14px 0 0' }}>
+        Buy from people<br />who show up.
+      </h1>
+      <p style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 400ms', fontSize: 17, color: 'var(--muted)', fontWeight: 500, margin: '20px auto 0', maxWidth: 480 }}>
+        Every buyer and seller verified with @usc.edu. No scams, no strangers, no ghosting.
+      </p>
+      <div style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 550ms', marginTop: 28, display: 'flex', gap: 14, justifyContent: 'center', alignItems: 'center' }}>
+        <button className="btn btn-primary" style={{ padding: '13px 28px', fontSize: 14 }} onClick={() => scrollTo('join')}>
+          Get started
+        </button>
+        <a href="#how" onClick={(e) => { e.preventDefault(); scrollTo('how'); }}
+          style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>
+          How it works ›
+        </a>
+      </div>
+      <HeroAppVisual />
+    </section>
+  );
 }
 
 function HowItWorks() {
   const steps = [
-    { n: '01', title: 'Verify with your USC email', body: 'Magic-link sign-in. No passwords, no phone numbers. You’re tied to your @usc.edu the whole way through.' },
-    { n: '02', title: 'Browse the campus feed', body: 'Five categories: services, food, popups, sublets, goods. Every listing comes from a real, signed-in USC student - no bots, no strangers.' },
-    { n: '03', title: 'Tap Reveal Contact', body: 'The seller gets a push: your name, your school, your year. They have 72 hours to approve. If they do, you trade contact info and meet up.' },
+    { n: '1', title: 'Verify with your USC email', body: 'Magic-link sign-in. No passwords. You\'re tied to your @usc.edu the whole way through.' },
+    { n: '2', title: 'Browse the campus feed', body: 'Services, food, popups, sublets, goods — every listing from a real, signed-in USC student.' },
+    { n: '3', title: 'Reveal contact', body: 'The seller sees your name, school, and year, and has 72 hours to approve. Then you connect and meet up.' },
   ];
   return (
-    <section id="how-it-works" style={{ padding: '88px 64px', background: 'var(--cream)', scrollMarginTop: 80 }}>
-      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 48 }}>
-          <div>
-            <div className="t-eyebrow" style={{ color: 'var(--cardinal)', marginBottom: 12 }}>HOW IT WORKS</div>
-            <h2 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 42, lineHeight: 1.05, letterSpacing: '-0.02em', color: 'var(--ink)', margin: 0, maxWidth: 520 }}>
-              Three steps, no DMs from strangers.
-            </h2>
-          </div>
-          <div className="t-meta" style={{ fontSize: 12, color: 'var(--muted)' }}>The core mechanic</div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
-          {steps.map((step) => (
-            <div key={step.n} style={{ background: '#fff', borderRadius: 6, border: '1px solid var(--rule)', padding: 28, display: 'flex', flexDirection: 'column', gap: 14, position: 'relative' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 500, color: 'var(--cardinal)', letterSpacing: '0.15em' }}>{step.n} / 03</div>
-              <h3 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 22, lineHeight: 1.15, letterSpacing: '-0.01em', color: 'var(--ink)', margin: '4px 0 4px' }}>{step.title}</h3>
-              <p style={{ fontFamily: 'var(--sans)', fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)', margin: 0 }}>{step.body}</p>
-            </div>
+    <section id="how" style={{ padding: '96px 24px', background: 'var(--surface)', scrollMarginTop: 60 }}>
+      <div style={{ maxWidth: 980, margin: '0 auto' }}>
+        <Reveal>
+          <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', textAlign: 'center', margin: '0 0 48px' }}>
+            Three steps. No DMs from strangers.
+          </h2>
+        </Reveal>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+          {steps.map((s, i) => (
+            <Reveal key={s.n} delay={i * 120}>
+              <div style={{ background: '#fff', borderRadius: 16, padding: 28, height: '100%' }}>
+                <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--ink)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>{s.n}</div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', margin: '16px 0 8px' }}>{s.title}</h3>
+                <p style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)', margin: 0 }}>{s.body}</p>
+              </div>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -136,28 +177,29 @@ function Categories() {
   const cats = [
     { icon: 'services', label: 'Services', sub: 'nails · hair · tutoring · photo' },
     { icon: 'food', label: 'Food', sub: 'bakers · meal prep · drinks' },
-    { icon: 'event', label: 'Popups', sub: 'Trousdale events · fundraisers' },
-    { icon: 'housing', label: 'Housing', sub: 'sublets · takeovers · roommates' },
-    { icon: 'goods', label: 'Goods', sub: 'furniture · books · electronics' },
+    { icon: 'event', label: 'Popups', sub: 'events · fundraisers' },
+    { icon: 'housing', label: 'Housing', sub: 'sublets · roommates' },
+    { icon: 'goods', label: 'Goods', sub: 'furniture · books · tech' },
   ];
   return (
-    <section id="categories" style={{ padding: '88px 64px', background: '#fff', scrollMarginTop: 80 }}>
-      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-        <div style={{ marginBottom: 40 }}>
-          <div className="t-eyebrow" style={{ color: 'var(--cardinal)', marginBottom: 12 }}>WHAT&apos;S ON TASSEL</div>
-          <h2 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 42, letterSpacing: '-0.02em', color: 'var(--ink)', margin: 0 }}>
-            Five categories. <em style={{ color: 'var(--cardinal)' }}>One Trojan family.</em>
+    <section id="categories" style={{ padding: '96px 24px', scrollMarginTop: 60 }}>
+      <div style={{ maxWidth: 980, margin: '0 auto' }}>
+        <Reveal>
+          <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', textAlign: 'center', margin: '0 0 48px' }}>
+            Whatever campus is selling.
           </h2>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+        </Reveal>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
           {cats.map((c, i) => (
-            <div key={c.label} style={{ background: i === 0 ? 'var(--cardinal)' : 'var(--cream)', color: i === 0 ? '#fff' : 'var(--ink)', padding: '24px 18px 22px', borderRadius: 6, border: i === 0 ? 'none' : '1px solid var(--rule)', display: 'flex', flexDirection: 'column', gap: 12, minHeight: 160 }}>
-              <Icon name={c.icon} size={28} stroke={1.5} color={i === 0 ? 'var(--gold)' : 'var(--cardinal)'} />
-              <div style={{ marginTop: 'auto' }}>
-                <h3 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 19, margin: '0 0 4px', letterSpacing: '-0.01em' }}>{c.label}</h3>
-                <div className="t-meta" style={{ fontSize: 10.5, color: i === 0 ? 'rgba(255,255,255,0.7)' : 'var(--muted)' }}>{c.sub}</div>
+            <Reveal key={c.label} delay={i * 80}>
+              <div style={{ border: '1px solid var(--rule)', borderRadius: 16, padding: '24px 18px', minHeight: 140, display: 'flex', flexDirection: 'column' }}>
+                <Icon name={c.icon} size={24} stroke={1.6} color="var(--ink)" />
+                <div style={{ marginTop: 'auto' }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 3px', letterSpacing: '-0.01em' }}>{c.label}</h3>
+                  <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{c.sub}</div>
+                </div>
               </div>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -165,57 +207,31 @@ function Categories() {
   );
 }
 
-function ProofQuote() {
-  return (
-    <section style={{ padding: '64px 64px 88px', background: '#fff' }}>
-      <div style={{ maxWidth: 980, margin: '0 auto' }}>
-        <div style={{ background: 'var(--cardinal-dark)', color: '#fff', padding: '52px 60px', borderRadius: 6, position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 24, left: 24, width: 22, height: 4, background: 'var(--gold)' }} />
-          <div className="t-eyebrow" style={{ color: 'var(--gold)', marginBottom: 20 }}>FROM A FOUNDING SELLER</div>
-          <p style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 30, lineHeight: 1.3, letterSpacing: '-0.01em', margin: '0 0 28px' }}>
-            &quot;I sold sourdough on{' '}
-            <span style={{ background: 'linear-gradient(180deg, transparent 65%, rgba(255,224,102,0.4) 65%)' }}>three different apps</span>{' '}
-            before Flipd. This is the first one where every single buyer actually showed up.&quot;
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <Avatar name="Maya Mendoza" size={40} tone="gold" />
-            <div>
-              <div style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 14 }}>Maya M. · Marshall &apos;26</div>
-              <div className="t-meta" style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>47 sales · Marshall &apos;26</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TrustBlock() {
+function Trust() {
   const stats = [
     { stat: '100%', label: 'verified @usc.edu accounts' },
-    { stat: '72h', label: 'reveal request window' },
+    { stat: '72h', label: 'seller approval window' },
     { stat: '0', label: 'anonymous interactions' },
-    { stat: '1', label: 'school in v1 - USC' },
   ];
   return (
-    <section id="trust" style={{ padding: '88px 64px', background: 'var(--cream)', borderTop: '1px solid var(--rule)', scrollMarginTop: 80 }}>
-      <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 80, alignItems: 'center' }}>
-        <div>
-          <div className="t-eyebrow" style={{ color: 'var(--cardinal)', marginBottom: 12 }}>WHY IT WORKS</div>
-          <h2 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 38, lineHeight: 1.1, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 20px' }}>
-            Verification isn&apos;t a feature.<br />
-            <em style={{ color: 'var(--cardinal)' }}>It&apos;s the whole product.</em>
+    <section id="trust" style={{ padding: '96px 24px', background: 'var(--ink)', color: '#fff', scrollMarginTop: 60 }}>
+      <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
+        <Reveal>
+          <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', margin: '0 0 16px' }}>
+            Verification isn\'t a feature.<br />It\'s the whole product.
           </h2>
-          <p style={{ fontFamily: 'var(--sans)', fontSize: 15, lineHeight: 1.6, color: 'var(--ink-2)', margin: 0 }}>
-            When you reveal contact on Flipd, both sides know exactly who&apos;s on the other end - first name, school, year. Accountability is built in. Ghosting has consequences.
+          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', maxWidth: 520, margin: '0 auto 48px', lineHeight: 1.6 }}>
+            When you reveal contact on Flipd, both sides know exactly who\'s on the other end — name, school, year. Accountability is built in.
           </p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-          {stats.map((s) => (
-            <div key={s.label} style={{ background: '#fff', padding: '24px 22px', borderRadius: 6, border: '1px solid var(--rule)' }}>
-              <div style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 42, color: 'var(--cardinal)', letterSpacing: '-0.02em', lineHeight: 1 }}>{s.stat}</div>
-              <div className="t-meta" style={{ fontSize: 11, marginTop: 8, color: 'var(--muted)' }}>{s.label}</div>
-            </div>
+        </Reveal>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+          {stats.map((s, i) => (
+            <Reveal key={s.label} delay={i * 100}>
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 16, padding: '28px 20px' }}>
+                <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.03em' }}>{s.stat}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>{s.label}</div>
+              </div>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -223,124 +239,85 @@ function TrustBlock() {
   );
 }
 
-function CTABlock() {
+function JoinCTA() {
   const [email, setEmail] = React.useState('');
-  const [sent, setSent] = React.useState(false);
+  const [state, setState] = React.useState<'idle' | 'sending' | 'sent'>('idle');
   const [error, setError] = React.useState('');
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const value = email.trim().toLowerCase();
-    if (!value.endsWith('@usc.edu') || value.length <= '@usc.edu'.length) {
-      setError('Please enter a valid @usc.edu email.');
-      setSent(false);
-      return;
-    }
+    setState('sending');
     setError('');
-    setSent(true);
+    const res = await fetch('/api/auth/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).catch(() => null);
+    if (res?.ok) { setState('sent'); return; }
+    const body = await res?.json().catch(() => ({}));
+    setError(body?.error || 'Something went wrong — try again.');
+    setState('idle');
   };
 
   return (
-    <section id="get-app" style={{ padding: '96px 64px', background: '#fff', textAlign: 'center', scrollMarginTop: 80 }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <div className="t-eyebrow" style={{ color: 'var(--cardinal)', marginBottom: 20 }}>
-          <Icon name="sparkle" size={10} stroke={2.2} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-          JOIN THE FOUNDING CLASS
-        </div>
-        <h2 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 48, lineHeight: 1.05, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 18px' }}>
-          Got an @usc.edu email?<br />
-          <em style={{ color: 'var(--cardinal)' }}>You&apos;re already in.</em>
+    <section id="join" style={{ padding: '110px 24px', textAlign: 'center', scrollMarginTop: 60 }}>
+      <Reveal>
+        <h2 style={{ fontSize: 'clamp(30px, 5vw, 44px)', fontWeight: 800, letterSpacing: '-0.04em', margin: '0 0 12px' }}>
+          Got an @usc.edu email?<br />You\'re already in.
         </h2>
-        <p style={{ fontSize: 16, lineHeight: 1.55, color: 'var(--ink-2)', margin: '0 0 32px' }}>
-          We&apos;re rolling out in waves through finals. Drop your USC address and we&apos;ll send your invite when your school unit comes up.
+        <p style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 500, margin: '0 0 30px' }}>
+          Enter it below and we\'ll email you a sign-in link. That\'s the whole sign-up.
         </p>
-        {sent ? (
-          <div className="callout" style={{ maxWidth: 480, margin: '0 auto', textAlign: 'left' }}>
-            <div className="t-eyebrow" style={{ color: 'var(--cardinal)', marginBottom: 6 }}>YOU&apos;RE ON THE LIST</div>
-            <div className="t-body" style={{ fontSize: 13.5 }}>
-              Thanks — we&apos;ll email <strong>{email.trim().toLowerCase()}</strong> a sign-in link as soon as your wave opens.
+        {state === 'sent' ? (
+          <div style={{ maxWidth: 420, margin: '0 auto', background: 'var(--surface)', borderRadius: 14, padding: '22px 26px', textAlign: 'left' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Check your email</div>
+            <div style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>
+              We sent a sign-in link to <strong>{email.trim().toLowerCase()}</strong>. Click it on this device to enter Flipd.
             </div>
           </div>
         ) : (
-          <form onSubmit={submit} style={{ display: 'flex', gap: 8, maxWidth: 480, margin: '0 auto' }}>
+          <form onSubmit={submit} style={{ display: 'flex', gap: 8, maxWidth: 440, margin: '0 auto' }}>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="firstname@usc.edu"
+              placeholder="you@usc.edu"
               aria-label="USC email address"
               className="field"
-              style={{ flex: 1, borderRadius: 'var(--r-pill)', padding: '14px 22px' }}
+              style={{ flex: 1, borderRadius: 999, padding: '13px 22px' }}
             />
-            <Button kind="primary" size="lg" type="submit">Send my invite</Button>
+            <button type="submit" className="btn btn-primary" disabled={state === 'sending'} style={{ padding: '13px 24px' }}>
+              {state === 'sending' ? 'Sending…' : 'Send my link'}
+            </button>
           </form>
         )}
-        <div className="t-meta" style={{ fontSize: 11, marginTop: 14, color: error ? 'var(--cardinal)' : 'var(--muted)' }}>
-          {error || 'Verified by domain. No passwords, no phone numbers required.'}
+        <div style={{ fontSize: 12, marginTop: 14, color: error ? 'var(--accent)' : 'var(--muted)' }}>
+          {error || 'USC-only. No passwords, no phone numbers.'}
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
 
-function LandingFooter() {
+function Footer() {
   return (
-    <footer style={{ padding: '40px 64px', background: 'var(--ink)', color: 'rgba(255,255,255,0.7)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: 'var(--sans)', fontSize: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-        <Wordmark size={20} onDark />
-        <span style={{ color: 'rgba(255,255,255,0.4)' }}>© 2026 · made in University Park</span>
-      </div>
-      <div style={{ display: 'flex', gap: 24 }}>
-        <a style={{ color: 'inherit', textDecoration: 'none' }} href="#" onClick={(e) => e.preventDefault()}>Terms</a>
-        <a style={{ color: 'inherit', textDecoration: 'none' }} href="#" onClick={(e) => e.preventDefault()}>Privacy</a>
-        <a style={{ color: 'inherit', textDecoration: 'none' }} href="#" onClick={(e) => e.preventDefault()}>Contact</a>
-        <a style={{ color: 'var(--gold)', textDecoration: 'none' }} href="#" onClick={(e) => e.preventDefault()}>Apply to expand to your school →</a>
-      </div>
+    <footer style={{ padding: '28px 32px', borderTop: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}>
+      <Wordmark size={15} />
+      <span>© 2026 · made in University Park</span>
     </footer>
   );
 }
 
-function LandingNav({ onEnter }: { onEnter: () => void }) {
-  const links: { label: string; target: string }[] = [
-    { label: 'How it works', target: 'how-it-works' },
-    { label: 'Categories', target: 'categories' },
-    { label: 'Trust', target: 'trust' },
-    { label: 'For sellers', target: 'get-app' },
-  ];
+export function Landing() {
   return (
-    <header style={{ padding: '20px 64px', background: '#fff', borderBottom: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Wordmark size={22} />
-      </div>
-      <nav style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-        {links.map((item) => (
-          <a
-            key={item.label}
-            href={`#${item.target}`}
-            onClick={(e) => { e.preventDefault(); scrollTo(item.target); }}
-            style={{ fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 500, color: 'var(--ink-2)', textDecoration: 'none' }}
-          >
-            {item.label}
-          </a>
-        ))}
-        <Button kind="secondary" size="sm" onClick={onEnter}>Sign in</Button>
-        <Button kind="primary" size="sm" onClick={onEnter}>Get the app</Button>
-      </nav>
-    </header>
-  );
-}
-
-export function Landing({ heroVariant = 'editorial', onEnter }: { heroVariant?: HeroVariant; onEnter: () => void }) {
-  return (
-    <div style={{ background: '#fff', minHeight: '100%', fontFamily: 'var(--sans)' }}>
-      <LandingNav onEnter={onEnter} />
-      <LandingHero variant={heroVariant} onEnter={onEnter} />
+    <div style={{ background: '#fff', minHeight: '100%' }}>
+      <Nav />
+      <Hero />
       <HowItWorks />
       <Categories />
-      <ProofQuote />
-      <TrustBlock />
-      <CTABlock />
-      <LandingFooter />
+      <Trust />
+      <JoinCTA />
+      <Footer />
     </div>
   );
 }

@@ -1,10 +1,9 @@
-'use client';
-
-// Flipd — landing page route ('/'). "Get the app" / "Sign in" enter the web app.
-import { useRouter } from 'next/navigation';
+import { redirect } from 'next/navigation';
+import { getSessionUser } from '@/lib/supabase/server';
 import { Landing } from '@/components/Landing';
 
-export default function HomePage() {
-  const router = useRouter();
-  return <Landing heroVariant="editorial" onEnter={() => router.push('/feed')} />;
+export default async function HomePage() {
+  const user = await getSessionUser();
+  if (user) redirect('/feed');
+  return <Landing />;
 }
