@@ -12,8 +12,8 @@ export default function ProfilePage() {
     <WebProfile
       store={store}
       onListing={(l) => router.push(`/listing/${l.id}`)}
-      onApprove={(id) => store.setActivityStatus(id, 'APPROVED')}
-      onDecline={(id) => store.setActivityStatus(id, 'DECLINED')}
+      onApprove={(id) => store.respondReveal(id, 'approve')}
+      onDecline={(id) => store.respondReveal(id, 'decline')}
     />
   );
 }

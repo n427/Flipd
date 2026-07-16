@@ -7,8 +7,8 @@
 import React from 'react';
 import { Icon } from './Icon';
 import { Avatar, Button, Callout, CategoryChip, ListingCard, Pill, Placeholder, USCBadge, Wordmark } from './ui';
-import { CATEGORIES, CURRENT_USER } from '@/lib/data';
-import { filterListings, useFlipdStore, type FlipdStore } from '@/lib/store';
+import { CATEGORIES } from '@/lib/data';
+import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
 import type { ActivityItem, ContactMethod, Listing, PhotoTone } from '@/lib/types';
 
 interface DropdownOption { id: string; label: string; }
@@ -131,9 +131,25 @@ function ActivityRow({
         <div className="t-meta" style={{ fontSize: 11, marginTop: 3 }}>{a.school} · {a.when} ago</div>
 
         {a.dir === 'out' && a.status === 'APPROVED' && a.contact && (
-          <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--cream)', border: '1px solid var(--rule)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--cardinal)' }}>
-            <Icon name={a.contact.startsWith('@') ? 'instagram' : a.contact.includes('@') ? 'mail' : 'phone'} size={13} />
-            {a.contact}
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+            {a.contact.instagram && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--cream)', border: '1px solid var(--rule)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--cardinal)' }}>
+                <Icon name="instagram" size={13} />
+                {a.contact.instagram}
+              </div>
+            )}
+            {a.contact.phone && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--cream)', border: '1px solid var(--rule)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--cardinal)' }}>
+                <Icon name="phone" size={13} />
+                {a.contact.phone}
+              </div>
+            )}
+            {a.contact.email && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--cream)', border: '1px solid var(--rule)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--cardinal)' }}>
+                <Icon name="mail" size={13} />
+                {a.contact.email}
+              </div>
+            )}
           </div>
         )}
 
@@ -739,7 +755,7 @@ export function WebCreate({
                   meta: location, photoTone: toneFor(category), photoLabel: 'your photo',
                   photo_urls: photos.map((p) => p.url),
                   photo_focus: photoFocus,
-                  seller: CURRENT_USER,
+                  seller: { id: store.me?.id ?? '', name: store.me?.display_name ?? 'You', unit: store.me?.school_unit ?? '', year: '' },
                 }}
               />
             </div>
@@ -766,7 +782,7 @@ export function WebCreate({
                 photo_urls: photos.map((p) => p.url),
                 photo_focus: photoFocus,
                 description,
-                seller: CURRENT_USER,
+                seller: { id: store.me?.id ?? '', name: store.me?.display_name ?? 'You', unit: store.me?.school_unit ?? '', year: '' },
                 postedLabel: 'just now',
               }}
             />
@@ -801,19 +817,21 @@ export function WebProfile({
   store, onListing, onApprove, onDecline,
 }: { store: FlipdStore; onListing: (l: Listing) => void; onApprove: (id: string) => void; onDecline: (id: string) => void }) {
   const [tab, setTab] = React.useState<'listings' | 'past' | 'saved' | 'activity'>('listings');
-  const u = store.CURRENT_USER;
+  const displayName = store.me?.display_name ?? 'Your profile';
   return (
     <div>
       {/* Banner */}
       <div style={{ background: 'var(--cardinal-dark)', color: '#fff', position: 'relative' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, width: 44, height: 4, background: 'var(--gold)' }} />
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 32px 28px', display: 'flex', alignItems: 'center', gap: 20 }}>
-          <Avatar name={u.name} size={76} tone="gold" />
+          <Avatar name={displayName} size={76} tone="gold" />
           <div style={{ flex: 1 }}>
             <h1 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 28, letterSpacing: '-0.015em', margin: '0 0 4px' }}>
-              {u.first} P.
+              {displayName}
             </h1>
-            <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, opacity: 0.85 }}>{u.unit} {u.year} · joined Sept 2025</div>
+            <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, opacity: 0.85 }}>
+              {store.me?.school_unit} · joined {formatPostedDate(store.me?.created_at) || 'recently'}
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 28 }}>
             {[{ v: store.myListings.length, l: 'Listings' }].map((s) => (
@@ -926,52 +944,6 @@ export function RevealModal({ listing, onClose, onContinue }: { listing: Listing
   );
 }
 
-function WebRevealApprovedUnused({ listing, onClose }: { listing: Listing; onClose: () => void }) {
-  const contact =
-    listing.contactMethod === 'phone'
-      ? '(213) 555-0147'
-      : listing.contactMethod === 'email'
-      ? (listing.seller.first || 'maya').toLowerCase() + '@usc.edu'
-      : '@maya.bakes.sc';
-  const icon = contact.startsWith('@') ? 'instagram' : contact.includes('@') ? 'mail' : 'phone';
-  const href = icon === 'phone' ? `tel:${contact.replace(/[^\d+]/g, '')}` : icon === 'mail' ? `mailto:${contact}` : `https://instagram.com/${contact.replace('@', '')}`;
-  return (
-    <ModalScrim onClose={onClose}>
-      <div style={{ width: 520, borderRadius: 8, overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.22)', animation: 'flipdReveal 280ms ease-in-out' }}>
-        <div style={{ background: 'var(--cardinal-dark)', color: '#fff', padding: '32px 36px 28px', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 36, height: 4, background: 'var(--gold)' }} />
-          <div className="t-eyebrow" style={{ color: 'var(--gold)', marginBottom: 16 }}>APPROVED · JUST NOW</div>
-          <h2 style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 30, lineHeight: 1.15, letterSpacing: '-0.015em', margin: '0 0 6px' }}>
-            {listing.seller.name.split(' ')[0]} approved your request.
-          </h2>
-          <p style={{ fontSize: 14, opacity: 0.85, margin: 0 }}>Reach out - they&apos;re expecting you.</p>
-        </div>
-        <div style={{ background: '#fff', padding: '24px 32px 28px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-            <Avatar name={listing.seller.name} size={56} tone="cardinal" />
-            <div>
-              <div style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 16 }}>
-                {listing.seller.name.split(' ')[0]} {listing.seller.name.split(' ')[1]?.[0] || ''}.
-              </div>
-              <div className="t-meta" style={{ fontSize: 12 }}>{listing.seller.unit} {listing.seller.year} · {listing.seller.sales} sales</div>
-            </div>
-          </div>
-          <div style={{ background: 'var(--cream)', borderRadius: 6, padding: 16, border: '1px solid var(--rule)', marginBottom: 18 }}>
-            <div className="t-eyebrow" style={{ color: 'var(--cardinal)', marginBottom: 8 }}>PREFERRED CONTACT</div>
-            <a href={href} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'var(--sans)', fontSize: 18, fontWeight: 600, color: 'var(--cardinal)', textDecoration: 'none' }}>
-              <Icon name={icon} size={18} /> {contact}
-            </a>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div style={{ flex: 1 }} />
-            <Button kind="primary" onClick={onClose}>Done</Button>
-          </div>
-        </div>
-      </div>
-    </ModalScrim>
-  );
-}
-
 // ── Root ─────────────────────────────────────────────────────────────
 export function WebApp({ onExit }: { onExit?: () => void }) {
   const store = useFlipdStore();
@@ -987,8 +959,8 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
   const goFeed = () => { setView('feed'); setSelected(null); };
   const goDetail = (l: Listing) => { setSelected(l); setView('detail'); };
   const onSearch = (q: string) => { setQuery(q); if (view !== 'feed') setView('feed'); };
-  const approve = (id: string) => store.setActivityStatus(id, 'APPROVED');
-  const decline = (id: string) => store.setActivityStatus(id, 'DECLINED');
+  const approve = (id: string) => store.respondReveal(id, 'approve');
+  const decline = (id: string) => store.respondReveal(id, 'decline');
 
   return (
     <div style={{ background: '#fff', minHeight: '100%', fontFamily: 'var(--sans)', position: 'relative' }}>
@@ -1037,7 +1009,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
       {view === 'profile' && <WebProfile store={store} onListing={goDetail} onApprove={approve} onDecline={decline} />}
 
       {modal === 'reveal' && selected && (
-        <RevealModal listing={selected} onClose={() => setModal(null)} onContinue={() => { store.logReveal(selected); setModal(null); }} />
+        <RevealModal listing={selected} onClose={() => setModal(null)} onContinue={() => { store.requestReveal(selected.id); setModal(null); }} />
       )}
 
       {notifOpen && <WebNotifications activity={store.activity} onClose={() => setNotifOpen(false)} onApprove={approve} onDecline={decline} />}

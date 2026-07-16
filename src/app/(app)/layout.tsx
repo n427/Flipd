@@ -18,8 +18,8 @@ function AppChrome({ children }: { children: React.ReactNode }) {
     setQuery(q);
     router.push(q ? `/feed?q=${encodeURIComponent(q)}` : '/feed');
   };
-  const approve = (id: string) => store.setActivityStatus(id, 'APPROVED');
-  const decline = (id: string) => store.setActivityStatus(id, 'DECLINED');
+  const approve = (id: string) => store.respondReveal(id, 'approve');
+  const decline = (id: string) => store.respondReveal(id, 'decline');
 
   return (
     <div style={{ background: '#fff', minHeight: '100%', fontFamily: 'var(--sans)', position: 'relative' }}>

@@ -5,12 +5,25 @@ export type CategoryId = 'all' | 'services' | 'food' | 'event' | 'housing' | 'go
 export type ContactMethod = 'instagram' | 'phone' | 'email';
 
 export interface Seller {
+  id: string;
   name: string;
   unit: string;
   year: string;
-  sales: number;
-  first?: string;
   handle?: string;
+  isDemo?: boolean;
+}
+
+export interface Profile {
+  id: string;
+  display_name: string | null;
+  handle: string | null;
+  school_unit: string | null;
+  class_year: string | null;
+  contact_instagram: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  is_demo: boolean;
+  created_at: string;
 }
 
 export interface Listing {
@@ -39,15 +52,22 @@ export interface Listing {
 export type ActivityDir = 'in' | 'out';
 export type ActivityStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'EXPIRED';
 
+export interface RevealContact {
+  instagram?: string;
+  phone?: string;
+  email?: string;
+}
+
 export interface ActivityItem {
   id: string;
   dir: ActivityDir;
   who: string;
   school: string;
   listingTitle: string;
+  listingId: string;
   when: string;
   status: ActivityStatus;
-  contact?: string;
+  contact?: RevealContact;
 }
 
 export interface Category {

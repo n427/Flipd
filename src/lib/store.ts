@@ -1,35 +1,24 @@
-// Flipd — shared interactive store (ported from store.jsx)
-// One hook the web app mounts at its root. Holds listings (incl. user-posted),
-// saved set, and activity feed, plus the actions that make every feature work.
-// In-memory only — no database yet.
+// Flipd — shared interactive store. One hook mounted at the app root.
+// Hydrates everything from the API routes; no mock data.
 import React from 'react';
-import { CATEGORIES, CURRENT_USER, MOCK_LISTINGS } from './data';
-import type { ActivityItem, ActivityStatus, FilterArgs, Listing, NewListingInput } from './types';
+import { CATEGORIES } from './data';
+import type {
+  ActivityItem, ActivityStatus, FilterArgs, Listing, Profile, RevealContact, Seller,
+} from './types';
+import { effectiveRevealStatus, type RevealStatus } from './validation';
 
-// A few listings authored by the current user (for "My Listings")
-const MY_SEED: Listing[] = [
-  {
-    id: 'me1', mine: true, category: 'goods', categoryLabel: 'Goods',
-    title: 'Desk lamp + monitor riser', price: 30, priceLabel: '$30',
-    seller: { ...CURRENT_USER }, meta: 'USC Village · pickup only',
-    photoTone: 'cream', photoLabel: 'desk lamp', postedLabel: '3d ago',
-  },
-  {
-    id: 'me2', mine: true, category: 'services', categoryLabel: 'Services',
-    title: 'Resume + cover-letter edits', price: 25, priceLabel: '$25',
-    seller: { ...CURRENT_USER }, meta: 'Zoom · 24h turnaround',
-    photoTone: 'ink', photoLabel: 'resume edit', postedLabel: '1w ago',
-  },
-];
+type DbSeller = {
+  id: string;
+  display_name: string | null;
+  handle: string | null;
+  school_unit: string | null;
+  class_year: string | null;
+  is_demo: boolean;
+} | null;
 
-// Shape a raw Supabase listings row into the UI's Listing model.
-// The DB stores snake_case columns (seller_id, photo_urls, contact, location)
-// and none of the presentational fields the components need (seller object,
-// priceLabel, categoryLabel, photoTone, etc.). Both the fetch-on-mount path
-// and addListing route their rows through this so the feed always gets a
-// fully-shaped Listing.
 type DbListing = {
   id: string;
+  seller_id: string;
   category: string;
   title: string;
   description?: string | null;
@@ -40,9 +29,20 @@ type DbListing = {
   photo_focus?: string[] | null;
   archived?: boolean | null;
   created_at?: string | null;
+  seller?: DbSeller;
 };
 
-// Format an ISO timestamp as an absolute date, e.g. "Jun 2, 2026".
+type RevealDto = {
+  id: string;
+  listing_id: string;
+  listing_title: string;
+  status: RevealStatus;
+  created_at: string;
+  expires_at: string;
+  counterpart: { id: string; display_name: string | null; school_unit: string | null; class_year: string | null } | null;
+  contact?: RevealContact;
+};
+
 export function formatPostedDate(iso?: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -50,18 +50,36 @@ export function formatPostedDate(iso?: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function mapDbListing(row: DbListing): Listing {
+function classYearLabel(year: string | null): string {
+  if (!year) return '';
+  const two = year.slice(-2);
+  return two ? `’${two}` : '';
+}
+
+function mapSeller(row: DbListing): Seller {
+  const s = row.seller;
+  return {
+    id: s?.id ?? row.seller_id,
+    name: s?.display_name ?? 'Flipd member',
+    unit: s?.school_unit ?? '',
+    year: classYearLabel(s?.class_year ?? null),
+    handle: s?.handle ?? undefined,
+    isDemo: s?.is_demo ?? false,
+  };
+}
+
+function mapDbListing(row: DbListing, meId: string | null): Listing {
   const price = row.price ?? 0;
   return {
     id: row.id,
-    mine: true,
+    mine: meId !== null && row.seller_id === meId,
     category: row.category,
     categoryLabel: CATEGORIES.find((c) => c.id === row.category)?.label || 'Goods',
     title: row.title,
     description: row.description || undefined,
     price,
-    priceLabel: price > 0 ? '$' + price : 'Free',
-    seller: { ...CURRENT_USER },
+    priceLabel: price > 0 ? '$' + price.toLocaleString('en-US') : 'Free',
+    seller: mapSeller(row),
     meta: row.location || 'USC · pickup',
     photoTone: 'cream',
     photoLabel: 'photo',
@@ -71,19 +89,36 @@ function mapDbListing(row: DbListing): Listing {
     created_at: row.created_at || undefined,
     postedLabel: formatPostedDate(row.created_at) || 'just now',
     contactMethod: (row.contact?.[0] as Listing['contactMethod']) || 'instagram',
-    isNew: true,
   };
 }
 
-const DEFAULT_ACTIVITY: ActivityItem[] = [
-  { id: 'a1', dir: 'in', who: 'Sofia R.', school: 'Dornsife', listingTitle: 'Desk lamp + monitor riser', when: '2h', status: 'PENDING' },
-  { id: 'a2', dir: 'out', who: 'Maya M.', school: 'Marshall', listingTitle: 'Sourdough loaves', when: '6h', status: 'APPROVED', contact: '@maya.bakes.sc' },
-  { id: 'a3', dir: 'in', who: 'Tyler N.', school: 'Marshall', listingTitle: 'Resume + cover-letter edits', when: '1d', status: 'APPROVED' },
-  { id: 'a4', dir: 'out', who: 'Jada P.', school: 'Annenberg', listingTitle: 'Press-on nails', when: '2d', status: 'EXPIRED' },
-];
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return `${Math.floor(hrs / 24)}d`;
+}
+
+function mapReveal(dto: RevealDto, dir: 'in' | 'out'): ActivityItem {
+  return {
+    id: dto.id,
+    dir,
+    who: dto.counterpart?.display_name ?? 'Flipd member',
+    school: [dto.counterpart?.school_unit, classYearLabel(dto.counterpart?.class_year ?? null)]
+      .filter(Boolean).join(' '),
+    listingTitle: dto.listing_title,
+    listingId: dto.listing_id,
+    when: timeAgo(dto.created_at),
+    status: effectiveRevealStatus(dto.status, dto.expires_at).toUpperCase() as ActivityStatus,
+    contact: dto.contact,
+  };
+}
 
 export interface FlipdStore {
-  CURRENT_USER: typeof CURRENT_USER;
+  me: Profile | null;
   listings: Listing[];
   listingsLoading: boolean;
   savedIds: Set<string>;
@@ -93,8 +128,11 @@ export interface FlipdStore {
   addListing: (formData: FormData) => Promise<Listing | null>;
   getListing: (id: string) => Promise<Listing | null>;
   setArchived: (id: string, archived: boolean) => Promise<boolean>;
-  logReveal: (listing: Listing) => void;
-  setActivityStatus: (id: string, status: ActivityStatus) => void;
+  requestReveal: (listingId: string) => Promise<{ ok: boolean; error?: string }>;
+  respondReveal: (id: string, action: 'approve' | 'decline') => Promise<boolean>;
+  refreshActivity: () => Promise<void>;
+  myRevealFor: (listingId: string) => ActivityItem | undefined;
+  signOut: () => Promise<void>;
   myListings: Listing[];
   pastListings: Listing[];
   savedListings: Listing[];
@@ -102,50 +140,75 @@ export interface FlipdStore {
 }
 
 export function useFlipdStore(): FlipdStore {
+  const [me, setMe] = React.useState<Profile | null>(null);
+  const [meId, setMeId] = React.useState<string | null>(null);
   const [listings, setListings] = React.useState<Listing[]>([]);
   const [listingsLoading, setListingsLoading] = React.useState(true);
   const [savedIds, setSavedIds] = React.useState<Set<string>>(() => new Set());
-  const [activity, setActivity] = React.useState<ActivityItem[]>(() => DEFAULT_ACTIVITY);
+  const [activity, setActivity] = React.useState<ActivityItem[]>([]);
+
+  const refreshActivity = React.useCallback(async () => {
+    const res = await fetch('/api/reveals').catch(() => null);
+    if (!res || !res.ok) return;
+    const { incoming, outgoing } = await res.json();
+    const items = [
+      ...(incoming as RevealDto[]).map((r) => ({ dto: r, dir: 'in' as const })),
+      ...(outgoing as RevealDto[]).map((r) => ({ dto: r, dir: 'out' as const })),
+    ]
+      .sort((a, b) => new Date(b.dto.created_at).getTime() - new Date(a.dto.created_at).getTime())
+      .map(({ dto, dir }) => mapReveal(dto, dir));
+    setActivity(items);
+  }, []);
 
   React.useEffect(() => {
-    fetch('/api/listings')
-      .then((r) => r.json())
-      .then(({ listings: fetched }) => {
-        if (Array.isArray(fetched)) setListings(fetched.map(mapDbListing));
+    let alive = true;
+
+    fetch('/api/me')
+      .then((r) => (r.ok ? r.json() : { profile: null }))
+      .then(({ profile }) => {
+        if (!alive) return;
+        setMe(profile);
+        const id = profile?.id ?? null;
+        setMeId(id);
+        // Listings need meId to compute `mine`; fetch after /api/me resolves.
+        return fetch('/api/listings?include_archived=1')
+          .then((r) => r.json())
+          .then(({ listings: fetched }) => {
+            if (alive && Array.isArray(fetched)) {
+              setListings(fetched.map((row: DbListing) => mapDbListing(row, id)));
+            }
+          });
       })
       .catch(() => {})
-      .finally(() => setListingsLoading(false));
+      .finally(() => { if (alive) setListingsLoading(false); });
 
     fetch('/api/saves')
       .then((r) => r.json())
-      .then(({ ids }) => {
-        if (Array.isArray(ids)) setSavedIds(new Set(ids));
-      })
+      .then(({ ids }) => { if (alive && Array.isArray(ids)) setSavedIds(new Set(ids)); })
       .catch(() => {});
-  }, []);
+
+    refreshActivity();
+    const interval = setInterval(refreshActivity, 30_000);
+    return () => { alive = false; clearInterval(interval); };
+  }, [refreshActivity]);
 
   const isSaved = (id: string) => savedIds.has(id);
 
   const toggleSave = (id: string) => {
     const willSave = !savedIds.has(id);
-    // Optimistic local update.
     setSavedIds((prev) => {
       const next = new Set(prev);
-      if (willSave) next.add(id);
-      else next.delete(id);
+      if (willSave) next.add(id); else next.delete(id);
       return next;
     });
-    // Persist to DB.
     fetch('/api/saves', {
       method: willSave ? 'POST' : 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ listing_id: id }),
     }).catch(() => {
-      // Roll back on failure.
       setSavedIds((prev) => {
         const next = new Set(prev);
-        if (willSave) next.delete(id);
-        else next.add(id);
+        if (willSave) next.delete(id); else next.add(id);
         return next;
       });
     });
@@ -164,68 +227,72 @@ export function useFlipdStore(): FlipdStore {
       try {
         const body = await res.json();
         if (body?.error) detail = body.error;
-      } catch {
-        /* response had no JSON body */
-      }
-      console.error('[addListing] server rejected publish:', detail);
+      } catch { /* no JSON body */ }
       throw new Error(detail);
     }
     const { listing } = await res.json();
-    const mapped = mapDbListing(listing);
+    const mapped = mapDbListing(listing, meId);
     setListings((prev) => [mapped, ...prev]);
     return mapped;
   };
 
-  // Find a listing by id — from loaded state, else fetch it (works for
-  // archived listings that aren't in the feed list).
   const getListing = async (id: string): Promise<Listing | null> => {
     const local = listings.find((l) => l.id === id);
     if (local) return local;
     const res = await fetch(`/api/listings/${id}`).catch(() => null);
     if (!res || !res.ok) return null;
     const { listing } = await res.json();
-    return mapDbListing(listing);
+    return mapDbListing(listing, meId);
   };
 
-  // Archive (move to past) or restore a listing.
   const setArchived = async (id: string, archived: boolean): Promise<boolean> => {
     const res = await fetch(`/api/listings/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ archived }),
     }).catch(() => null);
-    if (!res || !res.ok) {
-      console.error('[setArchived] failed for', id);
-      return false;
-    }
+    if (!res || !res.ok) return false;
     setListings((prev) => prev.map((l) => (l.id === id ? { ...l, archived } : l)));
     return true;
   };
 
-  // Buyer taps Reveal → log an outgoing request (approved instantly in this demo)
-  const logReveal = (listing: Listing) => {
-    setActivity((prev) => [
-      {
-        id: 'r' + Date.now(),
-        dir: 'out',
-        who: listing.seller.first || listing.seller.name.split(' ')[0] + '.',
-        school: listing.seller.unit,
-        listingTitle: listing.title,
-        when: 'just now',
-        status: 'APPROVED',
-        contact:
-          listing.contactMethod === 'phone'
-            ? '(213) 555-0147'
-            : listing.contactMethod === 'email'
-            ? (listing.seller.first?.toLowerCase() || 'maya') + '@usc.edu'
-            : '@maya.bakes.sc',
-      },
-      ...prev,
-    ]);
+  const requestReveal = async (listingId: string) => {
+    const res = await fetch('/api/reveals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listing_id: listingId }),
+    }).catch(() => null);
+    if (!res) return { ok: false, error: 'Network error — try again.' };
+    if (res.status === 409) { await refreshActivity(); return { ok: true }; }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { ok: false, error: body.error || `HTTP ${res.status}` };
+    }
+    await refreshActivity();
+    return { ok: true };
   };
 
-  const setActivityStatus = (id: string, status: ActivityStatus) =>
-    setActivity((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+  const respondReveal = async (id: string, action: 'approve' | 'decline') => {
+    const res = await fetch(`/api/reveals/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    }).catch(() => null);
+    if (!res || !res.ok) return false;
+    setActivity((prev) => prev.map((a) =>
+      a.id === id ? { ...a, status: action === 'approve' ? 'APPROVED' : 'DECLINED' } : a,
+    ));
+    return true;
+  };
+
+  const myRevealFor = (listingId: string) =>
+    activity.find((a) => a.dir === 'out' && a.listingId === listingId &&
+      (a.status === 'PENDING' || a.status === 'APPROVED'));
+
+  const signOut = async () => {
+    await fetch('/api/auth/signout', { method: 'POST' }).catch(() => {});
+    window.location.href = '/';
+  };
 
   const myListings = listings.filter((l) => l.mine && !l.archived);
   const pastListings = listings.filter((l) => l.mine && l.archived);
@@ -233,19 +300,19 @@ export function useFlipdStore(): FlipdStore {
   const pendingCount = activity.filter((a) => a.dir === 'in' && a.status === 'PENDING').length;
 
   return {
-    CURRENT_USER,
-    listings, listingsLoading, savedIds, activity,
-    isSaved, toggleSave, addListing, getListing, setArchived, logReveal, setActivityStatus,
+    me, listings, listingsLoading, savedIds, activity,
+    isSaved, toggleSave, addListing, getListing, setArchived,
+    requestReveal, respondReveal, refreshActivity, myRevealFor, signOut,
     myListings, pastListings, savedListings, pendingCount,
   };
 }
 
-// Shared filter+sort helper used by the feed
 export function filterListings(
   listings: Listing[],
   { activeCat = 'all', query = '', sort = 'recent', priceFilter = 'any' }: FilterArgs = {},
 ): Listing[] {
   let out = listings.filter((l) => {
+    if (l.archived) return false;
     if (activeCat !== 'all' && l.category !== activeCat) return false;
     if (query) {
       const q = query.toLowerCase();

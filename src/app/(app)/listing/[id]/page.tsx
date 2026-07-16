@@ -50,7 +50,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
         <RevealModal
           listing={listing}
           onClose={() => setModal(null)}
-          onContinue={() => { store.logReveal(listing); setModal(null); }}
+          onContinue={() => { store.requestReveal(listing.id); setModal(null); }}
         />
       )}
     </>

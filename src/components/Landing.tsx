@@ -5,9 +5,39 @@
 import React from 'react';
 import { Icon } from './Icon';
 import { Avatar, Button, ListingCard, USCBadge, Wordmark } from './ui';
-import { MOCK_LISTINGS } from '@/lib/data';
+import type { Listing } from '@/lib/types';
 
 type HeroVariant = 'editorial' | 'centered' | 'split-dark';
+
+// Static placeholder cards for the marketing hero — decorative only, never
+// hit the store or the API.
+const HERO_LISTINGS: Listing[] = [
+  {
+    id: 'hero-1', category: 'food', categoryLabel: 'Food',
+    title: 'Sourdough loaves - Sunday pickup',
+    price: 12, priceLabel: '$12',
+    seller: { id: 'hero-seller-1', name: 'Maya Mendoza', unit: 'Marshall', year: '’26' },
+    meta: '30th & Hoover · Sun 10–2',
+    photoTone: 'gold', photoLabel: 'sourdough loaf',
+  },
+  {
+    id: 'hero-2', category: 'services', categoryLabel: 'Services',
+    title: 'Press-on nails, custom sets',
+    price: 35, priceLabel: '$35',
+    seller: { id: 'hero-seller-2', name: 'Jada Park', unit: 'Annenberg', year: '’25' },
+    meta: 'In Cardinal Gardens · 48h turnaround',
+    photoTone: 'cardinal', photoLabel: 'nail set',
+  },
+  {
+    id: 'hero-3', category: 'event', categoryLabel: 'Event',
+    title: 'Trousdale Block Party - Friday',
+    price: 0, priceLabel: 'Free',
+    seller: { id: 'hero-seller-3', name: 'SC Korean Student Assoc.', unit: 'Org', year: '' },
+    meta: 'Trousdale Pkwy · Fri 7–11p',
+    photoTone: 'cardinal', photoLabel: 'event flyer',
+    eventPill: 'NEW POSTING',
+  },
+];
 
 const scrollTo = (id: string) => {
   if (typeof document === 'undefined') return;
@@ -53,13 +83,13 @@ function LandingHero({ variant = 'editorial', onEnter }: { variant?: HeroVariant
           {/* Right: floating listing card preview */}
           <div style={{ position: 'relative', height: 540 }}>
             <div style={{ position: 'absolute', top: 0, right: 0, width: 290, transform: 'rotate(2deg)' }}>
-              <ListingCard listing={MOCK_LISTINGS[0]} onClick={onEnter} />
+              <ListingCard listing={HERO_LISTINGS[0]} onClick={onEnter} />
             </div>
             <div style={{ position: 'absolute', top: 180, left: 0, width: 290, transform: 'rotate(-3deg)' }}>
-              <ListingCard listing={MOCK_LISTINGS[2]} onClick={onEnter} />
+              <ListingCard listing={HERO_LISTINGS[2]} onClick={onEnter} />
             </div>
             <div style={{ position: 'absolute', bottom: 0, right: 30, width: 290, transform: 'rotate(1.5deg)' }}>
-              <ListingCard listing={MOCK_LISTINGS[1]} onClick={onEnter} />
+              <ListingCard listing={HERO_LISTINGS[1]} onClick={onEnter} />
             </div>
           </div>
         </div>
