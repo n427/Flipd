@@ -1,23 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin as supabase } from '@/lib/supabase/admin';
+import { getSessionUser } from '@/lib/supabase/server';
+
+const SELLER_JOIN = '*, seller:profiles!listings_seller_id_fkey(id, display_name, handle, school_unit, class_year, is_demo)';
 
 export async function GET(req: NextRequest) {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const category = searchParams.get('category');
   const q = searchParams.get('q');
+  const mine = searchParams.get('mine') === '1';
+  const includeArchived = searchParams.get('include_archived') === '1';
 
   let query = supabase
     .from('listings')
-    .select('*')
-    .eq('archived', false)
+    .select(SELLER_JOIN)
     .order('created_at', { ascending: false });
 
-  if (category && category !== 'all') {
-    query = query.eq('category', category);
-  }
-  if (q) {
-    query = query.ilike('title', `%${q}%`);
-  }
+  if (mine) query = query.eq('seller_id', user.id);
+  if (!includeArchived) query = query.eq('archived', false);
+  if (category && category !== 'all') query = query.eq('category', category);
+  if (q) query = query.ilike('title', `%${q}%`);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -25,8 +30,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const formData = await req.formData();
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
+  const formData = await req.formData();
   const category = formData.get('category') as string;
   const title = formData.get('title') as string;
   const description = formData.get('description') as string | null;
@@ -37,35 +44,23 @@ export async function POST(req: NextRequest) {
   const photoFocusRaw = formData.getAll('photo_focus') as string[];
   const photoFiles = formData.getAll('photos') as File[];
 
-  if (!title) {
-    return NextResponse.json({ error: 'title required' }, { status: 400 });
-  }
+  if (!title) return NextResponse.json({ error: 'title required' }, { status: 400 });
   if (photoFiles.length === 0) {
     return NextResponse.json({ error: 'at least one photo required' }, { status: 400 });
   }
 
-  // Generate listing id upfront so we can use it as the storage path prefix
   const listingId = crypto.randomUUID();
-
-  // Upload photos
   const photoUrls: string[] = [];
   for (let i = 0; i < photoFiles.length; i++) {
     const file = photoFiles[i];
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    // Supabase Storage keys reject spaces and many punctuation chars (e.g.
-    // "Screenshot 2026-05-30 at 7.17.33 PM.png" → "Invalid key"). Build a safe
-    // key ourselves from an index + sanitized extension instead of the raw
-    // user filename.
+    const buffer = Buffer.from(await file.arrayBuffer());
     const extMatch = /\.([a-zA-Z0-9]+)$/.exec(file.name);
     const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
     const path = `${listingId}/photo-${i}.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from('listing-photos')
       .upload(path, buffer, { contentType: file.type, upsert: true });
-    if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 500 });
-    }
+    if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
     const { data: urlData } = supabase.storage.from('listing-photos').getPublicUrl(path);
     photoUrls.push(urlData.publicUrl);
   }
@@ -76,7 +71,7 @@ export async function POST(req: NextRequest) {
     .from('listings')
     .insert({
       id: listingId,
-      seller_id: 'user_alex_park',
+      seller_id: user.id,
       category,
       title,
       description: description || null,
@@ -87,7 +82,7 @@ export async function POST(req: NextRequest) {
       photo_urls: photoUrls,
       photo_focus: focusArr,
     })
-    .select()
+    .select(SELLER_JOIN)
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
