@@ -925,11 +925,15 @@ export function WebProfile({
             </div>
           ))}
         {tab === 'activity' && (
-          <div style={{ maxWidth: 640 }}>
-            {store.activity.map((a, i) => (
-              <ActivityRow key={a.id} a={a} onApprove={onApprove} onDecline={onDecline} last={i === store.activity.length - 1} />
-            ))}
-          </div>
+          store.activity.length === 0 ? (
+            <EmptyState icon="bell" title="No activity yet" sub="Reveal requests you send and receive show up here." />
+          ) : (
+            <div style={{ maxWidth: 640 }}>
+              {store.activity.map((a, i) => (
+                <ActivityRow key={a.id} a={a} onApprove={onApprove} onDecline={onDecline} last={i === store.activity.length - 1} />
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>
