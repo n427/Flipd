@@ -42,13 +42,14 @@ function Nav() {
     <header
       style={{
         position: 'sticky', top: 0, zIndex: 20,
-        display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28,
+        display: 'flex', alignItems: 'center', gap: 28,
         padding: '14px 32px', background: 'rgba(255,255,255,0.8)',
         backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
         borderBottom: '1px solid var(--rule)',
       }}
     >
       <Wordmark size={18} />
+      <div style={{ flex: 1 }} />
       {[
         { label: 'How it works', id: 'how' },
         { label: 'Categories', id: 'categories' },
@@ -325,7 +326,7 @@ function JoinCTA() {
               placeholder="you@usc.edu"
               aria-label="USC email address"
               className="field"
-              style={{ flex: 1, borderRadius: 999, padding: '13px 22px' }}
+              style={{ flex: 1, borderRadius: 10, padding: '13px 22px' }}
             />
             <button type="submit" className="btn btn-primary" disabled={state === 'sending'} style={{ padding: '13px 24px' }}>
               {state === 'sending' ? 'Sending…' : 'Send my link'}

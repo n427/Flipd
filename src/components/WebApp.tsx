@@ -276,9 +276,12 @@ export function WebListingDetail({
   store, listing, onBack, onReveal, preview = false,
 }: { store: FlipdStore; listing: Listing; onBack: () => void; onReveal: () => void; preview?: boolean }) {
   const saved = preview ? false : store.isSaved(listing.id);
-  const thumbTones = [listing.photoTone, 'cream', 'gold', 'ink'] as const;
   const reveal = preview ? undefined : store.myRevealFor(listing.id);
   const [activePhoto, setActivePhoto] = React.useState(0);
+  const photos = listing.photo_urls ?? [];
+  const others = photos.map((_, i) => i).filter((i) => i !== activePhoto);
+  const sideIdx = others.slice(0, 2);
+  const extraCount = photos.length - 1 - sideIdx.length;
   return (
     <div style={{ padding: '24px 32px 64px', maxWidth: 1180, margin: '0 auto' }}>
       {!preview && (
@@ -287,83 +290,85 @@ export function WebListingDetail({
       </button>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 40 }}>
-        <div>
-          {listing.photo_urls?.[activePhoto] ? (
-            <div style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: 4, overflow: 'hidden' }}>
-              <img
-                src={listing.photo_urls[activePhoto]}
-                alt={listing.title}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[activePhoto] || '50% 50%', display: 'block' }}
-              />
-            </div>
+      {/* Gallery: main photo + stacked side photos */}
+      <div style={{ display: 'grid', gridTemplateColumns: sideIdx.length > 0 ? '1.6fr 1fr' : '1fr', gap: 10, marginBottom: 28 }}>
+        <div style={{ position: 'relative', aspectRatio: sideIdx.length > 0 ? '3 / 2' : '2 / 1', borderRadius: 'var(--r-img)', overflow: 'hidden', background: 'var(--surface)' }}>
+          {photos[activePhoto] ? (
+            <img
+              src={photos[activePhoto]}
+              alt={listing.title}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[activePhoto] || '50% 50%' }}
+            />
           ) : (
-            <Placeholder label={listing.photoLabel} tone={thumbTones[activePhoto % thumbTones.length]} height={460} radius={4} />
+            <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
           )}
-          {((listing.photo_urls?.length ?? 0) > 1) && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 8 }}>
-              {listing.photo_urls!.map((url, i) => (
-                <div key={i} onClick={() => setActivePhoto(i)} style={{ cursor: 'pointer', position: 'relative', height: 84, borderRadius: 4, overflow: 'hidden', outline: activePhoto === i ? '2px solid var(--cardinal)' : 'none', outlineOffset: -1 }}>
-                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-              ))}
-            </div>
-          )}
-          {!(listing.photo_urls?.length ?? 0) && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 8 }}>
-              {thumbTones.map((tone, i) => (
-                <div key={i} onClick={() => setActivePhoto(i)} style={{ cursor: 'pointer' }}>
-                  <Placeholder
-                    tone={tone}
-                    height={84}
-                    label={i === 0 ? listing.photoLabel : `+${i}`}
-                    style={{ outline: activePhoto === i ? '2px solid var(--cardinal)' : 'none', outlineOffset: activePhoto === i ? -1 : 0 }}
-                  />
-                </div>
-              ))}
+          {photos.length > 1 && (
+            <div style={{ position: 'absolute', left: 12, bottom: 12, background: '#fff', borderRadius: 999, padding: '4px 11px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12, color: 'var(--ink)', boxShadow: 'var(--shadow)' }}>
+              {activePhoto + 1} / {photos.length}
             </div>
           )}
         </div>
-
-        <div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
-            <Pill kind="category">{listing.categoryLabel.toUpperCase()}</Pill>
-            <span className="t-meta" style={{ fontSize: 11 }}>· posted {listing.postedLabel || 'recently'}</span>
+        {sideIdx.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateRows: sideIdx.length > 1 ? '1fr 1fr' : '1fr', gap: 10 }}>
+            {sideIdx.map((idx, n) => (
+              <div key={idx} onClick={() => setActivePhoto(idx)} style={{ position: 'relative', borderRadius: 'var(--r-img)', overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)' }}>
+                <img src={photos[idx]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[idx] || '50% 50%' }} />
+                {n === sideIdx.length - 1 && extraCount > 0 && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>
+                    +{extraCount} photos
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-          <h1 className="t-h1" style={{ fontSize: 30, margin: '0 0 4px' }}>{listing.title}</h1>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 48, alignItems: 'start' }}>
+        {/* Left: the story */}
+        <div>
+          <div style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--accent)', marginBottom: 8 }}>
+            {listing.categoryLabel} · posted {listing.postedLabel || 'recently'}
+          </div>
+          <h1 style={{ fontWeight: 800, fontSize: 30, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 6px' }}>{listing.title}</h1>
           {listing.meta && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 12.5, marginBottom: 12 }}>
-              <Icon name="mapPin" size={13} /> {listing.meta.split(' · ')[0]}
+            <div style={{ color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 13.5, marginBottom: 18 }}>
+              Pickup at {listing.meta.split(' · ')[0]}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 20 }}>
-            <span style={{ fontWeight: 800, fontSize: 26, color: 'var(--ink)' }}>{listing.priceLabel}</span>
-            {listing.negotiable && <span className="t-meta" style={{ fontSize: 12 }}>negotiable</span>}
-          </div>
 
           {listing.description?.trim() && (
-            <p style={{ fontFamily: 'var(--sans)', fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)', margin: '0 0 24px', whiteSpace: 'pre-wrap' }}>
+            <p style={{ fontFamily: 'var(--sans)', fontSize: 14.5, lineHeight: 1.65, color: 'var(--ink-2)', margin: '0 0 26px', whiteSpace: 'pre-wrap' }}>
               {listing.description}
             </p>
           )}
 
-          <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 12, padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
-            <Avatar name={listing.seller.name} size={36} tone="ink" />
-            <div style={{ flex: 1 }}>
+          <hr className="rule" style={{ margin: '0 0 20px' }} />
+
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <Avatar name={listing.seller.name} size={44} tone="cream" />
+            <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>
-                  {listing.seller.name}
+                <div style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 14.5, color: 'var(--ink)' }}>
+                  {listing.seller.name} listed this
                 </div>
                 {listing.seller.isDemo && <Pill kind="verified">FLIPD TEAM</Pill>}
               </div>
               {(listing.seller.unit || listing.seller.year) && (
-                <div className="t-meta" style={{ fontSize: 11.5, marginTop: 2 }}>
-                  {[listing.seller.unit, listing.seller.year].filter(Boolean).join(' ')}
+                <div className="t-meta" style={{ fontSize: 12.5, marginTop: 2 }}>
+                  {[listing.seller.unit, listing.seller.year].filter(Boolean).join(' · ')}
                 </div>
               )}
             </div>
           </div>
+        </div>
 
+        {/* Right: price + action panel */}
+        <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 16, padding: 24, boxShadow: 'var(--shadow)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 18 }}>
+            <span style={{ fontWeight: 800, fontSize: 28, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{listing.priceLabel}</span>
+            {listing.negotiable && <span className="t-meta" style={{ fontSize: 13 }}>or best offer</span>}
+          </div>
           {!preview && listing.mine ? (
             listing.archived ? (
               <>
@@ -385,7 +390,7 @@ export function WebListingDetail({
               </>
             )
           ) : reveal?.status === 'APPROVED' && reveal.contact ? (
-            <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 12, padding: '16px 18px' }}>
+            <div>
               <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 12 }}>CONTACT</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {reveal.contact.instagram && (
@@ -407,18 +412,18 @@ export function WebListingDetail({
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {reveal?.status === 'PENDING' ? (
-                  <Button kind="secondary" full size="lg" icon="shield" disabled>Requested — waiting on seller</Button>
+                  <Button kind="secondary" full size="lg" disabled>Requested — waiting on seller</Button>
                 ) : (
-                  <Button kind="primary" full size="lg" onClick={preview ? () => {} : onReveal} icon="shield" disabled={preview}>Reveal Contact</Button>
+                  <Button kind="primary" full size="lg" onClick={preview ? () => {} : onReveal} disabled={preview}>Reveal Contact</Button>
                 )}
-                <Button kind={saved ? 'primary' : 'secondary'} size="lg" icon="bookmark" onClick={() => { if (!preview) store.toggleSave(listing.id); }} disabled={preview}>
-                  {saved ? 'Saved' : 'Save'}
+                <Button kind="secondary" full size="lg" onClick={() => { if (!preview) store.toggleSave(listing.id); }} disabled={preview}>
+                  {saved ? 'Saved' : 'Save for later'}
                 </Button>
               </div>
-              <div className="t-meta" style={{ fontSize: 11, marginTop: 12, textAlign: 'center', color: 'var(--muted)' }}>
-                Your name, school, and year will be shared with the seller.
+              <div className="t-meta" style={{ fontSize: 11.5, marginTop: 14, textAlign: 'center', color: 'var(--muted)' }}>
+                {listing.seller.name.split(' ')[0]} will see your name, school, and year — everyone here is verified USC.
               </div>
             </>
           )}
