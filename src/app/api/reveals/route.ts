@@ -129,6 +129,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'cannot request your own listing' }, { status: 400 });
   }
 
+  // Blocks are mutual for requests: neither party can request the other.
+  const { data: blockRows } = await admin
+    .from('blocks')
+    .select('blocker_id')
+    .or(`and(blocker_id.eq.${user.id},blocked_id.eq.${listing.seller_id}),and(blocker_id.eq.${listing.seller_id},blocked_id.eq.${user.id})`);
+  if ((blockRows ?? []).length > 0) {
+    return NextResponse.json({ error: 'You can’t send a request for this listing.' }, { status: 403 });
+  }
+
   const { data, error } = await admin
     .from('reveal_requests')
     .insert({ listing_id, buyer_id: user.id, seller_id: listing.seller_id, offer: offerAmount })

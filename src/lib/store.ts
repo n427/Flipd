@@ -151,6 +151,10 @@ export interface FlipdStore {
   respondReveal: (id: string, action: 'approve' | 'decline' | 'complete', opts?: { markSold?: boolean }) => Promise<boolean>;
   latestRevealFor: (listingId: string) => ActivityItem | undefined;
   pendingByListing: Record<string, number>;
+  blockedIds: Set<string>;
+  blockUser: (userId: string) => Promise<boolean>;
+  unblockUser: (userId: string) => Promise<boolean>;
+  reportTarget: (target: { listingId?: string; userId?: string }, reason: string, note?: string) => Promise<boolean>;
   unreadCount: number;
   markAllSeen: () => Promise<void>;
   dismissNotification: (id: string) => Promise<void>;
@@ -171,6 +175,7 @@ export function useFlipdStore(): FlipdStore {
   const [listingsLoading, setListingsLoading] = React.useState(true);
   const [savedIds, setSavedIds] = React.useState<Set<string>>(() => new Set());
   const [activity, setActivity] = React.useState<ActivityItem[]>([]);
+  const [blockedIds, setBlockedIds] = React.useState<Set<string>>(() => new Set());
 
   const refreshActivity = React.useCallback(async () => {
     const res = await fetch('/api/reveals').catch(() => null);
@@ -210,6 +215,11 @@ export function useFlipdStore(): FlipdStore {
     fetch('/api/saves')
       .then((r) => r.json())
       .then(({ ids }) => { if (alive && Array.isArray(ids)) setSavedIds(new Set(ids)); })
+      .catch(() => {});
+
+    fetch('/api/blocks')
+      .then((r) => r.json())
+      .then(({ ids }) => { if (alive && Array.isArray(ids)) setBlockedIds(new Set(ids)); })
       .catch(() => {});
 
     refreshActivity();
@@ -346,6 +356,38 @@ export function useFlipdStore(): FlipdStore {
     setMeId(profile?.id ?? null);
   };
 
+  const blockUser = async (userId: string) => {
+    const res = await fetch('/api/blocks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId }),
+    }).catch(() => null);
+    if (!res || !res.ok) return false;
+    setBlockedIds((prev) => new Set([...prev, userId]));
+    setListings((prev) => prev.filter((l) => l.seller.id !== userId));
+    return true;
+  };
+
+  const unblockUser = async (userId: string) => {
+    const res = await fetch('/api/blocks', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId }),
+    }).catch(() => null);
+    if (!res || !res.ok) return false;
+    setBlockedIds((prev) => { const next = new Set(prev); next.delete(userId); return next; });
+    return true;
+  };
+
+  const reportTarget = async (target: { listingId?: string; userId?: string }, reason: string, note?: string) => {
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listing_id: target.listingId, user_id: target.userId, reason, note }),
+    }).catch(() => null);
+    return Boolean(res && res.ok);
+  };
+
   const markAllSeen = async () => {
     setActivity((prev) => prev.map((a) => ({ ...a, unread: false })));
     await fetch('/api/reveals/seen', {
@@ -394,7 +436,7 @@ export function useFlipdStore(): FlipdStore {
   return {
     me, listings, listingsLoading, savedIds, activity,
     isSaved, toggleSave, addListing, updateListing, removeListing, getListing, setArchived,
-    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, unreadCount, markAllSeen, dismissNotification, signOut,
+    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, blockedIds, blockUser, unblockUser, reportTarget, unreadCount, markAllSeen, dismissNotification, signOut,
     myListings, pastListings, savedListings, pendingCount,
   };
 }

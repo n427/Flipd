@@ -31,13 +31,22 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Blocked sellers disappear from the blocker's feed (one direction only).
+  const { data: myBlocks } = await supabase
+    .from('blocks')
+    .select('blocked_id')
+    .eq('blocker_id', user.id);
+  const blockedIds = new Set((myBlocks ?? []).map((b) => b.blocked_id));
+
   // Buyer-facing "spoken for": listings with an active (pending/approved) request.
   const { data: activeReqs } = await supabase
     .from('reveal_requests')
     .select('listing_id')
     .in('status', ['pending', 'approved']);
   const spoken = new Set((activeReqs ?? []).map((r) => r.listing_id));
-  const listings = (data ?? []).map((row) => ({ ...row, spoken_for: spoken.has(row.id) }));
+  const listings = (data ?? [])
+    .filter((row) => !blockedIds.has(row.seller_id))
+    .map((row) => ({ ...row, spoken_for: spoken.has(row.id) }));
   return NextResponse.json({ listings });
 }
 

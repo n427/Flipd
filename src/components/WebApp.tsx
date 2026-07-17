@@ -363,6 +363,11 @@ export function WebListingDetail({
   const photos = listing.photo_urls ?? [];
   const [lightbox, setLightbox] = React.useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
+  const [reportOpen, setReportOpen] = React.useState<null | { listingId?: string; userId?: string; label: string }>(null);
+  const [reportReason, setReportReason] = React.useState('scam');
+  const [reportNote, setReportNote] = React.useState('');
+  const [reportSent, setReportSent] = React.useState(false);
+  const [blockConfirm, setBlockConfirm] = React.useState(false);
   const n = photos.length;
 
   React.useEffect(() => {
@@ -519,6 +524,8 @@ export function WebListingDetail({
       {listing.description}
     </p>
   ) : null;
+  const isBlockedSeller = !preview && !listing.mine && store.blockedIds.has(listing.seller.id);
+  const trustLinkStyle: React.CSSProperties = { background: 'none', border: 0, padding: 0, fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 500, color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 };
   const sellerRow = (
     <div style={{ display: 'flex', gap: 12, alignItems: 'center', borderTop: '1px solid var(--rule)', marginTop: 22, paddingTop: 18 }}>
       <Avatar name={listing.seller.name} size={40} tone="cream" />
@@ -535,6 +542,21 @@ export function WebListingDetail({
           </div>
         )}
       </div>
+      {!preview && !listing.mine && (
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 14 }}>
+          <button style={trustLinkStyle} onClick={() => { setReportSent(false); setReportOpen({ listingId: listing.id, label: 'this listing' }); }}>
+            Report listing
+          </button>
+          <button style={trustLinkStyle} onClick={() => { setReportSent(false); setReportOpen({ userId: listing.seller.id, label: listing.seller.name.split(' ')[0] }); }}>
+            Report seller
+          </button>
+          {isBlockedSeller ? (
+            <button style={trustLinkStyle} onClick={() => store.unblockUser(listing.seller.id)}>Unblock</button>
+          ) : (
+            <button style={trustLinkStyle} onClick={() => setBlockConfirm(true)}>Block</button>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -612,6 +634,76 @@ export function WebListingDetail({
             </div>
           </div>
         </>
+      )}
+
+      {reportOpen && (
+        <div onClick={() => setReportOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(17,17,17,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: 420, boxShadow: 'var(--shadow-strong)' }}>
+            {reportSent ? (
+              <>
+                <h2 style={{ fontWeight: 800, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 8px' }}>Thanks for the report</h2>
+                <p style={{ fontFamily: 'var(--sans)', fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink-2)', margin: '0 0 20px' }}>
+                  We&rsquo;ll take a look. You won&rsquo;t hear back unless we need more from you.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button kind="primary" onClick={() => setReportOpen(null)}>Done</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 style={{ fontWeight: 800, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 14px' }}>Report {reportOpen.label}</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                  {([['scam', 'Scam or spam'], ['prohibited', 'Prohibited item or service'], ['harassment', 'Harassment or unsafe behavior'], ['other', 'Something else']] as const).map(([id, label]) => (
+                    <label key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)', cursor: 'pointer' }}>
+                      <input type="radio" name="report-reason" checked={reportReason === id} onChange={() => setReportReason(id)} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <textarea
+                  className="field"
+                  rows={2}
+                  value={reportNote}
+                  onChange={(e) => setReportNote(e.target.value.slice(0, 500))}
+                  placeholder="Anything we should know? (optional)"
+                  style={{ marginBottom: 16, resize: 'vertical' }}
+                />
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <Button kind="ghost" onClick={() => setReportOpen(null)} style={{ flex: 1 }}>Cancel</Button>
+                  <Button kind="primary" style={{ flex: 1 }} onClick={async () => {
+                    const ok = await store.reportTarget({ listingId: reportOpen.listingId, userId: reportOpen.userId }, reportReason, reportNote);
+                    if (ok) setReportSent(true);
+                    else alert('Could not send the report — try again.');
+                  }}>
+                    Send report
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {blockConfirm && (
+        <div onClick={() => setBlockConfirm(false)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(17,17,17,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: 400, boxShadow: 'var(--shadow-strong)' }}>
+            <h2 style={{ fontWeight: 800, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 8px' }}>
+              Block {listing.seller.name.split(' ')[0]}?
+            </h2>
+            <p style={{ fontFamily: 'var(--sans)', fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink-2)', margin: '0 0 20px' }}>
+              You won&rsquo;t see their listings anymore, and neither of you can send the other a request. You can undo this anytime from one of their listings.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Button kind="ghost" onClick={() => setBlockConfirm(false)} style={{ flex: 1 }}>Never mind</Button>
+              <Button kind="primary" style={{ flex: 1 }} onClick={async () => {
+                await store.blockUser(listing.seller.id);
+                setBlockConfirm(false);
+              }}>
+                Block
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {deleteConfirm && (
@@ -829,6 +921,7 @@ export function WebCreate({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 44, alignItems: 'start' }}>
         {/* Left: photos */}
         <div>
+          <label className="field-label">Photos<span style={{ color: 'var(--accent)' }}> *</span></label>
           <input
             ref={fileInputRef}
             type="file"
@@ -910,18 +1003,18 @@ export function WebCreate({
 
         {/* Right: details */}
         <div>
-          <label className="field-label">It’s in the category of…</label>
+          <label className="field-label">It’s in the category of…<span style={{ color: 'var(--accent)' }}> *</span></label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
             {CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
               <CategoryChip key={c.id} category={c} active={category === c.id} onClick={() => setCategory(c.id)} />
             ))}
           </div>
 
-          <label className="field-label">Give it a title</label>
+          <label className="field-label">Give it a title<span style={{ color: 'var(--accent)' }}> *</span></label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className="field" placeholder="e.g. Mini fridge, two gentle years old" style={{ marginBottom: 22 }} />
 
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
-            <label className="field-label" style={{ margin: 0 }}>Tell its story</label>
+            <label className="field-label" style={{ margin: 0 }}>Tell its story<span style={{ color: 'var(--accent)' }}> *</span></label>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
               {aiError && <span style={{ fontFamily: 'var(--sans)', fontSize: 12, color: 'var(--accent)' }}>{aiError}</span>}
               <button
@@ -950,7 +1043,7 @@ export function WebCreate({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 12, marginBottom: 22, alignItems: 'end' }}>
             <div>
-              <label className="field-label">Price</label>
+              <label className="field-label">Price<span style={{ color: 'var(--accent)' }}> *</span></label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 600 }}>$</span>
                 <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" className="field" placeholder="40" style={{ paddingLeft: 28, fontWeight: 600 }} />
@@ -969,7 +1062,7 @@ export function WebCreate({
             </button>
           </div>
 
-          <label className="field-label">Where you’ll meet</label>
+          <label className="field-label">Where you’ll meet<span style={{ color: 'var(--accent)' }}> *</span></label>
           <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="USC Village" className="field" style={{ marginBottom: 22 }} />
 
           <label className="field-label">How buyers reach you</label>
