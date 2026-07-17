@@ -44,7 +44,13 @@ export async function POST(req: NextRequest) {
   const price = parseInt((formData.get('price') as string) || '0', 10);
   const negotiable = formData.get('negotiable') === 'true';
   const location = formData.get('location') as string | null;
-  const contact = JSON.parse((formData.get('contact') as string) || '[]') as string[];
+  // Contact comes from the seller's profile now, not the form.
+  const { data: sellerProfile } = await supabase
+    .from('profiles')
+    .select('contact_method')
+    .eq('id', user.id)
+    .single();
+  const contact = sellerProfile?.contact_method ? [sellerProfile.contact_method] : [];
   const photoFocusRaw = formData.getAll('photo_focus') as string[];
   const photoFiles = formData.getAll('photos') as File[];
 

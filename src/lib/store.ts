@@ -53,8 +53,9 @@ export function formatPostedDate(iso?: string | null): string {
 
 function classYearLabel(year: string | null): string {
   if (!year) return '';
-  const two = year.slice(-2);
-  return two ? `’${two}` : '';
+  // Numeric years abbreviate ("2027" -> ’27); named years ("Junior") pass through.
+  if (/^\d{4}$/.test(year)) return `’${year.slice(-2)}`;
+  return year;
 }
 
 function mapSeller(row: DbListing): Seller {
@@ -133,6 +134,7 @@ export interface FlipdStore {
   requestReveal: (listingId: string) => Promise<{ ok: boolean; error?: string }>;
   respondReveal: (id: string, action: 'approve' | 'decline') => Promise<boolean>;
   refreshActivity: () => Promise<void>;
+  refreshMe: () => Promise<void>;
   myRevealFor: (listingId: string) => ActivityItem | undefined;
   signOut: () => Promise<void>;
   myListings: Listing[];
@@ -287,6 +289,14 @@ export function useFlipdStore(): FlipdStore {
     return true;
   };
 
+  const refreshMe = async () => {
+    const res = await fetch('/api/me').catch(() => null);
+    if (!res || !res.ok) return;
+    const { profile } = await res.json();
+    setMe(profile);
+    setMeId(profile?.id ?? null);
+  };
+
   const myRevealFor = (listingId: string) =>
     activity.find((a) => a.dir === 'out' && a.listingId === listingId &&
       (a.status === 'PENDING' || a.status === 'APPROVED'));
@@ -304,7 +314,7 @@ export function useFlipdStore(): FlipdStore {
   return {
     me, listings, listingsLoading, savedIds, activity,
     isSaved, toggleSave, addListing, getListing, setArchived,
-    requestReveal, respondReveal, refreshActivity, myRevealFor, signOut,
+    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, signOut,
     myListings, pastListings, savedListings, pendingCount,
   };
 }

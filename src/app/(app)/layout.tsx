@@ -14,6 +14,13 @@ function AppChrome({ children }: { children: React.ReactNode }) {
   const [query, setQuery] = React.useState('');
   const [notifOpen, setNotifOpen] = React.useState(false);
 
+  // Onboarding is required: identity + contact method must exist before the app.
+  React.useEffect(() => {
+    if (store.me && (!store.me.display_name || !store.me.contact_method)) {
+      router.replace('/onboarding');
+    }
+  }, [store.me, router]);
+
   const onSearch = (q: string) => {
     setQuery(q);
     router.push(q ? `/feed?q=${encodeURIComponent(q)}` : '/feed');
@@ -32,6 +39,7 @@ function AppChrome({ children }: { children: React.ReactNode }) {
         onBell={() => setNotifOpen(true)}
         pendingCount={store.pendingCount}
         meName={store.me?.display_name ?? 'Me'}
+        meAvatarUrl={store.me?.avatar_url ?? undefined}
       />
       {children}
       {notifOpen && (

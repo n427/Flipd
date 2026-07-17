@@ -14,6 +14,7 @@ export default function ProfilePage() {
       onListing={(l) => router.push(`/listing/${l.id}`)}
       onApprove={(id) => store.respondReveal(id, 'approve')}
       onDecline={(id) => store.respondReveal(id, 'decline')}
+      onEdit={() => router.push('/profile/edit')}
     />
   );
 }

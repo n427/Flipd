@@ -15,11 +15,11 @@ export async function GET(req: NextRequest) {
 
   const { data: profile } = await admin
     .from('profiles')
-    .select('display_name')
+    .select('display_name, contact_method')
     .eq('id', data.user.id)
     .single();
 
   return NextResponse.redirect(
-    profile?.display_name ? `${origin}/feed` : `${origin}/onboarding`,
+    profile?.display_name && profile?.contact_method ? `${origin}/feed` : `${origin}/onboarding`,
   );
 }

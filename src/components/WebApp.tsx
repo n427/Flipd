@@ -9,7 +9,7 @@ import { Icon } from './Icon';
 import { Avatar, Button, Callout, CategoryChip, ListingCard, Pill, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
-import type { ActivityItem, ContactMethod, Listing, PhotoTone } from '@/lib/types';
+import type { ActivityItem, Listing, PhotoTone } from '@/lib/types';
 
 interface DropdownOption { id: string; label: string; }
 
@@ -66,11 +66,11 @@ function WebDropdown({
 
 // ── Header ───────────────────────────────────────────────────────────
 export function WebAppHeader({
-  onLogo, query, setQuery, onPost, onProfile, onBell, pendingCount, meName,
+  onLogo, query, setQuery, onPost, onProfile, onBell, pendingCount, meName, meAvatarUrl,
 }: {
   onLogo: () => void; query: string; setQuery: (q: string) => void;
   onPost: () => void; onProfile: () => void; onBell: () => void; pendingCount: number;
-  meName: string;
+  meName: string; meAvatarUrl?: string;
 }) {
   return (
     <header style={{ padding: '14px 32px', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', gap: 28, position: 'sticky', top: 0, zIndex: 30 }}>
@@ -102,7 +102,7 @@ export function WebAppHeader({
         </button>
         <Button kind="primary" size="sm" icon="plus" onClick={onPost}>Post a listing</Button>
         <button onClick={onProfile} aria-label="Your profile" style={{ background: 'none', border: 0, padding: 0 }}>
-          <Avatar name={meName} size={30} tone="ink" />
+          <Avatar name={meName} src={meAvatarUrl} size={30} tone="ink" />
         </button>
       </div>
     </header>
@@ -550,7 +550,6 @@ export function WebCreate({
   const [price, setPrice] = React.useState('');
   const [neg, setNeg] = React.useState(false);
   const [location, setLocation] = React.useState('');
-  const [contact, setContact] = React.useState<ContactMethod[]>([]);
   const [description, setDescription] = React.useState('');
   const [aiLoading, setAiLoading] = React.useState(false);
   const [photos, setPhotos] = React.useState<{ file: File; url: string }[]>([]);
@@ -653,7 +652,7 @@ export function WebCreate({
     !description.trim() && 'a description',
     !price.trim() && 'a price',
     !location.trim() && 'a pickup location',
-    contact.length === 0 && 'a contact method',
+    !store.me?.contact_method && 'a contact method (set it in your profile)',
   ].filter(Boolean) as string[];
 
   const publish = () => {
@@ -668,7 +667,6 @@ export function WebCreate({
     fd.append('price', price);
     fd.append('negotiable', String(neg));
     fd.append('location', location);
-    fd.append('contact', JSON.stringify(contact));
     photos.forEach((p) => fd.append('photos', p.file, p.file.name));
     photoFocus.forEach((f) => fd.append('photo_focus', f));
     onPublish(fd);
@@ -826,15 +824,12 @@ export function WebCreate({
           <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="USC Village" className="field" style={{ marginBottom: 22 }} />
 
           <label className="field-label">How buyers reach you</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {([{ id: 'instagram', label: 'Instagram' }, { id: 'phone', label: 'Text' }, { id: 'email', label: 'Email' }] as const).map((c) => {
-              const active = contact.includes(c.id);
-              return (
-                <button key={c.id} onClick={() => setContact((prev) => prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id])} style={{ background: active ? 'var(--ink)' : '#fff', color: active ? '#fff' : 'var(--ink-2)', border: '1px solid ' + (active ? 'var(--ink)' : 'var(--rule)'), borderRadius: 999, padding: '8px 16px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
-                  {c.label}
-                </button>
-              );
-            })}
+          <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)' }}>
+            {store.me?.contact_method ? (
+              <>Via {({ instagram: 'Instagram', phone: 'text', email: 'email' } as Record<string, string>)[store.me.contact_method]}, from your profile.</>
+            ) : (
+              <span style={{ color: 'var(--accent)' }}>Add a contact method in your profile first.</span>
+            )}
           </div>
         </div>
       </div>
@@ -864,8 +859,8 @@ function EmptyState({ icon, title, sub }: { icon: string; title: string; sub: st
 
 // ── Profile (web) ───────────────────────────────────────────────────
 export function WebProfile({
-  store, onListing, onApprove, onDecline,
-}: { store: FlipdStore; onListing: (l: Listing) => void; onApprove: (id: string) => void; onDecline: (id: string) => void }) {
+  store, onListing, onApprove, onDecline, onEdit,
+}: { store: FlipdStore; onListing: (l: Listing) => void; onApprove: (id: string) => void; onDecline: (id: string) => void; onEdit: () => void }) {
   const [tab, setTab] = React.useState<'listings' | 'past' | 'saved' | 'activity'>('listings');
   const displayName = store.me?.display_name ?? 'Your profile';
   const avatarName = store.me?.display_name ?? 'Me';
@@ -874,18 +869,24 @@ export function WebProfile({
       {/* Banner */}
       <div style={{ background: '#fff', borderBottom: '1px solid var(--rule)', position: 'relative' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 32px 0', display: 'flex', alignItems: 'center', gap: 20 }}>
-          <Avatar name={avatarName} size={76} tone="ink" />
+          <Avatar name={avatarName} src={store.me?.avatar_url ?? undefined} size={76} tone="ink" />
           <div style={{ flex: 1 }}>
             <h1 style={{ fontWeight: 800, fontSize: 26, color: 'var(--ink)', letterSpacing: '-0.03em', margin: '0 0 4px' }}>
               {displayName}
             </h1>
             <div className="t-meta" style={{ fontSize: 13.5 }}>
-              {[store.me?.school_unit, store.me?.class_year].filter(Boolean).join(' ')} · joined {formatPostedDate(store.me?.created_at) || 'recently'}
+              {[store.me?.school_unit, store.me?.class_year].filter(Boolean).join(' · ')}{[store.me?.school_unit, store.me?.class_year].some(Boolean) ? ' · ' : ''}joined {formatPostedDate(store.me?.created_at) || 'recently'}
             </div>
+            {store.me?.bio && (
+              <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)', marginTop: 6, maxWidth: 520 }}>
+                {store.me.bio}
+              </div>
+            )}
           </div>
+          <Button kind="secondary" size="sm" onClick={onEdit}>Edit profile</Button>
           <button
             onClick={() => store.signOut()}
-            style={{ background: 'none', border: 0, padding: 0, fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500, color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+            style={{ background: 'none', border: 0, padding: 0, marginLeft: 14, fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500, color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
           >
             Sign out
           </button>
@@ -1024,6 +1025,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         onBell={() => setNotifOpen(true)}
         pendingCount={store.pendingCount}
         meName={store.me?.display_name ?? 'Me'}
+        meAvatarUrl={store.me?.avatar_url ?? undefined}
       />
 
       {view === 'feed' && store.listingsLoading && (
@@ -1058,7 +1060,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
           }}
         />
       )}
-      {view === 'profile' && <WebProfile store={store} onListing={goDetail} onApprove={approve} onDecline={decline} />}
+      {view === 'profile' && <WebProfile store={store} onListing={goDetail} onApprove={approve} onDecline={decline} onEdit={() => {}} />}
 
       {modal === 'reveal' && selected && (
         <RevealModal

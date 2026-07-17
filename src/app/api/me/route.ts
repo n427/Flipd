@@ -10,9 +10,11 @@ export async function GET() {
 }
 
 const EDITABLE = [
-  'display_name', 'handle', 'school_unit', 'class_year',
-  'contact_instagram', 'contact_phone', 'contact_email',
+  'display_name', 'handle', 'school_unit', 'class_year', 'bio', 'avatar_url',
+  'contact_method', 'contact_instagram', 'contact_phone', 'contact_email',
 ] as const;
+
+const CONTACT_METHODS = ['instagram', 'phone', 'email'];
 
 export async function PATCH(req: NextRequest) {
   const user = await getSessionUser();
@@ -25,6 +27,9 @@ export async function PATCH(req: NextRequest) {
   }
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
+  }
+  if (update.contact_method && !CONTACT_METHODS.includes(update.contact_method)) {
+    return NextResponse.json({ error: 'invalid contact method' }, { status: 400 });
   }
   const { data, error } = await admin
     .from('profiles')

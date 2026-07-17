@@ -19,9 +19,12 @@ export interface Profile {
   handle: string | null;
   school_unit: string | null;
   class_year: string | null;
+  contact_method: 'instagram' | 'phone' | 'email' | null;
   contact_instagram: string | null;
   contact_phone: string | null;
   contact_email: string | null;
+  bio: string | null;
+  avatar_url: string | null;
   is_demo: boolean;
   created_at: string;
 }

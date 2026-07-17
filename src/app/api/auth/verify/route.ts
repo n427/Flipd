@@ -30,9 +30,9 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await admin
     .from('profiles')
-    .select('display_name')
+    .select('display_name, contact_method')
     .eq('id', data.user.id)
     .single();
 
-  return NextResponse.json({ ok: true, onboarded: Boolean(profile?.display_name) });
+  return NextResponse.json({ ok: true, onboarded: Boolean(profile?.display_name && profile?.contact_method) });
 }

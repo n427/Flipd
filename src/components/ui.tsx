@@ -25,8 +25,8 @@ export function Pill({
 
 // ── Avatar (initials, neutral palette) ──────────────────────────────
 export function Avatar({
-  name = '?', size = 28, tone = 'cream',
-}: { name?: string; size?: number; tone?: PhotoTone }) {
+  name = '?', size = 28, tone = 'cream', src,
+}: { name?: string; size?: number; tone?: PhotoTone; src?: string }) {
   const initials = name.split(' ').map((s) => s[0]).slice(0, 2).join('').toUpperCase();
   const dark = tone === 'cardinal' || tone === 'ink';
   return (
@@ -37,9 +37,10 @@ export function Avatar({
         color: dark ? '#fff' : 'var(--ink)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontWeight: 600, fontSize: size * 0.4, letterSpacing: '0.02em', flexShrink: 0,
+        overflow: 'hidden',
       }}
     >
-      {initials}
+      {src ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
     </div>
   );
 }
@@ -137,6 +138,9 @@ export function ListingCard({
         </div>
         <div className="t-meta" style={{ fontSize: 13, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {listing.meta.split(' · ')[0]}
+        </div>
+        <div className="t-meta" style={{ fontSize: 12, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {[listing.seller.name.split(' ')[0], listing.seller.unit, listing.seller.year].filter(Boolean).join(' · ')}
         </div>
         <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em', color: listing.priceLabel === 'Free' ? 'var(--accent)' : 'var(--ink)' }}>
           {listing.priceLabel}
