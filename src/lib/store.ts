@@ -40,7 +40,8 @@ type RevealDto = {
   status: RevealStatus;
   created_at: string;
   expires_at: string;
-  counterpart: { id: string; display_name: string | null; school_unit: string | null; class_year: string | null } | null;
+  counterpart: { id: string; display_name: string | null; school_unit: string | null; class_year: string | null; avatar_url: string | null } | null;
+  listing_archived?: boolean;
   contact?: RevealContact;
 };
 
@@ -112,9 +113,12 @@ function mapReveal(dto: RevealDto, dir: 'in' | 'out'): ActivityItem {
     who: dto.counterpart?.display_name ?? 'Flipd member',
     school: [dto.counterpart?.school_unit, classYearLabel(dto.counterpart?.class_year ?? null)]
       .filter(Boolean).join(' '),
+    avatarUrl: dto.counterpart?.avatar_url ?? undefined,
     listingTitle: dto.listing_title,
     listingId: dto.listing_id,
+    listingArchived: dto.listing_archived ?? false,
     when: timeAgo(dto.created_at),
+    expiresAt: dto.expires_at,
     status: effectiveRevealStatus(dto.status, dto.expires_at).toUpperCase() as ActivityStatus,
     contact: dto.contact,
   };
@@ -132,7 +136,9 @@ export interface FlipdStore {
   getListing: (id: string) => Promise<Listing | null>;
   setArchived: (id: string, archived: boolean) => Promise<boolean>;
   requestReveal: (listingId: string) => Promise<{ ok: boolean; error?: string }>;
-  respondReveal: (id: string, action: 'approve' | 'decline') => Promise<boolean>;
+  respondReveal: (id: string, action: 'approve' | 'decline', opts?: { markSold?: boolean }) => Promise<boolean>;
+  latestRevealFor: (listingId: string) => ActivityItem | undefined;
+  pendingByListing: Record<string, number>;
   refreshActivity: () => Promise<void>;
   refreshMe: () => Promise<void>;
   myRevealFor: (listingId: string) => ActivityItem | undefined;
@@ -276,16 +282,23 @@ export function useFlipdStore(): FlipdStore {
     return { ok: true };
   };
 
-  const respondReveal = async (id: string, action: 'approve' | 'decline') => {
+  const respondReveal = async (id: string, action: 'approve' | 'decline', opts: { markSold?: boolean } = {}) => {
     const res = await fetch(`/api/reveals/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, mark_sold: opts.markSold === true }),
     }).catch(() => null);
     if (!res || !res.ok) return false;
     setActivity((prev) => prev.map((a) =>
       a.id === id ? { ...a, status: action === 'approve' ? 'APPROVED' : 'DECLINED' } : a,
     ));
+    if (opts.markSold) {
+      const sold = activity.find((a) => a.id === id);
+      if (sold) {
+        setListings((prev) => prev.map((l) => (l.id === sold.listingId ? { ...l, archived: true } : l)));
+        await refreshActivity();
+      }
+    }
     return true;
   };
 
@@ -301,6 +314,18 @@ export function useFlipdStore(): FlipdStore {
     activity.find((a) => a.dir === 'out' && a.listingId === listingId &&
       (a.status === 'PENDING' || a.status === 'APPROVED'));
 
+  // Newest request regardless of status — activity is sorted newest-first.
+  const latestRevealFor = (listingId: string) =>
+    activity.find((a) => a.dir === 'out' && a.listingId === listingId);
+
+  // Pending incoming requests per owned listing, for seller badges.
+  const pendingByListing: Record<string, number> = {};
+  for (const a of activity) {
+    if (a.dir === 'in' && a.status === 'PENDING') {
+      pendingByListing[a.listingId] = (pendingByListing[a.listingId] ?? 0) + 1;
+    }
+  }
+
   const signOut = async () => {
     await fetch('/api/auth/signout', { method: 'POST' }).catch(() => {});
     window.location.href = '/';
@@ -314,7 +339,7 @@ export function useFlipdStore(): FlipdStore {
   return {
     me, listings, listingsLoading, savedIds, activity,
     isSaved, toggleSave, addListing, getListing, setArchived,
-    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, signOut,
+    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, signOut,
     myListings, pastListings, savedListings, pendingCount,
   };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveRevealStatus, isUscEmail } from './validation';
+import { effectiveRevealStatus, isUscEmail, timeLeftLabel } from './validation';
 
 describe('isUscEmail', () => {
   it('accepts usc.edu addresses case-insensitively', () => {
@@ -26,5 +26,20 @@ describe('effectiveRevealStatus', () => {
   it('never changes resolved statuses', () => {
     expect(effectiveRevealStatus('approved', '2026-07-16T11:00:00Z', now)).toBe('approved');
     expect(effectiveRevealStatus('declined', '2026-07-16T11:00:00Z', now)).toBe('declined');
+  });
+});
+
+describe('timeLeftLabel', () => {
+  const now = new Date('2026-07-17T12:00:00Z');
+  it('shows whole hours remaining', () => {
+    expect(timeLeftLabel('2026-07-20T11:00:00Z', now)).toBe('71h left');
+    expect(timeLeftLabel('2026-07-17T14:30:00Z', now)).toBe('2h left');
+  });
+  it('shows minutes under an hour', () => {
+    expect(timeLeftLabel('2026-07-17T12:40:00Z', now)).toBe('40m left');
+  });
+  it('is empty at or past expiry', () => {
+    expect(timeLeftLabel('2026-07-17T12:00:00Z', now)).toBe('');
+    expect(timeLeftLabel('2026-07-17T11:00:00Z', now)).toBe('');
   });
 });

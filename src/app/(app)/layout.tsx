@@ -37,6 +37,7 @@ function AppChrome({ children }: { children: React.ReactNode }) {
         onPost={() => router.push('/post')}
         onProfile={() => router.push('/profile')}
         onBell={() => setNotifOpen(true)}
+        onRequests={() => router.push('/requests')}
         pendingCount={store.pendingCount}
         meName={store.me?.display_name ?? 'Me'}
         meAvatarUrl={store.me?.avatar_url ?? undefined}

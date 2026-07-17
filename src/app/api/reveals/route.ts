@@ -11,7 +11,7 @@ type RevealRow = {
   status: RevealStatus;
   created_at: string;
   expires_at: string;
-  listing: { title: string; contact: string[] } | null;
+  listing: { title: string; contact: string[]; archived: boolean } | null;
   buyer: ProfileRef | null;
   seller: ProfileRef | null;
 };
@@ -20,15 +20,16 @@ type ProfileRef = {
   display_name: string | null;
   school_unit: string | null;
   class_year: string | null;
+  avatar_url: string | null;
   contact_instagram: string | null;
   contact_phone: string | null;
   contact_email: string | null;
 };
 
 const SELECT = `id, listing_id, buyer_id, seller_id, status, created_at, expires_at,
-  listing:listings(title, contact),
-  buyer:profiles!reveal_requests_buyer_id_fkey(id, display_name, school_unit, class_year, contact_instagram, contact_phone, contact_email),
-  seller:profiles!reveal_requests_seller_id_fkey(id, display_name, school_unit, class_year, contact_instagram, contact_phone, contact_email)`;
+  listing:listings(title, contact, archived),
+  buyer:profiles!reveal_requests_buyer_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email),
+  seller:profiles!reveal_requests_seller_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email)`;
 
 function toDto(row: RevealRow, viewerId: string) {
   const status = effectiveRevealStatus(row.status, row.expires_at);
@@ -39,11 +40,13 @@ function toDto(row: RevealRow, viewerId: string) {
     display_name: counterpartRaw.display_name,
     school_unit: counterpartRaw.school_unit,
     class_year: counterpartRaw.class_year,
+    avatar_url: counterpartRaw.avatar_url,
   };
   const dto: Record<string, unknown> = {
     id: row.id,
     listing_id: row.listing_id,
     listing_title: row.listing?.title ?? '',
+    listing_archived: row.listing?.archived ?? false,
     status,
     created_at: row.created_at,
     expires_at: row.expires_at,

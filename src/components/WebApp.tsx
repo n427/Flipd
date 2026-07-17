@@ -9,6 +9,7 @@ import { Icon } from './Icon';
 import { Avatar, Button, Callout, CategoryChip, ListingCard, Pill, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
+import { timeLeftLabel } from '@/lib/validation';
 import type { ActivityItem, Listing, PhotoTone } from '@/lib/types';
 
 interface DropdownOption { id: string; label: string; }
@@ -66,10 +67,10 @@ function WebDropdown({
 
 // ── Header ───────────────────────────────────────────────────────────
 export function WebAppHeader({
-  onLogo, query, setQuery, onPost, onProfile, onBell, pendingCount, meName, meAvatarUrl,
+  onLogo, query, setQuery, onPost, onProfile, onBell, onRequests, pendingCount, meName, meAvatarUrl,
 }: {
   onLogo: () => void; query: string; setQuery: (q: string) => void;
-  onPost: () => void; onProfile: () => void; onBell: () => void; pendingCount: number;
+  onPost: () => void; onProfile: () => void; onBell: () => void; onRequests: () => void; pendingCount: number;
   meName: string; meAvatarUrl?: string;
 }) {
   return (
@@ -94,11 +95,14 @@ export function WebAppHeader({
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>
+        <button onClick={onRequests} style={{ background: 'none', border: 0, padding: '6px 8px', position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}>
+          Requests
+          {pendingCount > 0 && (
+            <span style={{ minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{pendingCount}</span>
+          )}
+        </button>
         <button onClick={onBell} aria-label="Notifications" style={{ background: 'none', border: 0, padding: 8, position: 'relative' }}>
           <Icon name="bell" size={18} color="var(--ink)" />
-          {pendingCount > 0 && (
-            <span style={{ position: 'absolute', top: 2, right: 2, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>{pendingCount}</span>
-          )}
         </button>
         <Button kind="primary" size="sm" icon="plus" onClick={onPost}>Post a listing</Button>
         <button onClick={onProfile} aria-label="Your profile" style={{ background: 'none', border: 0, padding: 0 }}>
@@ -128,7 +132,22 @@ function ActivityRow({
           {a.dir === 'in' ? 'wants to connect about' : a.status === 'APPROVED' ? 'approved your request for' : 'on'}{' '}
           <span style={{ color: 'var(--ink-2)' }}>&quot;{a.listingTitle}&quot;</span>
         </div>
-        <div className="t-meta" style={{ fontSize: 11, marginTop: 3 }}>{a.school} · {a.when} ago</div>
+        <div className="t-meta" style={{ fontSize: 11, marginTop: 3 }}>
+          {a.school} · {a.when} ago
+          {a.status === 'PENDING' && timeLeftLabel(a.expiresAt) && (
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}> · {timeLeftLabel(a.expiresAt)}</span>
+          )}
+        </div>
+        {a.dir === 'out' && a.status === 'DECLINED' && (
+          <div style={{ fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--ink-2)', marginTop: 6 }}>
+            {a.listingArchived ? 'This item is no longer available.' : 'The seller went a different direction this time.'}
+          </div>
+        )}
+        {a.dir === 'out' && a.status === 'EXPIRED' && (
+          <div style={{ fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--ink-2)', marginTop: 6 }}>
+            This request expired after 72 hours.
+          </div>
+        )}
 
         {a.dir === 'out' && a.status === 'APPROVED' && a.contact && (
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
@@ -277,6 +296,7 @@ export function WebListingDetail({
 }: { store: FlipdStore; listing: Listing; onBack: () => void; onReveal: () => void; preview?: boolean }) {
   const saved = preview ? false : store.isSaved(listing.id);
   const reveal = preview ? undefined : store.myRevealFor(listing.id);
+  const latestReveal = preview ? undefined : store.latestRevealFor(listing.id);
   const photos = listing.photo_urls ?? [];
   const [lightbox, setLightbox] = React.useState<number | null>(null);
   const n = photos.length;
@@ -337,6 +357,11 @@ export function WebListingDetail({
         </>
       ) : (
         <>
+          {(store.pendingByListing[listing.id] ?? 0) > 0 && (
+            <a href="/requests" style={{ display: 'block', background: 'var(--surface)', borderRadius: 10, padding: '12px 14px', marginBottom: 12, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', textDecoration: 'none' }}>
+              {store.pendingByListing[listing.id]} pending request{store.pendingByListing[listing.id] === 1 ? '' : 's'} — review →
+            </a>
+          )}
           <Button kind="secondary" full={full} size="lg" onClick={async () => { await store.setArchived(listing.id, true); onBack(); }}>
             Move to past listings
           </Button>
@@ -367,10 +392,24 @@ export function WebListingDetail({
         </div>
       </div>
     ) : (
+      latestReveal?.status === 'DECLINED' ? (
+      <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink-2)' }}>
+        {latestReveal.listingArchived
+          ? 'This item is no longer available.'
+          : 'The seller went a different direction this time.'}
+      </div>
+    ) : (
       <>
+        {latestReveal?.status === 'EXPIRED' && (
+          <div style={{ fontFamily: 'var(--sans)', fontSize: 13, color: 'var(--muted)', marginBottom: 10 }}>
+            Your request expired — you can ask again.
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: full ? 'column' : 'row', gap: 10 }}>
           {reveal?.status === 'PENDING' ? (
-            <Button kind="secondary" full={full} size="lg" disabled>Requested — waiting on seller</Button>
+            <Button kind="secondary" full={full} size="lg" disabled>
+              {timeLeftLabel(reveal.expiresAt) ? `Requested · ${timeLeftLabel(reveal.expiresAt)}` : 'Requested — waiting on seller'}
+            </Button>
           ) : (
             <Button kind="primary" full={full} size="lg" onClick={preview ? () => {} : onReveal} disabled={preview}>Reveal Contact</Button>
           )}
@@ -382,6 +421,7 @@ export function WebListingDetail({
           {listing.seller.name.split(' ')[0]} will see your name, school, and year — everyone here is verified USC.
         </div>
       </>
+      )
     )
   );
 
@@ -894,7 +934,7 @@ export function WebProfile({
         {/* Tabs */}
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '20px 32px 0', display: 'flex', gap: 28 }}>
           {([
-            { id: 'listings', label: 'My Listings', count: store.myListings.length },
+            { id: 'listings', label: 'My Listings', count: store.pendingCount || null },
             { id: 'past', label: 'Past Listings', count: store.pastListings.length },
             { id: 'saved', label: 'Saved', count: store.savedListings.length },
             { id: 'activity', label: 'Activity', count: store.pendingCount || null },
@@ -917,7 +957,16 @@ export function WebProfile({
             <EmptyState icon="tag" title="No listings yet" sub="Tap Post a listing to put your first item on the feed." />
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
-              {store.myListings.map((l) => <ListingCard key={l.id} listing={l} href={`/listing/${l.id}`} />)}
+              {store.myListings.map((l) => (
+                <div key={l.id} style={{ position: 'relative' }}>
+                  <ListingCard listing={l} href={`/listing/${l.id}`} />
+                  {(store.pendingByListing[l.id] ?? 0) > 0 && (
+                    <span style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, background: 'var(--accent)', color: '#fff', borderRadius: 999, padding: '4px 10px', fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 11 }}>
+                      {store.pendingByListing[l.id]} request{store.pendingByListing[l.id] === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           ))}
         {tab === 'past' &&
@@ -1023,6 +1072,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         onPost={() => setView('create')}
         onProfile={() => setView('profile')}
         onBell={() => setNotifOpen(true)}
+        onRequests={() => setView('profile')}
         pendingCount={store.pendingCount}
         meName={store.me?.display_name ?? 'Me'}
         meAvatarUrl={store.me?.avatar_url ?? undefined}

@@ -67,9 +67,12 @@ export interface ActivityItem {
   dir: ActivityDir;
   who: string;
   school: string;
+  avatarUrl?: string;
   listingTitle: string;
   listingId: string;
+  listingArchived: boolean;
   when: string;
+  expiresAt: string;
   status: ActivityStatus;
   contact?: RevealContact;
 }

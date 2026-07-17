@@ -18,3 +18,12 @@ export function effectiveRevealStatus(
   if (status === 'pending' && new Date(expiresAt).getTime() < now.getTime()) return 'expired';
   return status;
 }
+
+// Human countdown to an expiry timestamp: "71h left", "40m left", '' once past.
+export function timeLeftLabel(expiresAt: string, now: Date = new Date()): string {
+  const ms = new Date(expiresAt).getTime() - now.getTime();
+  if (ms <= 0) return '';
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m left`;
+  return `${Math.floor(mins / 60)}h left`;
+}
