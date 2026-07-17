@@ -434,7 +434,7 @@ export function WebListingDetail({
 
       {n <= 1 ? (
         /* 4a: one photo — page reflows, info beside the square, no side panel */
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 340px) 1fr', gap: 40, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 500px) 1fr', gap: 48, alignItems: 'start' }}>
           <div
             onClick={() => { if (n > 0) setLightbox(0); }}
             style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 16, overflow: 'hidden', cursor: n > 0 ? 'pointer' : 'default', background: 'var(--surface)' }}
