@@ -1,18 +1,18 @@
-/* Flipd — warm market tokens. Warm paper ground, white surfaces with soft
-   warm borders, near-black ink, cardinal reserved for CTAs/accents. Inter only. */
+/* Flipd — clean market tokens. Pure white ground, white surfaces with soft
+   neutral borders, near-black ink, cardinal reserved for CTAs/accents. Inter only. */
 
 :root {
-  --bg: #faf8f5;
+  --bg: #ffffff;
   --ink: #111111;
   --ink-2: #333333;
-  --muted: #9c948a;
-  --muted-2: #b8b0a4;
-  --surface: #f1ede6;
-  --surface-2: #e8e2d8;
+  --muted: #98a0a8;
+  --muted-2: #b6bcc2;
+  --surface: #f2f3f5;
+  --surface-2: #e9eaee;
   --accent: #990000;
   --accent-dark: #6b0000;
-  --rule: #ece7df;
-  --rule-strong: #d9d1c4;
+  --rule: #ececee;
+  --rule-strong: #d9dadd;
 
   /* Legacy aliases — inline styles not yet migrated keep rendering sanely. */
   --cardinal: var(--accent);
@@ -32,9 +32,9 @@
   --r-img: 14px;
   --r-pill: 999px;
 
-  --shadow: 0 1px 3px rgba(70, 50, 20, 0.05);
-  --shadow-hover: 0 10px 30px rgba(70, 50, 20, 0.1);
-  --shadow-strong: 0 8px 30px rgba(70, 50, 20, 0.12);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-hover: 0 10px 30px rgba(0, 0, 0, 0.09);
+  --shadow-strong: 0 8px 30px rgba(0, 0, 0, 0.12);
 }
 
 * { box-sizing: border-box; }
