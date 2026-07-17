@@ -133,6 +133,7 @@ export interface FlipdStore {
   isSaved: (id: string) => boolean;
   toggleSave: (id: string) => void;
   addListing: (formData: FormData) => Promise<Listing | null>;
+  updateListing: (id: string, formData: FormData) => Promise<Listing | null>;
   getListing: (id: string) => Promise<Listing | null>;
   setArchived: (id: string, archived: boolean) => Promise<boolean>;
   requestReveal: (listingId: string) => Promise<{ ok: boolean; error?: string }>;
@@ -246,6 +247,19 @@ export function useFlipdStore(): FlipdStore {
     return mapped;
   };
 
+  const updateListing = async (id: string, formData: FormData): Promise<Listing | null> => {
+    const res = await fetch(`/api/listings/${id}`, { method: 'PATCH', body: formData }).catch(() => null);
+    if (!res || !res.ok) {
+      let detail = res ? `HTTP ${res.status}` : 'Network error';
+      try { const body = await res?.json(); if (body?.error) detail = body.error; } catch { /* no body */ }
+      throw new Error(detail);
+    }
+    const { listing } = await res.json();
+    const mapped = mapDbListing(listing, meId);
+    setListings((prev) => prev.map((l) => (l.id === id ? mapped : l)));
+    return mapped;
+  };
+
   const getListing = async (id: string): Promise<Listing | null> => {
     const local = listings.find((l) => l.id === id);
     if (local) return local;
@@ -338,7 +352,7 @@ export function useFlipdStore(): FlipdStore {
 
   return {
     me, listings, listingsLoading, savedIds, activity,
-    isSaved, toggleSave, addListing, getListing, setArchived,
+    isSaved, toggleSave, addListing, updateListing, getListing, setArchived,
     requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, signOut,
     myListings, pastListings, savedListings, pendingCount,
   };

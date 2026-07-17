@@ -362,6 +362,10 @@ export function WebListingDetail({
               {store.pendingByListing[listing.id]} pending request{store.pendingByListing[listing.id] === 1 ? '' : 's'} — review →
             </a>
           )}
+          <Button kind="primary" full={full} size="lg" onClick={() => { if (typeof window !== 'undefined') window.location.href = `/listing/${listing.id}/edit`; }}>
+            Edit listing
+          </Button>
+          <div style={{ height: 10 }} />
           <Button kind="secondary" full={full} size="lg" onClick={async () => { await store.setArchived(listing.id, true); onBack(); }}>
             Move to past listings
           </Button>
@@ -582,18 +586,20 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
 
 // ── Create listing (web, multi-step) ────────────────────────────────
 export function WebCreate({
-  onPublish, onCancel, store,
-}: { onPublish: (formData: FormData) => void; onCancel: () => void; store: FlipdStore }) {
+  onPublish, onCancel, store, initial, submitLabel = 'Publish listing', heading = 'What are you passing on?',
+}: { onPublish: (formData: FormData) => void; onCancel: () => void; store: FlipdStore; initial?: Listing; submitLabel?: string; heading?: string }) {
   const [attempted, setAttempted] = React.useState(false);
-  const [category, setCategory] = React.useState<string | null>(null);
-  const [title, setTitle] = React.useState('');
-  const [price, setPrice] = React.useState('');
-  const [neg, setNeg] = React.useState(false);
-  const [location, setLocation] = React.useState('');
-  const [description, setDescription] = React.useState('');
+  const [category, setCategory] = React.useState<string | null>(initial?.category ?? null);
+  const [title, setTitle] = React.useState(initial?.title ?? '');
+  const [price, setPrice] = React.useState(initial?.price != null && initial.price > 0 ? String(initial.price) : initial ? '0' : '');
+  const [neg, setNeg] = React.useState(initial?.negotiable ?? false);
+  const [location, setLocation] = React.useState(initial?.meta && initial.meta !== 'USC · pickup' ? initial.meta : '');
+  const [description, setDescription] = React.useState(initial?.description ?? '');
   const [aiLoading, setAiLoading] = React.useState(false);
-  const [photos, setPhotos] = React.useState<{ file: File; url: string }[]>([]);
-  const [photoFocus, setPhotoFocus] = React.useState<string[]>([]);
+  const [photos, setPhotos] = React.useState<{ file?: File; url: string }[]>(
+    () => (initial?.photo_urls ?? []).map((url) => ({ url })),
+  );
+  const [photoFocus, setPhotoFocus] = React.useState<string[]>(initial?.photo_focus ?? []);
   const [cropIndex, setCropIndex] = React.useState(0);
   const [dragIndex, setDragIndex] = React.useState<number | null>(null);
   const dragState = React.useRef<{ startX: number; startY: number; baseX: number; baseY: number; w: number; h: number } | null>(null);
@@ -618,7 +624,7 @@ export function WebCreate({
   const removePhoto = (index: number) => {
     setPhotos((prev) => {
       const next = [...prev];
-      URL.revokeObjectURL(next[index].url);
+      if (next[index].file) URL.revokeObjectURL(next[index].url);
       next.splice(index, 1);
       return next;
     });
@@ -707,7 +713,10 @@ export function WebCreate({
     fd.append('price', price);
     fd.append('negotiable', String(neg));
     fd.append('location', location);
-    photos.forEach((p) => fd.append('photos', p.file, p.file.name));
+    // Order-preserving photo manifest: existing photos travel as URLs, new ones as files.
+    const manifest = photos.map((p) => (p.file ? '__new__' : p.url));
+    fd.append('photo_manifest', JSON.stringify(manifest));
+    photos.forEach((p) => { if (p.file) fd.append('photos', p.file, p.file.name); });
     photoFocus.forEach((f) => fd.append('photo_focus', f));
     onPublish(fd);
   };
@@ -715,7 +724,7 @@ export function WebCreate({
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 32px 80px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '10px 0 32px' }}>
-        <h1 style={{ fontWeight: 800, fontSize: 30, letterSpacing: '-0.03em', color: 'var(--ink)', margin: 0 }}>What are you passing on?</h1>
+        <h1 style={{ fontWeight: 800, fontSize: 30, letterSpacing: '-0.03em', color: 'var(--ink)', margin: 0 }}>{heading}</h1>
         <Button kind="secondary" size="sm" onClick={onCancel}>Exit</Button>
       </div>
 
@@ -876,7 +885,7 @@ export function WebCreate({
 
       <hr className="rule" style={{ margin: '36px 0 20px' }} />
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button kind="primary" size="lg" onClick={publish}>Publish listing</Button>
+        <Button kind="primary" size="lg" onClick={publish}>{submitLabel}</Button>
       </div>
       {attempted && missing.length > 0 && (
         <div style={{ fontSize: 12.5, marginTop: 10, textAlign: 'right', color: 'var(--accent)' }}>
