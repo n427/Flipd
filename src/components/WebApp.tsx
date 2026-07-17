@@ -456,30 +456,20 @@ export function WebCreate({
   const [dragIndex, setDragIndex] = React.useState<number | null>(null);
   const dragState = React.useRef<{ startX: number; startY: number; baseX: number; baseY: number; w: number; h: number } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [pendingSlot, setPendingSlot] = React.useState<number | null>(null);
+
+  const addFiles = (files: FileList | File[]) => {
+    const incoming = Array.from(files)
+      .filter((f) => f.type.startsWith('image/'))
+      .slice(0, Math.max(0, 8 - photos.length));
+    if (incoming.length === 0) return;
+    const mapped = incoming.map((file) => ({ file, url: URL.createObjectURL(file) }));
+    setPhotos((prev) => [...prev, ...mapped]);
+    setPhotoFocus((prev) => [...prev, ...mapped.map(() => '50% 50%')]);
+    setCropIndex(photos.length);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setPhotos((prev) => {
-      const next = [...prev];
-      if (pendingSlot !== null && pendingSlot < next.length) {
-        URL.revokeObjectURL(next[pendingSlot].url);
-        next[pendingSlot] = { file, url };
-      } else {
-        next.push({ file, url });
-      }
-      return next;
-    });
-    setPhotoFocus((prev) => {
-      const next = [...prev];
-      if (pendingSlot !== null && pendingSlot < next.length) next[pendingSlot] = '50% 50%';
-      else next.push('50% 50%');
-      return next;
-    });
-    setCropIndex(pendingSlot !== null ? pendingSlot : photos.length);
-    setPendingSlot(null);
+    if (e.target.files) addFiles(e.target.files);
     e.target.value = '';
   };
 
@@ -615,6 +605,7 @@ export function WebCreate({
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             style={{ display: 'none' }}
             onChange={handleFileChange}
           />
@@ -623,7 +614,24 @@ export function WebCreate({
               Drag photos to reorder · the first photo is your cover
             </div>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, marginBottom: 20 }}>
+          {photos.length === 0 && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+              style={{
+                width: '100%', minHeight: 380, borderRadius: 12,
+                border: '1.5px dashed var(--rule-strong)', background: 'var(--surface)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+                cursor: 'pointer', marginBottom: 20,
+              }}
+            >
+              <Icon name="plus" size={22} color="var(--muted)" />
+              <span style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink-2)' }}>Add photos</span>
+              <span style={{ fontFamily: 'var(--sans)', fontSize: 12, color: 'var(--muted)' }}>or drag them here · up to 8</span>
+            </button>
+          )}
+          <div style={{ display: photos.length === 0 ? 'none' : 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
             {photos.map((p, i) => (
               <div
                 key={i}
@@ -633,7 +641,7 @@ export function WebCreate({
                 onDrop={() => { if (dragIndex !== null) reorderPhotos(dragIndex, i); setDragIndex(null); }}
                 onDragEnd={() => setDragIndex(null)}
                 onClick={() => setCropIndex(i)}
-                style={{ position: 'relative', height: 84, borderRadius: 6, overflow: 'hidden', cursor: 'grab', opacity: dragIndex === i ? 0.4 : 1, outline: cropIndex === i ? '2px solid var(--cardinal)' : 'none', outlineOffset: -1 }}
+                style={{ position: 'relative', height: 110, borderRadius: 8, overflow: 'hidden', cursor: 'grab', opacity: dragIndex === i ? 0.4 : 1, outline: cropIndex === i ? '2px solid var(--ink)' : 'none', outlineOffset: -1 }}
               >
                 <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: photoFocus[i] || '50% 50%' }} />
                 <button
@@ -649,11 +657,11 @@ export function WebCreate({
                 </button>
               </div>
             ))}
-            {photos.length < 8 && (
+            {photos.length > 0 && photos.length < 8 && (
               <button
-                onClick={() => { setPendingSlot(null); fileInputRef.current?.click(); }}
+                onClick={() => fileInputRef.current?.click()}
                 style={{
-                  height: 84, borderRadius: 6, border: '1.5px dashed var(--rule-strong)',
+                  height: 110, borderRadius: 8, border: '1.5px dashed var(--rule-strong)',
                   background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: 'var(--muted-2)', cursor: 'pointer',
                 }}
