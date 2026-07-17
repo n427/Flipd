@@ -129,7 +129,9 @@ button { font: inherit; cursor: pointer; }
   box-shadow: var(--shadow);
   transition: box-shadow 160ms ease-out, transform 160ms ease-out;
 }
-/* Feed tile hover: photo zooms gently inside its rounded frame; no box, no lift. */
+/* Feed tile hover: whole card tints, photo zooms gently. */
+.listing-card { border-radius: 14px; padding: 10px; margin: -10px; transition: background 150ms ease-out; }
+.listing-card:hover { background: var(--surface); }
 .listing-card .listing-photo img { transition: transform 240ms ease-out; }
 .listing-card:hover .listing-photo img { transform: scale(1.04); }
 

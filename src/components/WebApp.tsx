@@ -113,14 +113,14 @@ export function WebAppHeader({
 function ActivityRow({
   a, onApprove, onDecline, last, compact,
 }: { a: ActivityItem; onApprove?: (id: string) => void; onDecline?: (id: string) => void; last?: boolean; compact?: boolean }) {
-  const statusColor = ({
-    APPROVED: { bg: 'var(--ink)', fg: '#fff' },
-    EXPIRED: { bg: 'var(--surface)', fg: 'var(--muted)' },
-    DECLINED: { bg: 'var(--surface)', fg: 'var(--muted)' },
-    PENDING: { bg: 'var(--accent)', fg: '#fff' },
-  } as Record<string, { bg: string; fg: string }>)[a.status] || { bg: 'var(--surface)', fg: 'var(--muted)' };
+  const statusFg = ({
+    APPROVED: 'var(--ink)',
+    EXPIRED: 'var(--muted)',
+    DECLINED: 'var(--muted)',
+    PENDING: 'var(--accent)',
+  } as Record<string, string>)[a.status] || 'var(--muted)';
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: compact ? '14px 18px' : '16px 0', borderBottom: last ? 0 : '1px solid var(--rule)' }}>
+    <div style={compact ? { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 18px', borderBottom: last ? 0 : '1px solid var(--rule)' } : { display: 'flex', alignItems: 'flex-start', gap: 14, padding: '18px 20px', border: '1px solid var(--rule)', borderRadius: 14, marginBottom: 10, background: '#fff' }}>
       <Avatar name={a.who} size={36} tone={a.dir === 'in' ? 'ink' : 'cream'} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.4 }}>
@@ -161,7 +161,7 @@ function ActivityRow({
         )}
       </div>
       {!(a.dir === 'in' && a.status === 'PENDING') && (
-        <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 8.5, letterSpacing: '0.16em', textTransform: 'uppercase', padding: '4px 8px', borderRadius: 'var(--r-pill)', background: statusColor.bg, color: statusColor.fg, whiteSpace: 'nowrap' }}>{a.status}</span>
+        <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.07em', color: statusFg, whiteSpace: 'nowrap', alignSelf: 'center' }}>{a.status}</span>
       )}
     </div>
   );
@@ -210,7 +210,7 @@ export function WebAppFeed({
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em', color: 'var(--ink)', margin: 0 }}>
-            {query ? <>Results for <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>&quot;{query}&quot;</em></> : 'Today on Flipd'}
+            {query ? <>Results for <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>&quot;{query}&quot;</em></> : 'Fresh finds near campus'}
           </h1>
         </div>
         <div className="t-meta" style={{ fontSize: 12 }}>{items.length} listing{items.length === 1 ? '' : 's'}</div>
@@ -250,7 +250,7 @@ export function WebAppFeed({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
           {items.map((l) => (
             <div key={l.id} style={{ position: 'relative' }}>
-              <ListingCard listing={l} onClick={() => onListing(l)} />
+              <ListingCard listing={l} href={`/listing/${l.id}`} />
               <button
                 onClick={(e) => { e.stopPropagation(); store.toggleSave(l.id); }}
                 aria-label={store.isSaved(l.id) ? 'Remove from saved' : 'Save listing'}
@@ -868,12 +868,13 @@ export function WebProfile({
 }: { store: FlipdStore; onListing: (l: Listing) => void; onApprove: (id: string) => void; onDecline: (id: string) => void }) {
   const [tab, setTab] = React.useState<'listings' | 'past' | 'saved' | 'activity'>('listings');
   const displayName = store.me?.display_name ?? 'Your profile';
+  const avatarName = store.me?.display_name ?? 'Me';
   return (
     <div>
       {/* Banner */}
       <div style={{ background: '#fff', borderBottom: '1px solid var(--rule)', position: 'relative' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 32px 0', display: 'flex', alignItems: 'center', gap: 20 }}>
-          <Avatar name={displayName} size={76} tone="ink" />
+          <Avatar name={avatarName} size={76} tone="ink" />
           <div style={{ flex: 1 }}>
             <h1 style={{ fontWeight: 800, fontSize: 26, color: 'var(--ink)', letterSpacing: '-0.03em', margin: '0 0 4px' }}>
               {displayName}
@@ -882,15 +883,12 @@ export function WebProfile({
               {[store.me?.school_unit, store.me?.class_year].filter(Boolean).join(' ')} · joined {formatPostedDate(store.me?.created_at) || 'recently'}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 28 }}>
-            {[{ v: store.myListings.length, l: 'Listings' }].map((s) => (
-              <div key={s.l} style={{ textAlign: 'center' }}>
-                <div style={{ fontWeight: 800, fontSize: 26, color: 'var(--ink)' }}>{s.v}</div>
-                <div className="t-meta" style={{ fontSize: 10.5, marginTop: 2 }}>{s.l}</div>
-              </div>
-            ))}
-          </div>
-          <Button kind="ghost" size="sm" onClick={() => store.signOut()}>Sign out</Button>
+          <button
+            onClick={() => store.signOut()}
+            style={{ background: 'none', border: 0, padding: 0, fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500, color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+          >
+            Sign out
+          </button>
         </div>
         {/* Tabs */}
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '20px 32px 0', display: 'flex', gap: 28 }}>
@@ -918,7 +916,7 @@ export function WebProfile({
             <EmptyState icon="tag" title="No listings yet" sub="Tap Post a listing to put your first item on the feed." />
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
-              {store.myListings.map((l) => <ListingCard key={l.id} listing={l} onClick={() => onListing(l)} />)}
+              {store.myListings.map((l) => <ListingCard key={l.id} listing={l} href={`/listing/${l.id}`} />)}
             </div>
           ))}
         {tab === 'past' &&
@@ -926,7 +924,7 @@ export function WebProfile({
             <EmptyState icon="clock" title="No past listings" sub="Listings you move to past from their detail page show up here." />
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
-              {store.pastListings.map((l) => <ListingCard key={l.id} listing={l} onClick={() => onListing(l)} />)}
+              {store.pastListings.map((l) => <ListingCard key={l.id} listing={l} href={`/listing/${l.id}`} />)}
             </div>
           ))}
         {tab === 'saved' &&
@@ -934,7 +932,7 @@ export function WebProfile({
             <EmptyState icon="bookmark" title="Nothing saved" sub="Tap the bookmark on any listing to keep it here." />
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
-              {store.savedListings.map((l) => <ListingCard key={l.id} listing={l} onClick={() => onListing(l)} />)}
+              {store.savedListings.map((l) => <ListingCard key={l.id} listing={l} href={`/listing/${l.id}`} />)}
             </div>
           ))}
         {tab === 'activity' && (

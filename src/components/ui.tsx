@@ -1,5 +1,6 @@
 // Flipd — shared components (ported from components.jsx)
 import React from 'react';
+import Link from 'next/link';
 import { Icon } from './Icon';
 import type { Listing, PhotoTone } from '@/lib/types';
 
@@ -110,14 +111,10 @@ export function Button({
 
 // ── Listing card (A1: photo tile, price-first text block) ──────────
 export function ListingCard({
-  listing, onClick, compact = false,
-}: { listing: Listing; onClick?: () => void; compact?: boolean }) {
-  return (
-    <div
-      className="listing-card"
-      onClick={onClick}
-      style={{ cursor: onClick ? 'pointer' : 'default', display: 'flex', flexDirection: 'column' }}
-    >
+  listing, onClick, href, compact = false,
+}: { listing: Listing; onClick?: () => void; href?: string; compact?: boolean }) {
+  const inner = (
+    <>
       <div className="listing-photo" style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 'var(--r-img)', overflow: 'hidden', background: 'var(--surface)' }}>
         {listing.photo_urls?.[0] ? (
           <img
@@ -134,18 +131,29 @@ export function ListingCard({
           </div>
         )}
       </div>
-      <div style={{ padding: compact ? '8px 2px 0' : '9px 2px 0', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)', letterSpacing: '-0.01em' }}>
-          {listing.priceLabel}
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+      <div style={{ padding: compact ? '9px 2px 0' : '11px 2px 0', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
           {listing.title}
         </div>
-        <div className="t-meta" style={{ fontSize: 11.5, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {listing.meta.split(' · ')[0]} · {listing.seller.name.split(' ')[0]}
-          {listing.seller.year ? `, ${listing.seller.year}` : ''}
+        <div className="t-meta" style={{ fontSize: 13, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {listing.meta.split(' · ')[0]}
+        </div>
+        <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em', color: listing.priceLabel === 'Free' ? 'var(--accent)' : 'var(--ink)' }}>
+          {listing.priceLabel}
         </div>
       </div>
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className="listing-card" style={{ display: 'flex', flexDirection: 'column', textDecoration: 'none', color: 'inherit' }}>
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <div className="listing-card" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default', display: 'flex', flexDirection: 'column' }}>
+      {inner}
     </div>
   );
 }
