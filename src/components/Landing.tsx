@@ -335,6 +335,14 @@ function JoinCTA() {
         <div style={{ fontSize: 12, marginTop: 14, color: error ? 'var(--accent)' : 'var(--muted)' }}>
           {error || 'USC-only. No passwords, no phone numbers.'}
         </div>
+        {state === 'idle' && (
+          <button
+            onClick={() => { if (email.trim()) { setState('sent'); setError(''); } else { setError('Enter your @usc.edu email first, then use your code.'); } }}
+            style={{ background: 'none', border: 0, padding: 0, marginTop: 10, fontSize: 12, color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Already have a code?
+          </button>
+        )}
       </Reveal>
     </section>
   );
