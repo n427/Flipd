@@ -308,12 +308,12 @@ export function WebListingDetail({
       {/* Gallery: Airbnb-style adaptive grid; click opens lightbox */}
       <div style={{ position: 'relative', marginBottom: 28 }}>
         {n === 0 && (
-          <div style={{ aspectRatio: '2 / 1', borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ height: 'clamp(280px, 40vw, 430px)', borderRadius: 14, overflow: 'hidden' }}>
             <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} />
           </div>
         )}
         {n === 1 && (
-          <div onClick={() => setLightbox(0)} style={{ position: 'relative', aspectRatio: '2 / 1', borderRadius: 14, overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)' }}>
+          <div onClick={() => setLightbox(0)} style={{ position: 'relative', height: 'clamp(280px, 40vw, 430px)', borderRadius: 14, overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)' }}>
             <img
               src={photos[0]}
               alt=""
@@ -328,20 +328,20 @@ export function WebListingDetail({
           </div>
         )}
         {n === 2 && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden' }}>
-            {tile(0, { aspectRatio: '4 / 3' })}
-            {tile(1, { aspectRatio: '4 / 3' })}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', height: 'clamp(280px, 40vw, 430px)' }}>
+            {tile(0)}
+            {tile(1)}
           </div>
         )}
         {(n === 3 || n === 4) && (
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gridTemplateRows: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', aspectRatio: '3 / 2' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gridTemplateRows: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', height: 'clamp(280px, 40vw, 430px)' }}>
             {tile(0, { gridRow: 'span 2' })}
             {tile(1)}
             {tile(2)}
           </div>
         )}
         {n >= 5 && (
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', aspectRatio: '2 / 1' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', height: 'clamp(280px, 40vw, 430px)' }}>
             {tile(0, { gridRow: 'span 2' })}
             {tile(1)}
             {tile(2)}
