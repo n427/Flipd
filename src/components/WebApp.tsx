@@ -292,11 +292,6 @@ export function WebListingDetail({
     return () => window.removeEventListener('keydown', onKey);
   }, [lightbox, n]);
 
-  const tile = (idx: number, style: React.CSSProperties = {}) => (
-    <div key={idx} onClick={() => setLightbox(idx)} style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)', ...style }}>
-      <img src={photos[idx]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[idx] || '50% 50%' }} />
-    </div>
-  );
   return (
     <div style={{ padding: '24px 32px 64px', maxWidth: 1180, margin: '0 auto' }}>
       {!preview && (
@@ -305,63 +300,30 @@ export function WebListingDetail({
       </button>
       )}
 
-      {/* Gallery: Airbnb-style adaptive grid; click opens lightbox */}
-      <div style={{ position: 'relative', marginBottom: 28 }}>
-        {n === 0 && (
-          <div style={{ maxWidth: 640, aspectRatio: '2 / 1', borderRadius: 14, overflow: 'hidden' }}>
-            <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} />
-          </div>
-        )}
-        {n === 1 && (
-          <div onClick={() => setLightbox(0)} style={{ position: 'relative', maxWidth: 640, aspectRatio: '2 / 1', borderRadius: 14, overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)' }}>
-            <img
-              src={photos[0]}
-              alt=""
-              aria-hidden
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(28px) brightness(1.05)', transform: 'scale(1.15)', opacity: 0.55 }}
-            />
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 48, alignItems: 'start' }}>
+        {/* Left: gallery + story */}
+        <div>
+        {/* Gallery: one square cover; the rest lives in the lightbox */}
+        <div
+          onClick={() => { if (n > 0) setLightbox(0); }}
+          style={{ position: 'relative', maxWidth: 560, aspectRatio: '1 / 1', borderRadius: 14, overflow: 'hidden', cursor: n > 0 ? 'pointer' : 'default', background: 'var(--surface)', marginBottom: 26 }}
+        >
+          {n > 0 ? (
             <img
               src={photos[0]}
               alt={listing.title}
-              style={{ position: 'absolute', inset: 0, margin: 'auto', maxWidth: '100%', height: '100%', objectFit: 'contain' }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }}
             />
-          </div>
-        )}
-        {n === 2 && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', maxWidth: 640, aspectRatio: '2 / 1' }}>
-            {tile(0)}
-            {tile(1)}
-          </div>
-        )}
-        {(n === 3 || n === 4) && (
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gridTemplateRows: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', maxWidth: 660, aspectRatio: '3 / 2' }}>
-            {tile(0, { gridRow: 'span 2' })}
-            {tile(1)}
-            {tile(2)}
-          </div>
-        )}
-        {n >= 5 && (
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', maxWidth: 880, aspectRatio: '2.04 / 1' }}>
-            {tile(0, { gridRow: 'span 2' })}
-            {tile(1)}
-            {tile(2)}
-            {tile(3)}
-            {tile(4)}
-          </div>
-        )}
-        {n > 1 && (
-          <button
-            onClick={() => setLightbox(0)}
-            style={{ position: 'absolute', right: 14, bottom: 14, background: '#fff', border: '1px solid var(--ink)', borderRadius: 8, padding: '7px 14px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13, color: 'var(--ink)', cursor: 'pointer', boxShadow: 'var(--shadow)' }}
-          >
-            Show all photos
-          </button>
-        )}
-      </div>
+          ) : (
+            <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
+          )}
+          {n > 1 && (
+            <div style={{ position: 'absolute', right: 12, bottom: 12, background: '#fff', border: '1px solid var(--ink)', borderRadius: 8, padding: '7px 13px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13, color: 'var(--ink)', boxShadow: 'var(--shadow)' }}>
+              Show all {n} photos
+            </div>
+          )}
+        </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 48, alignItems: 'start' }}>
-        {/* Left: the story */}
-        <div>
           <div style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--accent)', marginBottom: 8 }}>
             {listing.categoryLabel} · posted {listing.postedLabel || 'recently'}
           </div>
@@ -399,7 +361,7 @@ export function WebListingDetail({
         </div>
 
         {/* Right: price + action panel */}
-        <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 16, padding: 24, boxShadow: 'var(--shadow)' }}>
+        <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 16, padding: 24, boxShadow: 'var(--shadow)', position: 'sticky', top: 90 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 18 }}>
             <span style={{ fontWeight: 800, fontSize: 28, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{listing.priceLabel}</span>
             {listing.negotiable && <span className="t-meta" style={{ fontSize: 13 }}>or best offer</span>}
