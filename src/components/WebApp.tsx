@@ -318,7 +318,15 @@ export function WebNotifications({
             <EmptyState icon="bell" title="No activity yet" sub="Reveal requests you send and receive show up here." />
           ) : (
             visible.map((a, i) => (
-              <div key={a.id} style={{ position: 'relative', cursor: 'pointer' }} onClick={() => { onNavigate(a); onClose(); }}>
+              <div
+                key={a.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`${a.who}, ${a.listingTitle}${a.unread ? ', unread' : ''}`}
+                style={{ position: 'relative', cursor: 'pointer' }}
+                onClick={() => { onNavigate(a); onClose(); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate(a); onClose(); } }}
+              >
                 {a.unread && (
                   <span style={{ position: 'absolute', left: 7, top: 22, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />
                 )}
@@ -485,7 +493,11 @@ export function WebListingDetail({
   const tile = (idx: number, radius: string, opts: { span2?: boolean; pill?: boolean; more?: number } = {}) => (
     <div
       key={idx}
+      role="button"
+      tabIndex={0}
+      aria-label={`View photo ${idx + 1} of ${n} for ${listing.title}`}
       onClick={() => setLightbox(idx)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLightbox(idx); } }}
       style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)', borderRadius: radius, ...(opts.span2 ? { gridRow: 'span 2' } : {}) }}
     >
       <img src={photos[idx]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[idx] || '50% 50%' }} />
@@ -672,11 +684,17 @@ export function WebListingDetail({
         /* 4a: one photo — page reflows, info beside the square, no side panel */
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 500px) 1fr', gap: 48, alignItems: 'start' }}>
           <div
+            {...(n > 0 ? {
+              role: 'button',
+              tabIndex: 0,
+              'aria-label': `View photo for ${listing.title}`,
+              onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLightbox(0); } },
+            } : {})}
             onClick={() => { if (n > 0) setLightbox(0); }}
             style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 16, overflow: 'hidden', cursor: n > 0 ? 'pointer' : 'default', background: 'var(--surface)' }}
           >
             {n > 0 ? (
-              <img src={photos[0]} alt={listing.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }} />
+              <img src={photos[0]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }} />
             ) : (
               <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
             )}
@@ -1110,6 +1128,8 @@ export function WebCreate({
           />
           {photos[cropIndex] ? (
             <div
+              role="img"
+              aria-label={`Cover photo — drag to reposition. Photo ${cropIndex + 1} of ${photos.length}.`}
               onPointerDown={onCropPointerDown}
               onPointerMove={onCropPointerMove}
               onPointerUp={onCropPointerUp}
@@ -1117,7 +1137,7 @@ export function WebCreate({
             >
               <img
                 src={photos[cropIndex].url}
-                alt="cover"
+                alt={`Editing photo ${cropIndex + 1} — drag to reposition`}
                 draggable={false}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: photoFocus[cropIndex] || '50% 50%', display: 'block', pointerEvents: 'none' }}
               />
@@ -1146,12 +1166,17 @@ export function WebCreate({
               photos[i] ? (
                 <div
                   key={i}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Select photo ${i + 1}${cropIndex === i ? ' (selected)' : ''}`}
+                  aria-pressed={cropIndex === i}
                   draggable
                   onDragStart={() => setDragIndex(i)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => { if (dragIndex !== null) reorderPhotos(dragIndex, i); setDragIndex(null); }}
                   onDragEnd={() => setDragIndex(null)}
                   onClick={() => setCropIndex(i)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCropIndex(i); } }}
                   style={{ position: 'relative', aspectRatio: '1.4', borderRadius: 10, overflow: 'hidden', cursor: 'grab', opacity: dragIndex === i ? 0.4 : 1, outline: cropIndex === i ? '2px solid var(--ink)' : 'none', outlineOffset: -2 }}
                 >
                   <img src={photos[i].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: photoFocus[i] || '50% 50%' }} />

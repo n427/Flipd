@@ -120,11 +120,11 @@ export default function OnboardingPage() {
               <div style={{ fontSize: 13, color: 'var(--muted)' }}>Photo (optional)</div>
             </div>
             <input className="field" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-            <select className="field" value={year} onChange={(e) => setYear(e.target.value)}>
+            <select aria-label="Class year" className="field" value={year} onChange={(e) => setYear(e.target.value)}>
               <option value="">Class year</option>
               {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
-            <select className="field" value={unit} onChange={(e) => setUnit(e.target.value)}>
+            <select aria-label="School or major" className="field" value={unit} onChange={(e) => setUnit(e.target.value)}>
               <option value="">School / major (optional)</option>
               {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
             </select>

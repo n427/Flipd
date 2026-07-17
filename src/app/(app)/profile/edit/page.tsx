@@ -125,7 +125,7 @@ export default function ProfileEditPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label className="field-label">Class year</label>
-            <select className="field" value={year} onChange={(e) => setYear(e.target.value)}>
+            <select aria-label="Class year" className="field" value={year} onChange={(e) => setYear(e.target.value)}>
               <option value="">Class year</option>
               {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
               {year && !YEARS.includes(year) && <option value={year}>{year}</option>}
@@ -133,7 +133,7 @@ export default function ProfileEditPage() {
           </div>
           <div>
             <label className="field-label">School / major</label>
-            <select className="field" value={unit} onChange={(e) => setUnit(e.target.value)}>
+            <select aria-label="School or major" className="field" value={unit} onChange={(e) => setUnit(e.target.value)}>
               <option value="">None</option>
               {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
               {unit && !UNITS.includes(unit) && <option value={unit}>{unit}</option>}
