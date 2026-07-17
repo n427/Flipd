@@ -114,10 +114,11 @@ export function ListingCard({
 }: { listing: Listing; onClick?: () => void; compact?: boolean }) {
   return (
     <div
+      className="listing-card"
       onClick={onClick}
       style={{ cursor: onClick ? 'pointer' : 'default', display: 'flex', flexDirection: 'column' }}
     >
-      <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 'var(--r-img)', overflow: 'hidden', background: 'var(--surface)' }}>
+      <div className="listing-photo" style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 'var(--r-img)', overflow: 'hidden', background: 'var(--surface)' }}>
         {listing.photo_urls?.[0] ? (
           <img
             src={listing.photo_urls[0]}
@@ -158,8 +159,9 @@ export function CategoryChip({
       onClick={onClick}
       style={{
         display: 'inline-flex', alignItems: 'center',
-        padding: '8px 14px', borderRadius: 8, border: 0,
-        background: active ? 'var(--ink)' : 'var(--surface)',
+        padding: '8px 16px', borderRadius: 'var(--r-pill)',
+        border: '1px solid ' + (active ? 'var(--ink)' : 'var(--rule)'),
+        background: active ? 'var(--ink)' : '#fff',
         color: active ? '#fff' : 'var(--ink-2)',
         fontWeight: 600, fontSize: 13,
         transition: 'all 160ms ease-out', whiteSpace: 'nowrap', flexShrink: 0,

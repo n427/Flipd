@@ -73,7 +73,7 @@ export function WebAppHeader({
   meName: string;
 }) {
   return (
-    <header style={{ padding: '14px 32px', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', gap: 28, position: 'sticky', top: 0, zIndex: 30 }}>
+    <header style={{ padding: '14px 32px', background: 'rgba(250,248,245,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', gap: 28, position: 'sticky', top: 0, zIndex: 30 }}>
       <button onClick={onLogo} style={{ background: 'none', border: 0, padding: 0, display: 'flex', alignItems: 'center', gap: 10 }} aria-label="Go to feed">
         <Wordmark size={24} />
       </button>
@@ -739,7 +739,7 @@ export function WebCreate({
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-              <button onClick={() => setNeg(!neg)} style={{ width: '100%', height: 47, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: neg ? 'var(--ink)' : 'var(--surface)', color: neg ? '#fff' : 'var(--ink-2)', border: 0, borderRadius: 10, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
+              <button onClick={() => setNeg(!neg)} style={{ width: '100%', height: 47, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: neg ? 'var(--ink)' : '#fff', color: neg ? '#fff' : 'var(--ink-2)', border: '1px solid ' + (neg ? 'var(--ink)' : 'var(--rule)'), borderRadius: 12, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
                 {neg && <Icon name="check" size={14} />} Negotiable
               </button>
             </div>
@@ -756,7 +756,7 @@ export function WebCreate({
             {([{ id: 'instagram', label: 'Instagram' }, { id: 'phone', label: 'Text' }, { id: 'email', label: 'Email' }] as const).map((c) => {
               const active = contact.includes(c.id);
               return (
-                <button key={c.id} onClick={() => setContact((prev) => prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id])} style={{ background: active ? 'var(--ink)' : 'var(--surface)', color: active ? '#fff' : 'var(--ink-2)', border: 0, borderRadius: 8, padding: '8px 14px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
+                <button key={c.id} onClick={() => setContact((prev) => prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id])} style={{ background: active ? 'var(--ink)' : '#fff', color: active ? '#fff' : 'var(--ink-2)', border: '1px solid ' + (active ? 'var(--ink)' : 'var(--rule)'), borderRadius: 999, padding: '8px 16px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
                   {c.label}
                 </button>
               );
@@ -910,7 +910,7 @@ export function RevealModal({ listing, onClose, onContinue }: { listing: Listing
       particleCount: 120,
       spread: 80,
       origin: { y: 0.55 },
-      colors: ['#990000', '#111111', '#ffffff'],
+      colors: ['#990000', '#FFCC00', '#ffffff'],
     });
     onContinue();
   };
