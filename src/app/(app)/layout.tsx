@@ -36,15 +36,31 @@ function AppChrome({ children }: { children: React.ReactNode }) {
         setQuery={onSearch}
         onPost={() => router.push('/post')}
         onProfile={() => router.push('/profile')}
-        onBell={() => setNotifOpen(true)}
+        onBell={() => { setNotifOpen(true); store.markAllSeen(); }}
         onRequests={() => router.push('/requests')}
         pendingCount={store.pendingCount}
+        unreadCount={store.unreadCount}
         meName={store.me?.display_name ?? 'Me'}
         meAvatarUrl={store.me?.avatar_url ?? undefined}
       />
       {children}
       {notifOpen && (
-        <WebNotifications activity={store.activity} onClose={() => setNotifOpen(false)} onApprove={approve} onDecline={decline} />
+        <WebNotifications
+          activity={store.activity}
+          onClose={() => setNotifOpen(false)}
+          onApprove={approve}
+          onDecline={decline}
+          onDismiss={(id) => store.dismissNotification(id)}
+          onMarkAllRead={() => store.markAllSeen()}
+          onNavigate={(a) => {
+            if (a.dir === 'in') { router.push('/requests'); return; }
+            if (a.listingRemoved || a.listingArchived || a.status === 'DECLINED' || a.status === 'EXPIRED') {
+              router.push('/profile');
+              return;
+            }
+            router.push(`/listing/${a.listingId}`);
+          }}
+        />
       )}
     </div>
   );

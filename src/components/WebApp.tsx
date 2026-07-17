@@ -67,10 +67,10 @@ function WebDropdown({
 
 // ── Header ───────────────────────────────────────────────────────────
 export function WebAppHeader({
-  onLogo, query, setQuery, onPost, onProfile, onBell, onRequests, pendingCount, meName, meAvatarUrl,
+  onLogo, query, setQuery, onPost, onProfile, onBell, onRequests, pendingCount, unreadCount, meName, meAvatarUrl,
 }: {
   onLogo: () => void; query: string; setQuery: (q: string) => void;
-  onPost: () => void; onProfile: () => void; onBell: () => void; onRequests: () => void; pendingCount: number;
+  onPost: () => void; onProfile: () => void; onBell: () => void; onRequests: () => void; pendingCount: number; unreadCount: number;
   meName: string; meAvatarUrl?: string;
 }) {
   return (
@@ -103,6 +103,9 @@ export function WebAppHeader({
         </button>
         <button onClick={onBell} aria-label="Notifications" style={{ background: 'none', border: 0, padding: 8, position: 'relative' }}>
           <Icon name="bell" size={18} color="var(--ink)" />
+          {unreadCount > 0 && (
+            <span style={{ position: 'absolute', top: 2, right: 2, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>{unreadCount}</span>
+          )}
         </button>
         <Button kind="primary" size="sm" icon="plus" onClick={onPost}>Post a listing</Button>
         <button onClick={onProfile} aria-label="Your profile" style={{ background: 'none', border: 0, padding: 0 }}>
@@ -225,24 +228,47 @@ function ActivityRow({
 
 // ── Notifications panel (slides from bell) ──────────────────────────
 export function WebNotifications({
-  activity, onClose, onApprove, onDecline,
-}: { activity: ActivityItem[]; onClose: () => void; onApprove: (id: string) => void; onDecline: (id: string) => void }) {
+  activity, onClose, onApprove, onDecline, onNavigate, onDismiss, onMarkAllRead,
+}: {
+  activity: ActivityItem[]; onClose: () => void; onApprove: (id: string) => void; onDecline: (id: string) => void;
+  onNavigate: (a: ActivityItem) => void; onDismiss: (id: string) => void; onMarkAllRead: () => void;
+}) {
+  const visible = activity.filter((a) => !a.dismissed);
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 45 }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(26,26,26,0.18)' }} />
-      <div style={{ position: 'absolute', top: 64, right: 32, width: 380, background: '#fff', borderRadius: 10, border: '1px solid var(--rule)', boxShadow: 'var(--shadow-strong)', overflow: 'hidden', animation: 'flipdReveal 200ms ease-out' }}>
+      <div style={{ position: 'absolute', top: 64, right: 32, width: 400, background: '#fff', borderRadius: 10, border: '1px solid var(--rule)', boxShadow: 'var(--shadow-strong)', overflow: 'hidden', animation: 'flipdReveal 200ms ease-out' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 className="t-h3" style={{ margin: 0, fontSize: 15 }}>Notifications</h3>
-          <button onClick={onClose} aria-label="Close notifications" style={{ background: 'none', border: 0, padding: 2 }}>
-            <Icon name="x" size={16} color="var(--muted)" />
-          </button>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
+            {visible.length > 0 && (
+              <button onClick={onMarkAllRead} style={{ background: 'none', border: 0, padding: 0, fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 600, color: 'var(--muted)', cursor: 'pointer' }}>
+                Mark all read
+              </button>
+            )}
+            <button onClick={onClose} aria-label="Close notifications" style={{ background: 'none', border: 0, padding: 2 }}>
+              <Icon name="x" size={16} color="var(--muted)" />
+            </button>
+          </span>
         </div>
         <div style={{ maxHeight: 420, overflow: 'auto' }}>
-          {activity.length === 0 ? (
+          {visible.length === 0 ? (
             <EmptyState icon="bell" title="No activity yet" sub="Reveal requests you send and receive show up here." />
           ) : (
-            activity.map((a, i) => (
-              <ActivityRow key={a.id} a={a} compact onApprove={onApprove} onDecline={onDecline} last={i === activity.length - 1} />
+            visible.map((a, i) => (
+              <div key={a.id} style={{ position: 'relative', cursor: 'pointer' }} onClick={() => { onNavigate(a); onClose(); }}>
+                {a.unread && (
+                  <span style={{ position: 'absolute', left: 7, top: 22, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />
+                )}
+                <ActivityRow a={a} compact onApprove={onApprove} onDecline={onDecline} last={i === visible.length - 1} />
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDismiss(a.id); }}
+                  aria-label="Dismiss notification"
+                  style={{ position: 'absolute', top: 10, right: 10, width: 20, height: 20, borderRadius: '50%', border: 0, background: 'var(--surface)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                >
+                  <Icon name="x" size={10} />
+                </button>
+              </div>
             ))
           )}
         </div>
@@ -1170,6 +1196,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         onProfile={() => setView('profile')}
         onBell={() => setNotifOpen(true)}
         onRequests={() => setView('profile')}
+        unreadCount={store.unreadCount}
         pendingCount={store.pendingCount}
         meName={store.me?.display_name ?? 'Me'}
         meAvatarUrl={store.me?.avatar_url ?? undefined}
@@ -1221,7 +1248,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         />
       )}
 
-      {notifOpen && <WebNotifications activity={store.activity} onClose={() => setNotifOpen(false)} onApprove={approve} onDecline={decline} />}
+      {notifOpen && <WebNotifications activity={store.activity} onClose={() => setNotifOpen(false)} onApprove={approve} onDecline={decline} onNavigate={() => setView('profile')} onDismiss={(id) => store.dismissNotification(id)} onMarkAllRead={() => store.markAllSeen()} />}
     </div>
   );
 }

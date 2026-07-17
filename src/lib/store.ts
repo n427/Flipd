@@ -42,6 +42,8 @@ type RevealDto = {
   created_at: string;
   expires_at: string;
   offer?: number | null;
+  unread?: boolean;
+  dismissed?: boolean;
   counterpart: { id: string; display_name: string | null; school_unit: string | null; class_year: string | null; avatar_url: string | null } | null;
   listing_archived?: boolean;
   listing_removed?: boolean;
@@ -125,6 +127,8 @@ function mapReveal(dto: RevealDto, dir: 'in' | 'out'): ActivityItem {
     when: timeAgo(dto.created_at),
     expiresAt: dto.expires_at,
     offer: dto.offer ?? undefined,
+    unread: dto.unread ?? false,
+    dismissed: dto.dismissed ?? false,
     status: effectiveRevealStatus(dto.status, dto.expires_at).toUpperCase() as ActivityStatus,
     contact: dto.contact,
   };
@@ -147,6 +151,9 @@ export interface FlipdStore {
   respondReveal: (id: string, action: 'approve' | 'decline' | 'complete', opts?: { markSold?: boolean }) => Promise<boolean>;
   latestRevealFor: (listingId: string) => ActivityItem | undefined;
   pendingByListing: Record<string, number>;
+  unreadCount: number;
+  markAllSeen: () => Promise<void>;
+  dismissNotification: (id: string) => Promise<void>;
   refreshActivity: () => Promise<void>;
   refreshMe: () => Promise<void>;
   myRevealFor: (listingId: string) => ActivityItem | undefined;
@@ -339,6 +346,24 @@ export function useFlipdStore(): FlipdStore {
     setMeId(profile?.id ?? null);
   };
 
+  const markAllSeen = async () => {
+    setActivity((prev) => prev.map((a) => ({ ...a, unread: false })));
+    await fetch('/api/reveals/seen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mark: 'seen' }),
+    }).catch(() => {});
+  };
+
+  const dismissNotification = async (id: string) => {
+    setActivity((prev) => prev.map((a) => (a.id === id ? { ...a, dismissed: true } : a)));
+    await fetch('/api/reveals/seen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mark: 'dismiss', ids: [id] }),
+    }).catch(() => {});
+  };
+
   const myRevealFor = (listingId: string) =>
     activity.find((a) => a.dir === 'out' && a.listingId === listingId &&
       (a.status === 'PENDING' || a.status === 'APPROVED' || a.status === 'COMPLETED'));
@@ -364,11 +389,12 @@ export function useFlipdStore(): FlipdStore {
   const pastListings = listings.filter((l) => l.mine && l.archived);
   const savedListings = listings.filter((l) => savedIds.has(l.id) && !l.archived);
   const pendingCount = activity.filter((a) => a.dir === 'in' && a.status === 'PENDING').length;
+  const unreadCount = activity.filter((a) => a.unread && !a.dismissed).length;
 
   return {
     me, listings, listingsLoading, savedIds, activity,
     isSaved, toggleSave, addListing, updateListing, removeListing, getListing, setArchived,
-    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, signOut,
+    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, unreadCount, markAllSeen, dismissNotification, signOut,
     myListings, pastListings, savedListings, pendingCount,
   };
 }

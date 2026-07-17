@@ -77,6 +77,8 @@ export interface ActivityItem {
   when: string;
   expiresAt: string;
   offer?: number;
+  unread: boolean;
+  dismissed: boolean;
   status: ActivityStatus;
   contact?: RevealContact;
 }

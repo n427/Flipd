@@ -13,6 +13,11 @@ type RevealRow = {
   created_at: string;
   expires_at: string;
   offer: number | null;
+  resolved_at: string | null;
+  seller_seen_at: string | null;
+  buyer_seen_at: string | null;
+  seller_dismissed_at: string | null;
+  buyer_dismissed_at: string | null;
   listing: { title: string; contact: string[]; archived: boolean } | null;
   listing_title: string | null;
   buyer: ProfileRef | null;
@@ -29,7 +34,7 @@ type ProfileRef = {
   contact_email: string | null;
 };
 
-const SELECT = `id, listing_id, listing_title, buyer_id, seller_id, status, created_at, expires_at, offer,
+const SELECT = `id, listing_id, listing_title, buyer_id, seller_id, status, created_at, expires_at, offer, resolved_at, seller_seen_at, buyer_seen_at, seller_dismissed_at, buyer_dismissed_at,
   listing:listings(title, contact, archived),
   buyer:profiles!reveal_requests_buyer_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email),
   seller:profiles!reveal_requests_seller_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email)`;
@@ -56,6 +61,11 @@ function toDto(row: RevealRow, viewerId: string) {
     expires_at: row.expires_at,
     offer: row.offer,
     counterpart,
+    // Unread: sellers haven't seen the request; buyers haven't seen the resolution.
+    unread: isBuyer
+      ? Boolean(row.resolved_at) && (!row.buyer_seen_at || row.buyer_seen_at < row.resolved_at!)
+      : !row.seller_seen_at,
+    dismissed: Boolean(isBuyer ? row.buyer_dismissed_at : row.seller_dismissed_at),
   };
   // Contact info is only ever exposed to the buyer, only once approved,
   // and only for the methods the seller offered on the listing.
