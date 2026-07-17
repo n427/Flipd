@@ -122,3 +122,41 @@ export async function PATCH(
   }
   return NextResponse.json({ listing: data });
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const { data: existing } = await supabase
+    .from('listings')
+    .select('seller_id, title')
+    .eq('id', params.id)
+    .single();
+  if (!existing) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  if (existing.seller_id !== user.id) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+
+  // Snapshot the title onto surviving requests, close pending ones softly.
+  await supabase
+    .from('reveal_requests')
+    .update({ listing_title: existing.title })
+    .eq('listing_id', params.id);
+  await supabase
+    .from('reveal_requests')
+    .update({ status: 'declined', resolved_at: new Date().toISOString() })
+    .eq('listing_id', params.id)
+    .eq('status', 'pending');
+
+  // Best-effort photo cleanup, then the row (FK sets request listing_id null).
+  const { data: files } = await supabase.storage.from('listing-photos').list(params.id);
+  if (files && files.length > 0) {
+    await supabase.storage.from('listing-photos').remove(files.map((f) => `${params.id}/${f.name}`));
+  }
+  const { error } = await supabase.from('listings').delete().eq('id', params.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

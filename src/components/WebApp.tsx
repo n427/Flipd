@@ -140,7 +140,7 @@ function ActivityRow({
         </div>
         {a.dir === 'out' && a.status === 'DECLINED' && (
           <div style={{ fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--ink-2)', marginTop: 6 }}>
-            {a.listingArchived ? 'This item is no longer available.' : 'The seller went a different direction this time.'}
+            {a.listingRemoved ? 'This listing was removed.' : a.listingArchived ? 'This item is no longer available.' : 'The seller went a different direction this time.'}
           </div>
         )}
         {a.dir === 'out' && a.status === 'EXPIRED' && (
@@ -299,6 +299,7 @@ export function WebListingDetail({
   const latestReveal = preview ? undefined : store.latestRevealFor(listing.id);
   const photos = listing.photo_urls ?? [];
   const [lightbox, setLightbox] = React.useState<number | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = React.useState(false);
   const n = photos.length;
 
   React.useEffect(() => {
@@ -372,6 +373,12 @@ export function WebListingDetail({
           <div className="t-meta" style={{ fontSize: 11.5, marginTop: 12, color: 'var(--muted)' }}>
             Removes it from the feed. You can restore it anytime.
           </div>
+          <button
+            onClick={() => setDeleteConfirm(true)}
+            style={{ background: 'none', border: 0, padding: 0, marginTop: 14, fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500, color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+          >
+            Delete listing
+          </button>
         </>
       )
     ) : reveal?.status === 'APPROVED' && reveal.contact ? (
@@ -542,6 +549,30 @@ export function WebListingDetail({
             </div>
           </div>
         </>
+      )}
+
+      {deleteConfirm && (
+        <div onClick={() => setDeleteConfirm(false)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(17,17,17,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: 400, boxShadow: 'var(--shadow-strong)' }}>
+            <h2 style={{ fontWeight: 800, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 8px' }}>
+              Delete this listing?
+            </h2>
+            <p style={{ fontFamily: 'var(--sans)', fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink-2)', margin: '0 0 20px' }}>
+              This permanently removes &ldquo;{listing.title}&rdquo; and its photos. Anyone with a pending request will see the listing was removed.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Button kind="ghost" onClick={() => setDeleteConfirm(false)} style={{ flex: 1 }}>Keep it</Button>
+              <Button kind="primary" style={{ flex: 1 }} onClick={async () => {
+                const ok = await store.removeListing(listing.id);
+                setDeleteConfirm(false);
+                if (ok) onBack();
+                else alert('Could not delete the listing — try again.');
+              }}>
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {lightbox !== null && photos[lightbox] && (

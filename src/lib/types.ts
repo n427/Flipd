@@ -71,6 +71,7 @@ export interface ActivityItem {
   listingTitle: string;
   listingId: string;
   listingArchived: boolean;
+  listingRemoved: boolean;
   when: string;
   expiresAt: string;
   status: ActivityStatus;

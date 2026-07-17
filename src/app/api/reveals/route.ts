@@ -12,6 +12,7 @@ type RevealRow = {
   created_at: string;
   expires_at: string;
   listing: { title: string; contact: string[]; archived: boolean } | null;
+  listing_title: string | null;
   buyer: ProfileRef | null;
   seller: ProfileRef | null;
 };
@@ -26,7 +27,7 @@ type ProfileRef = {
   contact_email: string | null;
 };
 
-const SELECT = `id, listing_id, buyer_id, seller_id, status, created_at, expires_at,
+const SELECT = `id, listing_id, listing_title, buyer_id, seller_id, status, created_at, expires_at,
   listing:listings(title, contact, archived),
   buyer:profiles!reveal_requests_buyer_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email),
   seller:profiles!reveal_requests_seller_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email)`;
@@ -45,8 +46,9 @@ function toDto(row: RevealRow, viewerId: string) {
   const dto: Record<string, unknown> = {
     id: row.id,
     listing_id: row.listing_id,
-    listing_title: row.listing?.title ?? '',
+    listing_title: row.listing?.title ?? row.listing_title ?? '',
     listing_archived: row.listing?.archived ?? false,
+    listing_removed: !row.listing,
     status,
     created_at: row.created_at,
     expires_at: row.expires_at,

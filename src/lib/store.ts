@@ -42,6 +42,7 @@ type RevealDto = {
   expires_at: string;
   counterpart: { id: string; display_name: string | null; school_unit: string | null; class_year: string | null; avatar_url: string | null } | null;
   listing_archived?: boolean;
+  listing_removed?: boolean;
   contact?: RevealContact;
 };
 
@@ -117,6 +118,7 @@ function mapReveal(dto: RevealDto, dir: 'in' | 'out'): ActivityItem {
     listingTitle: dto.listing_title,
     listingId: dto.listing_id,
     listingArchived: dto.listing_archived ?? false,
+    listingRemoved: dto.listing_removed ?? false,
     when: timeAgo(dto.created_at),
     expiresAt: dto.expires_at,
     status: effectiveRevealStatus(dto.status, dto.expires_at).toUpperCase() as ActivityStatus,
@@ -134,6 +136,7 @@ export interface FlipdStore {
   toggleSave: (id: string) => void;
   addListing: (formData: FormData) => Promise<Listing | null>;
   updateListing: (id: string, formData: FormData) => Promise<Listing | null>;
+  removeListing: (id: string) => Promise<boolean>;
   getListing: (id: string) => Promise<Listing | null>;
   setArchived: (id: string, archived: boolean) => Promise<boolean>;
   requestReveal: (listingId: string) => Promise<{ ok: boolean; error?: string }>;
@@ -260,6 +263,14 @@ export function useFlipdStore(): FlipdStore {
     return mapped;
   };
 
+  const removeListing = async (id: string): Promise<boolean> => {
+    const res = await fetch(`/api/listings/${id}`, { method: 'DELETE' }).catch(() => null);
+    if (!res || !res.ok) return false;
+    setListings((prev) => prev.filter((l) => l.id !== id));
+    await refreshActivity();
+    return true;
+  };
+
   const getListing = async (id: string): Promise<Listing | null> => {
     const local = listings.find((l) => l.id === id);
     if (local) return local;
@@ -352,7 +363,7 @@ export function useFlipdStore(): FlipdStore {
 
   return {
     me, listings, listingsLoading, savedIds, activity,
-    isSaved, toggleSave, addListing, updateListing, getListing, setArchived,
+    isSaved, toggleSave, addListing, updateListing, removeListing, getListing, setArchived,
     requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, signOut,
     myListings, pastListings, savedListings, pendingCount,
   };
