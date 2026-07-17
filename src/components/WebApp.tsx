@@ -446,7 +446,7 @@ export function WebCreate({
   const [title, setTitle] = React.useState('');
   const [price, setPrice] = React.useState('');
   const [neg, setNeg] = React.useState(false);
-  const [location, setLocation] = React.useState('USC Village · pickup');
+  const [location, setLocation] = React.useState('');
   const [contact, setContact] = React.useState<ContactMethod[]>([]);
   const [description, setDescription] = React.useState('');
   const [aiLoading, setAiLoading] = React.useState(false);
@@ -602,23 +602,14 @@ export function WebCreate({
   };
 
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto', padding: '28px 24px 80px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 26 }}>
-        <button onClick={onCancel} style={{ background: 'none', border: 0, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 12.5 }}>
-          <Icon name="chevronLeft" size={14} /> Cancel
-        </button>
-        <h1 style={{ flex: 1, textAlign: 'center', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--ink)', margin: 0 }}>New listing</h1>
-        <span style={{ width: 52 }} />
-      </div>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 32px 80px' }}>
+      <button onClick={onCancel} style={{ background: 'none', border: 0, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 12.5 }}>
+        <Icon name="chevronLeft" size={14} /> Cancel
+      </button>
+      <h1 style={{ fontWeight: 800, fontSize: 24, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '14px 0 28px' }}>New listing</h1>
 
-      <div>
-          <label className="field-label">Category</label>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 22 }}>
-            {CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
-              <CategoryChip key={c.id} category={c} active={category === c.id} onClick={() => setCategory(c.id)} />
-            ))}
-          </div>
-
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 48, alignItems: 'start' }}>
+        <div>
           <label className="field-label">Photos</label>
           <input
             ref={fileInputRef}
@@ -692,6 +683,15 @@ export function WebCreate({
               </div>
             </div>
           )}
+        </div>
+
+        <div>
+          <label className="field-label">Category</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 22 }}>
+            {CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
+              <CategoryChip key={c.id} category={c} active={category === c.id} onClick={() => setCategory(c.id)} />
+            ))}
+          </div>
 
           <label className="field-label">Title</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className="field" placeholder="e.g. Sourdough loaves" style={{ marginBottom: 24 }} />
@@ -740,7 +740,7 @@ export function WebCreate({
           <label className="field-label">Pickup location</label>
           <div style={{ position: 'relative', marginBottom: 24 }}>
             <Icon name="mapPin" size={16} color="var(--muted)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
-            <input value={location} onChange={(e) => setLocation(e.target.value)} className="field" style={{ paddingLeft: 38 }} />
+            <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="USC Village" className="field" style={{ paddingLeft: 38 }} />
           </div>
 
           <label className="field-label">Contact</label>
@@ -748,24 +748,12 @@ export function WebCreate({
             {([{ id: 'instagram', label: 'Instagram' }, { id: 'phone', label: 'Text' }, { id: 'email', label: 'Email' }] as const).map((c) => {
               const active = contact.includes(c.id);
               return (
-                <button key={c.id} onClick={() => setContact((prev) => prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id])} style={{ background: active ? 'var(--ink)' : 'var(--surface)', color: active ? '#fff' : 'var(--ink-2)', border: 0, borderRadius: 999, padding: '8px 16px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
+                <button key={c.id} onClick={() => setContact((prev) => prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id])} style={{ background: active ? 'var(--ink)' : 'var(--surface)', color: active ? '#fff' : 'var(--ink-2)', border: 0, borderRadius: 8, padding: '8px 14px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
                   {c.label}
                 </button>
               );
             })}
           </div>
-
-          {showPreview && (
-            <div style={{ border: '1px solid var(--rule)', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-              <WebListingDetail
-                store={store}
-                preview
-                onBack={() => {}}
-                onReveal={() => {}}
-                listing={previewListing}
-              />
-            </div>
-          )}
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <Button kind="ghost" onClick={() => setShowPreview((v) => !v)}>
@@ -779,7 +767,20 @@ export function WebCreate({
               Add {missing[0]} to publish.
             </div>
           )}
+        </div>
       </div>
+
+      {showPreview && (
+        <div style={{ border: '1px solid var(--rule)', borderRadius: 12, padding: 20, marginTop: 32 }}>
+          <WebListingDetail
+            store={store}
+            preview
+            onBack={() => {}}
+            onReveal={() => {}}
+            listing={previewListing}
+          />
+        </div>
+      )}
     </div>
   );
 }

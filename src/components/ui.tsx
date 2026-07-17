@@ -159,7 +159,7 @@ export function CategoryChip({
       onClick={onClick}
       style={{
         display: 'inline-flex', alignItems: 'center',
-        padding: '8px 16px', borderRadius: 'var(--r-pill)', border: 0,
+        padding: '8px 14px', borderRadius: 8, border: 0,
         background: active ? 'var(--ink)' : 'var(--surface)',
         color: active ? '#fff' : 'var(--ink-2)',
         fontWeight: 600, fontSize: 13,
