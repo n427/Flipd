@@ -12,16 +12,20 @@ export default function ListingEditPage({ params }: { params: { id: string } }) 
   const [listing, setListing] = React.useState<Listing | null>(null);
   const [loading, setLoading] = React.useState(true);
 
+  // Wait for `me` before loading, so ownership resolves correctly on a direct
+  // navigation (the store's `mine` flag is null until /api/me returns).
   React.useEffect(() => {
+    if (!store.me) return;
     let alive = true;
     store.getListing(params.id).then((l) => {
       if (alive) { setListing(l); setLoading(false); }
     });
     return () => { alive = false; };
-  }, [params.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [params.id, store.me]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) return null;
-  if (!listing || !listing.mine) {
+  if (loading || !store.me) return null;
+  const isOwner = listing != null && listing.seller.id === store.me.id;
+  if (!isOwner) {
     return (
       <div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 13 }}>
         Listing not found.
