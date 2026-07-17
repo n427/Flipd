@@ -297,7 +297,7 @@ function JoinCTA() {
             <form onSubmit={verify} style={{ display: 'flex', gap: 8 }}>
               <input
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
                 placeholder="123456"
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -305,7 +305,7 @@ function JoinCTA() {
                 className="field"
                 style={{ flex: 1, borderRadius: 10, background: '#fff', letterSpacing: '0.2em', fontWeight: 700, fontSize: 16 }}
               />
-              <button type="submit" className="btn btn-primary" disabled={state === 'verifying' || code.length !== 6} style={{ padding: '13px 22px' }}>
+              <button type="submit" className="btn btn-primary" disabled={state === 'verifying' || code.length < 6} style={{ padding: '13px 22px' }}>
                 {state === 'verifying' ? 'Verifying…' : 'Sign in'}
               </button>
             </form>

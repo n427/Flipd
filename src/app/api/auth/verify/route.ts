@@ -11,8 +11,8 @@ export async function POST(req: NextRequest) {
   if (typeof email !== 'string' || !isUscEmail(email)) {
     return NextResponse.json({ error: 'Enter your @usc.edu address.' }, { status: 400 });
   }
-  if (typeof code !== 'string' || !/^\d{6}$/.test(code.trim())) {
-    return NextResponse.json({ error: 'Enter the 6-digit code from your email.' }, { status: 400 });
+  if (typeof code !== 'string' || !/^\d{6,8}$/.test(code.trim())) {
+    return NextResponse.json({ error: 'Enter the sign-in code from your email.' }, { status: 400 });
   }
 
   const supabase = createSessionClient();
