@@ -114,9 +114,8 @@ export function ListingCard({
 }: { listing: Listing; onClick?: () => void; compact?: boolean }) {
   return (
     <div
-      className={onClick ? 'card-hover' : undefined}
       onClick={onClick}
-      style={{ cursor: onClick ? 'pointer' : 'default', display: 'flex', flexDirection: 'column', transition: 'transform 160ms ease-out' }}
+      style={{ cursor: onClick ? 'pointer' : 'default', display: 'flex', flexDirection: 'column' }}
     >
       <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 'var(--r-img)', overflow: 'hidden', background: 'var(--surface)' }}>
         {listing.photo_urls?.[0] ? (
