@@ -351,9 +351,14 @@ function JoinCTA() {
 
 function Footer() {
   return (
-    <footer style={{ padding: '28px 32px', borderTop: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}>
+    <footer style={{ padding: '28px 32px', borderTop: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, fontSize: 12, color: 'var(--muted)' }}>
       <Wordmark size={15} />
-      <span>© 2026 · made in University Park</span>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+        <a href="/terms" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Terms</a>
+        <a href="/privacy" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Privacy</a>
+        <a href="/support" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Support</a>
+        <span>© 2026 · made in University Park</span>
+      </div>
     </footer>
   );
 }

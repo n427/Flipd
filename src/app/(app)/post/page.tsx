@@ -13,15 +13,10 @@ export default function PostPage() {
       store={store}
       onCancel={() => router.push('/feed')}
       onPublish={async (fd) => {
-        try {
-          const created = await store.addListing(fd);
-          if (!created) throw new Error('Publish failed — no listing returned.');
-          router.push('/feed');
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Publish failed.';
-          console.error('[publish] failed:', err);
-          alert('Could not publish your listing:\n\n' + msg);
-        }
+        // Throw on failure so WebCreate stays on the preview; on success it
+        // shows its own confirmation (whose button routes back to the feed).
+        const created = await store.addListing(fd);
+        if (!created) throw new Error('Publish failed — no listing returned.');
       }}
     />
   );

@@ -20,6 +20,7 @@ type DbListing = {
   id: string;
   seller_id: string;
   category: string;
+  categories?: string[] | null;
   title: string;
   description?: string | null;
   price?: number | null;
@@ -83,7 +84,10 @@ function mapDbListing(row: DbListing, meId: string | null): Listing {
     id: row.id,
     mine: meId !== null && row.seller_id === meId,
     category: row.category,
+    categories: (row.categories && row.categories.length ? row.categories : [row.category]),
     categoryLabel: CATEGORIES.find((c) => c.id === row.category)?.label || 'Goods',
+    categoryLabels: (row.categories && row.categories.length ? row.categories : [row.category])
+      .map((c) => CATEGORIES.find((x) => x.id === c)?.label || 'Goods'),
     title: row.title,
     description: row.description || undefined,
     price,
@@ -468,20 +472,19 @@ export function useFlipdStore(): FlipdStore {
 
 export function filterListings(
   listings: Listing[],
-  { activeCat = 'all', query = '', sort = 'recent', priceFilter = 'any' }: FilterArgs = {},
+  { activeCat = 'all', query = '', sort = 'recent', priceMin = null, priceMax = null }: FilterArgs = {},
 ): Listing[] {
   let out = listings.filter((l) => {
     if (l.archived) return false;
-    if (activeCat !== 'all' && l.category !== activeCat) return false;
+    if (activeCat !== 'all' && !(l.categories ?? [l.category]).includes(activeCat)) return false;
     if (query) {
       const q = query.toLowerCase();
       const hay = (l.title + ' ' + l.meta + ' ' + l.categoryLabel + ' ' + l.seller.name).toLowerCase();
       if (!hay.includes(q)) return false;
     }
     const price = l.price ?? 0;
-    if (priceFilter === 'free' && price !== 0) return false;
-    if (priceFilter === 'u25' && price > 25) return false;
-    if (priceFilter === 'u100' && price > 100) return false;
+    if (priceMin != null && price < priceMin) return false;
+    if (priceMax != null && price > priceMax) return false;
     return true;
   });
   if (sort === 'low') out = [...out].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));

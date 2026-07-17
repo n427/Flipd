@@ -63,6 +63,10 @@ button { font: inherit; cursor: pointer; }
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-9px); }
 }
+@keyframes flipdPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 @keyframes sheetUp {
   0% { transform: translateY(24px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }

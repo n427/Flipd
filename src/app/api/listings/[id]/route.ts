@@ -64,7 +64,9 @@ export async function PATCH(
   // Multipart body: full edit, same fields as POST. photo_manifest preserves
   // order — existing photos as URLs, '__new__' markers consumed from files.
   const formData = await req.formData();
-  const category = formData.get('category') as string;
+  const categoriesRaw = JSON.parse((formData.get('categories') as string) || '[]') as string[];
+  const categories = categoriesRaw.length ? categoriesRaw : [formData.get('category') as string].filter(Boolean);
+  const category = categories[0] || 'goods';
   const title = formData.get('title') as string;
   const description = formData.get('description') as string | null;
   const price = parseInt((formData.get('price') as string) || '0', 10);
@@ -105,6 +107,7 @@ export async function PATCH(
     .from('listings')
     .update({
       category,
+      categories,
       title,
       description: description || null,
       price: isNaN(price) ? 0 : price,

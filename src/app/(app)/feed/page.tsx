@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { WebAppFeed } from '@/components/WebApp';
+import { WebAppFeed, FeedSkeleton } from '@/components/WebApp';
 import { useStore } from '@/lib/store-context';
 
 function FeedPageInner() {
@@ -13,15 +13,10 @@ function FeedPageInner() {
 
   const [activeCat, setActiveCat] = React.useState('all');
   const [sort, setSort] = React.useState('recent');
-  const [priceFilter, setPriceFilter] = React.useState('any');
+  const [priceMin, setPriceMin] = React.useState('');
+  const [priceMax, setPriceMax] = React.useState('');
 
-  if (store.listingsLoading) {
-    return (
-      <div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 13 }}>
-        Loading listings…
-      </div>
-    );
-  }
+  if (store.listingsLoading) return <FeedSkeleton />;
 
   return (
     <WebAppFeed
@@ -32,8 +27,10 @@ function FeedPageInner() {
       query={query}
       sort={sort}
       setSort={setSort}
-      priceFilter={priceFilter}
-      setPriceFilter={setPriceFilter}
+      priceMin={priceMin}
+      setPriceMin={setPriceMin}
+      priceMax={priceMax}
+      setPriceMax={setPriceMax}
     />
   );
 }

@@ -12,6 +12,9 @@ import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from
 import { timeLeftLabel } from '@/lib/validation';
 import type { ActivityItem, ActivityStatus, Listing, PhotoTone, RatingSummary } from '@/lib/types';
 
+const TITLE_MAX = 80;
+const MEETUP_SPOTS = ['USC Village', 'Leavey Library', 'Tutor Campus Center', 'Trousdale Pkwy', 'The Lorenzo', 'Cardinal Gardens'];
+
 interface DropdownOption { id: string; label: string; }
 
 // ── Small dropdown ───────────────────────────────────────────────────
@@ -337,15 +340,42 @@ export function WebNotifications({
 }
 
 // ── Feed ─────────────────────────────────────────────────────────────
+// ── Loading skeletons ────────────────────────────────────────────────
+function CardSkeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ aspectRatio: '1 / 1', borderRadius: 'var(--r-img)', background: 'var(--surface)', animation: 'flipdPulse 1.4s ease-in-out infinite' }} />
+      <div style={{ height: 13, width: '80%', borderRadius: 5, background: 'var(--surface)', animation: 'flipdPulse 1.4s ease-in-out infinite' }} />
+      <div style={{ height: 12, width: '45%', borderRadius: 5, background: 'var(--surface)', animation: 'flipdPulse 1.4s ease-in-out infinite' }} />
+    </div>
+  );
+}
+
+export function FeedSkeleton() {
+  return (
+    <div style={{ padding: '32px 32px 64px', maxWidth: 1280, margin: '0 auto' }}>
+      <div style={{ height: 30, width: 260, borderRadius: 8, background: 'var(--surface)', animation: 'flipdPulse 1.4s ease-in-out infinite', marginBottom: 28 }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
+        {Array.from({ length: 10 }).map((_, i) => <CardSkeleton key={i} />)}
+      </div>
+    </div>
+  );
+}
+
 export function WebAppFeed({
-  store, activeCat, setActiveCat, onListing, query, sort, setSort, priceFilter, setPriceFilter,
+  store, activeCat, setActiveCat, onListing, query, sort, setSort, priceMin, setPriceMin, priceMax, setPriceMax,
 }: {
   store: FlipdStore; activeCat: string; setActiveCat: (c: string) => void;
   onListing: (l: Listing) => void; query: string;
   sort: string; setSort: (s: string) => void;
-  priceFilter: string; setPriceFilter: (p: string) => void;
+  priceMin: string; setPriceMin: (p: string) => void;
+  priceMax: string; setPriceMax: (p: string) => void;
 }) {
-  const items = filterListings(store.listings, { activeCat, query, sort: sort as never, priceFilter: priceFilter as never });
+  const items = filterListings(store.listings, {
+    activeCat, query, sort: sort as never,
+    priceMin: priceMin ? Number(priceMin) : null,
+    priceMax: priceMax ? Number(priceMax) : null,
+  });
   return (
     <div style={{ padding: '32px 32px 64px', maxWidth: 1280, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -362,15 +392,26 @@ export function WebAppFeed({
           <CategoryChip key={c.id} category={c} active={activeCat === c.id} onClick={() => setActiveCat(c.id)} />
         ))}
         <div style={{ flex: 1 }} />
-        <WebDropdown
-          icon="filter" label="Price" value={priceFilter} onChange={setPriceFilter}
-          options={[
-            { id: 'any', label: 'Any price' },
-            { id: 'free', label: 'Free only' },
-            { id: 'u25', label: 'Under $25' },
-            { id: 'u100', label: 'Under $100' },
-          ]}
-        />
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--rule)', borderRadius: 'var(--r-pill)', padding: '4px 10px 4px 12px', background: '#fff' }}>
+          <span style={{ fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--muted)' }}>$</span>
+          <input
+            value={priceMin}
+            onChange={(e) => setPriceMin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            inputMode="numeric"
+            placeholder="Min"
+            aria-label="Minimum price"
+            style={{ width: 48, border: 0, outline: 0, background: 'transparent', fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--ink)' }}
+          />
+          <span style={{ color: 'var(--rule-strong)' }}>–</span>
+          <input
+            value={priceMax}
+            onChange={(e) => setPriceMax(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            inputMode="numeric"
+            placeholder="Max"
+            aria-label="Maximum price"
+            style={{ width: 48, border: 0, outline: 0, background: 'transparent', fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--ink)' }}
+          />
+        </div>
         <WebDropdown
           label="Sort" value={sort} onChange={setSort}
           options={[
@@ -565,7 +606,7 @@ export function WebListingDetail({
 
   const categoryLine = (
     <div style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--accent)', marginBottom: 8 }}>
-      {listing.categoryLabel} · posted {listing.postedLabel || 'recently'}
+      {(listing.categoryLabels?.length ? listing.categoryLabels : [listing.categoryLabel]).join(' · ')} · posted {listing.postedLabel || 'recently'}
     </div>
   );
   const titleBlock = (
@@ -832,9 +873,11 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
 // ── Create listing (web, multi-step) ────────────────────────────────
 export function WebCreate({
   onPublish, onCancel, store, initial, submitLabel = 'Publish listing', heading = 'What are you passing on?',
-}: { onPublish: (formData: FormData) => void; onCancel: () => void; store: FlipdStore; initial?: Listing; submitLabel?: string; heading?: string }) {
+}: { onPublish: (formData: FormData) => void | Promise<void>; onCancel: () => void; store: FlipdStore; initial?: Listing; submitLabel?: string; heading?: string }) {
   const [attempted, setAttempted] = React.useState(false);
-  const [category, setCategory] = React.useState<string | null>(initial?.category ?? null);
+  const [phase, setPhase] = React.useState<'form' | 'preview' | 'success'>('form');
+  const [submitting, setSubmitting] = React.useState(false);
+  const [categories, setCategories] = React.useState<string[]>(initial?.categories && initial.categories.length ? [...initial.categories] : initial?.category ? [initial.category] : []);
   const [title, setTitle] = React.useState(initial?.title ?? '');
   const [price, setPrice] = React.useState(initial?.price != null && initial.price > 0 ? String(initial.price) : initial ? '0' : '');
   const [neg, setNeg] = React.useState(initial?.negotiable ?? false);
@@ -895,7 +938,7 @@ export function WebCreate({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
-          category: CATEGORIES.find((c) => c.id === category)?.label || category || 'goods',
+          category: CATEGORIES.find((c) => c.id === categories[0])?.label || categories[0] || 'goods',
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -941,7 +984,7 @@ export function WebCreate({
   };
 
   const missing = [
-    !category && 'a category',
+    categories.length === 0 && 'a category',
     photos.length === 0 && 'a photo',
     !title.trim() && 'a title',
     !description.trim() && 'a description',
@@ -950,13 +993,10 @@ export function WebCreate({
     !store.me?.contact_method && 'a contact method (set it in your profile)',
   ].filter(Boolean) as string[];
 
-  const publish = () => {
-    if (missing.length > 0) {
-      setAttempted(true);
-      return;
-    }
+  const buildFormData = () => {
     const fd = new FormData();
-    fd.append('category', category || 'goods');
+    fd.append('category', categories[0] || 'goods');
+    fd.append('categories', JSON.stringify(categories));
     fd.append('title', title.trim());
     fd.append('description', description);
     fd.append('price', price);
@@ -967,8 +1007,87 @@ export function WebCreate({
     fd.append('photo_manifest', JSON.stringify(manifest));
     photos.forEach((p) => { if (p.file) fd.append('photos', p.file, p.file.name); });
     photoFocus.forEach((f) => fd.append('photo_focus', f));
-    onPublish(fd);
+    return fd;
   };
+
+  // Edits skip the preview/success gate; new listings preview, then confirm.
+  const onSubmitClick = () => {
+    if (missing.length > 0) { setAttempted(true); return; }
+    if (initial) { onPublish(buildFormData()); return; }
+    setPhase('preview');
+  };
+
+  const confirmPublish = async () => {
+    setSubmitting(true);
+    try {
+      await onPublish(buildFormData());
+      setPhase('success');
+    } catch {
+      setPhase('preview');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const previewListing: Listing = {
+    id: 'preview',
+    category: categories[0] || 'goods',
+    categories: categories.length ? categories : ['goods'],
+    categoryLabel: (CATEGORIES.find((c) => c.id === categories[0]) || {}).label || 'Goods',
+    categoryLabels: (categories.length ? categories : ['goods']).map((c) => (CATEGORIES.find((x) => x.id === c) || {}).label || 'Goods'),
+    title: title.trim() || 'Untitled listing',
+    price: price ? Number(price) : undefined,
+    priceLabel: price && Number(price) > 0 ? '$' + Number(price).toLocaleString('en-US') : 'Free',
+    negotiable: neg,
+    meta: location,
+    photoTone: 'cream',
+    photoLabel: 'your photo',
+    photo_urls: photos.map((p) => p.url),
+    photo_focus: photoFocus,
+    description,
+    seller: { id: store.me?.id ?? '', name: store.me?.display_name ?? 'You', unit: store.me?.school_unit ?? '', year: '' },
+    postedLabel: 'just now',
+  };
+
+  if (phase === 'success') {
+    return (
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: '80px 24px', textAlign: 'center' }}>
+        <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+          <Icon name="check" size={26} color="#fff" />
+        </div>
+        <h1 style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 8px' }}>You&rsquo;re live</h1>
+        <p style={{ fontFamily: 'var(--sans)', fontSize: 14.5, color: 'var(--ink-2)', margin: '0 0 26px' }}>
+          &ldquo;{title.trim()}&rdquo; is on the feed. We&rsquo;ll let you know when someone asks about it.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <Button kind="secondary" onClick={onCancel}>Back to feed</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'preview') {
+    return (
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 32px 80px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '10px 0 8px' }}>
+          <h1 style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em', color: 'var(--ink)', margin: 0 }}>Preview</h1>
+          <Button kind="secondary" size="sm" onClick={() => setPhase('form')}>Keep editing</Button>
+        </div>
+        <p style={{ fontFamily: 'var(--sans)', fontSize: 14, color: 'var(--muted)', margin: '0 0 20px' }}>
+          This is exactly how buyers will see it.
+        </p>
+        <div style={{ border: '1px solid var(--rule)', borderRadius: 16, overflow: 'hidden' }}>
+          <WebListingDetail store={store} listing={previewListing} preview onBack={() => {}} onReveal={() => {}} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
+          <Button kind="ghost" onClick={() => setPhase('form')}>Back</Button>
+          <Button kind="primary" size="lg" disabled={submitting} onClick={confirmPublish}>
+            {submitting ? 'Publishing…' : 'Publish listing'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 32px 80px' }}>
@@ -1062,15 +1181,23 @@ export function WebCreate({
 
         {/* Right: details */}
         <div>
-          <label className="field-label">It’s in the category of…<span style={{ color: 'var(--accent)' }}> *</span></label>
+          <label className="field-label">It’s in the category of…<span style={{ color: 'var(--accent)' }}> *</span><span style={{ fontWeight: 400, color: 'var(--muted)', textTransform: 'none', letterSpacing: 0 }}> — pick one or more</span></label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
             {CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
-              <CategoryChip key={c.id} category={c} active={category === c.id} onClick={() => setCategory(c.id)} />
+              <CategoryChip
+                key={c.id}
+                category={c}
+                active={categories.includes(c.id)}
+                onClick={() => setCategories((prev) => prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id])}
+              />
             ))}
           </div>
 
-          <label className="field-label">Give it a title<span style={{ color: 'var(--accent)' }}> *</span></label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className="field" placeholder="e.g. Mini fridge, two gentle years old" style={{ marginBottom: 22 }} />
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <label className="field-label">Give it a title<span style={{ color: 'var(--accent)' }}> *</span></label>
+            <span style={{ fontFamily: 'var(--sans)', fontSize: 12, color: title.length >= TITLE_MAX ? 'var(--accent)' : 'var(--muted)' }}>{title.length}/{TITLE_MAX}</span>
+          </div>
+          <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))} className="field" placeholder="e.g. Mini fridge, two gentle years old" style={{ marginBottom: 22 }} />
 
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
             <label className="field-label" style={{ margin: 0 }}>Tell its story<span style={{ color: 'var(--accent)' }}> *</span></label>
@@ -1122,7 +1249,19 @@ export function WebCreate({
           </div>
 
           <label className="field-label">Where you’ll meet<span style={{ color: 'var(--accent)' }}> *</span></label>
-          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="USC Village" className="field" style={{ marginBottom: 22 }} />
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            {MEETUP_SPOTS.map((spot) => (
+              <button
+                key={spot}
+                type="button"
+                onClick={() => setLocation(spot)}
+                style={{ background: location === spot ? 'var(--ink)' : '#fff', color: location === spot ? '#fff' : 'var(--ink-2)', border: '1px solid ' + (location === spot ? 'var(--ink)' : 'var(--rule)'), borderRadius: 999, padding: '7px 14px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
+              >
+                {spot}
+              </button>
+            ))}
+          </div>
+          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Or type another spot on or near campus" className="field" style={{ marginBottom: 22 }} />
 
           <label className="field-label">How buyers reach you</label>
           <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)' }}>
@@ -1137,7 +1276,7 @@ export function WebCreate({
 
       <hr className="rule" style={{ margin: '36px 0 20px' }} />
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button kind="primary" size="lg" onClick={publish}>{submitLabel}</Button>
+        <Button kind="primary" size="lg" onClick={onSubmitClick}>{initial ? submitLabel : 'Preview listing'}</Button>
       </div>
       {attempted && missing.length > 0 && (
         <div style={{ fontSize: 12.5, marginTop: 10, textAlign: 'right', color: 'var(--accent)' }}>
@@ -1371,7 +1510,8 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
   const [modal, setModal] = React.useState<'reveal' | null>(null);
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState('recent');
-  const [priceFilter, setPriceFilter] = React.useState('any');
+  const [priceMin, setPriceMin] = React.useState('');
+  const [priceMax, setPriceMax] = React.useState('');
   const [notifOpen, setNotifOpen] = React.useState(false);
 
   const goFeed = () => { setView('feed'); setSelected(null); };
@@ -1396,16 +1536,12 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         meAvatarUrl={store.me?.avatar_url ?? undefined}
       />
 
-      {view === 'feed' && store.listingsLoading && (
-        <div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 13 }}>
-          Loading listings…
-        </div>
-      )}
+      {view === 'feed' && store.listingsLoading && <FeedSkeleton />}
       {view === 'feed' && !store.listingsLoading && (
         <WebAppFeed
           store={store} activeCat={activeCat} setActiveCat={setActiveCat}
           onListing={goDetail} query={query} sort={sort} setSort={setSort}
-          priceFilter={priceFilter} setPriceFilter={setPriceFilter}
+          priceMin={priceMin} setPriceMin={setPriceMin} priceMax={priceMax} setPriceMax={setPriceMax}
         />
       )}
       {view === 'detail' && selected && (
@@ -1416,15 +1552,8 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
           store={store}
           onCancel={goFeed}
           onPublish={async (fd) => {
-            try {
-              const created = await store.addListing(fd);
-              if (!created) throw new Error('Publish failed — no listing returned.');
-              setView('feed'); setActiveCat('all'); setSort('recent');
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : 'Publish failed.';
-              console.error('[publish] failed:', err);
-              alert('Could not publish your listing:\n\n' + msg);
-            }
+            const created = await store.addListing(fd);
+            if (!created) throw new Error('Publish failed — no listing returned.');
           }}
         />
       )}

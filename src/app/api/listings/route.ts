@@ -55,7 +55,9 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const formData = await req.formData();
-  const category = formData.get('category') as string;
+  const categoriesRaw = JSON.parse((formData.get('categories') as string) || '[]') as string[];
+  const categories = categoriesRaw.length ? categoriesRaw : [formData.get('category') as string].filter(Boolean);
+  const category = categories[0] || 'goods';
   const title = formData.get('title') as string;
   const description = formData.get('description') as string | null;
   const price = parseInt((formData.get('price') as string) || '0', 10);
@@ -100,6 +102,7 @@ export async function POST(req: NextRequest) {
       id: listingId,
       seller_id: user.id,
       category,
+      categories,
       title,
       description: description || null,
       price: isNaN(price) ? 0 : price,

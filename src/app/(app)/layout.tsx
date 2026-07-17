@@ -43,7 +43,13 @@ function AppChrome({ children }: { children: React.ReactNode }) {
         meName={store.me?.display_name ?? 'Me'}
         meAvatarUrl={store.me?.avatar_url ?? undefined}
       />
-      {children}
+      <div style={{ minHeight: 'calc(100vh - 200px)' }}>{children}</div>
+      <footer style={{ borderTop: '1px solid var(--rule)', padding: '22px 32px', display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap', fontFamily: 'var(--sans)', fontSize: 12, color: 'var(--muted)' }}>
+        <a href="/terms" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Terms</a>
+        <a href="/privacy" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Privacy</a>
+        <a href="/support" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Support</a>
+        <span style={{ marginLeft: 'auto' }}>© 2026 Flipd</span>
+      </footer>
       {notifOpen && (
         <WebNotifications
           activity={store.activity}

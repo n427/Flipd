@@ -33,7 +33,9 @@ export interface Profile {
 export interface Listing {
   id: string;
   category: CategoryId | string;
+  categories?: (CategoryId | string)[];
   categoryLabel: string;
+  categoryLabels?: string[];
   title: string;
   price?: number;
   priceLabel: string;
@@ -106,7 +108,8 @@ export interface FilterArgs {
   activeCat?: CategoryId | string;
   query?: string;
   sort?: 'recent' | 'low' | 'high';
-  priceFilter?: 'any' | 'free' | 'u25' | 'u100';
+  priceMin?: number | null;
+  priceMax?: number | null;
 }
 
 export interface RatingReview {
