@@ -241,7 +241,8 @@ function Trust() {
 
 function JoinCTA() {
   const [email, setEmail] = React.useState('');
-  const [state, setState] = React.useState<'idle' | 'sending' | 'sent'>('idle');
+  const [code, setCode] = React.useState('');
+  const [state, setState] = React.useState<'idle' | 'sending' | 'sent' | 'verifying'>('idle');
   const [error, setError] = React.useState('');
 
   const submit = async (e: React.FormEvent) => {
@@ -253,10 +254,29 @@ function JoinCTA() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     }).catch(() => null);
-    if (res?.ok) { setState('sent'); return; }
+    if (res?.ok) { setState('sent'); setCode(''); return; }
     const body = await res?.json().catch(() => ({}));
     setError(body?.error || 'Something went wrong — try again.');
     setState('idle');
+  };
+
+  const verify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setState('verifying');
+    setError('');
+    const res = await fetch('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code }),
+    }).catch(() => null);
+    if (res?.ok) {
+      const body = await res.json().catch(() => ({ onboarded: false }));
+      window.location.href = body.onboarded ? '/feed' : '/onboarding';
+      return;
+    }
+    const body = await res?.json().catch(() => ({}));
+    setError(body?.error || 'Something went wrong — try again.');
+    setState('sent');
   };
 
   return (
@@ -266,14 +286,35 @@ function JoinCTA() {
           Got an @usc.edu email?<br />You're already in.
         </h2>
         <p style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 500, margin: '0 0 30px' }}>
-          Enter it below and we'll email you a sign-in link. That's the whole sign-up.
+          Enter it below and we'll email you a 6-digit sign-in code. That's the whole sign-up.
         </p>
-        {state === 'sent' ? (
+        {state === 'sent' || state === 'verifying' ? (
           <div style={{ maxWidth: 420, margin: '0 auto', background: 'var(--surface)', borderRadius: 14, padding: '22px 26px', textAlign: 'left' }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Check your email</div>
-            <div style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>
-              We sent a sign-in link to <strong>{email.trim().toLowerCase()}</strong>. Click it on this device to enter Flipd.
+            <div style={{ fontSize: 13.5, color: 'var(--ink-2)', marginBottom: 16 }}>
+              We sent a 6-digit code to <strong>{email.trim().toLowerCase()}</strong>. Enter it below to sign in.
             </div>
+            <form onSubmit={verify} style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="123456"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                aria-label="6-digit sign-in code"
+                className="field"
+                style={{ flex: 1, borderRadius: 10, background: '#fff', letterSpacing: '0.2em', fontWeight: 700, fontSize: 16 }}
+              />
+              <button type="submit" className="btn btn-primary" disabled={state === 'verifying' || code.length !== 6} style={{ padding: '13px 22px' }}>
+                {state === 'verifying' ? 'Verifying…' : 'Sign in'}
+              </button>
+            </form>
+            <button
+              onClick={() => { setState('idle'); setError(''); }}
+              style={{ background: 'none', border: 0, padding: 0, marginTop: 12, fontSize: 12, color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Use a different email or resend
+            </button>
           </div>
         ) : (
           <form onSubmit={submit} style={{ display: 'flex', gap: 8, maxWidth: 440, margin: '0 auto' }}>
