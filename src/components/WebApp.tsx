@@ -627,6 +627,7 @@ export function WebCreate({
   const [location, setLocation] = React.useState(initial?.meta && initial.meta !== 'USC · pickup' ? initial.meta : '');
   const [description, setDescription] = React.useState(initial?.description ?? '');
   const [aiLoading, setAiLoading] = React.useState(false);
+  const [aiError, setAiError] = React.useState('');
   const [photos, setPhotos] = React.useState<{ file?: File; url: string }[]>(
     () => (initial?.photo_urls ?? []).map((url) => ({ url })),
   );
@@ -673,6 +674,7 @@ export function WebCreate({
   const generateDescription = async () => {
     if (!title.trim() || aiLoading) return;
     setAiLoading(true);
+    setAiError('');
     try {
       const res = await fetch('/api/generate-description', {
         method: 'POST',
@@ -682,10 +684,12 @@ export function WebCreate({
           category: CATEGORIES.find((c) => c.id === category)?.label || category || 'goods',
         }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.description) setDescription(data.description);
+      if (!data.description) throw new Error('empty response');
+      setDescription(data.description);
     } catch {
-      // silently fail — user can retry
+      setAiError('Couldn’t generate - try again.');
     } finally {
       setAiLoading(false);
     }
@@ -856,9 +860,11 @@ export function WebCreate({
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
             <label className="field-label" style={{ margin: 0 }}>Tell its story</label>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+              {aiError && <span style={{ fontFamily: 'var(--sans)', fontSize: 12, color: 'var(--accent)' }}>{aiError}</span>}
               <button
                 onClick={generateDescription}
                 disabled={!title.trim() || aiLoading}
+                title={!title.trim() ? 'Add a title first' : undefined}
                 style={{
                   background: 'none', border: 0, padding: 0,
                   fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12,
@@ -866,7 +872,7 @@ export function WebCreate({
                   cursor: (!title.trim() || aiLoading) ? 'default' : 'pointer',
                 }}
               >
-                {aiLoading ? 'Generating…' : 'Generate with AI'}
+                {aiLoading ? 'Generating…' : aiError ? 'Retry' : 'Generate with AI'}
               </button>
               <span style={{ fontFamily: 'var(--sans)', fontSize: 12, color: 'var(--muted)' }}>{description.length} / 500</span>
             </span>
