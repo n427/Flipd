@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getSessionUser } from '@/lib/supabase/server';
 import { effectiveRevealStatus, type RevealStatus } from '@/lib/validation';
+import { newRequestEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
 
 type RevealRow = {
   id: string;
@@ -125,8 +126,25 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  // Event 1: tell the seller someone asked (no contact info in this email).
+  const row = data as unknown as RevealRow;
+  const [{ data: sellerProfile }, { data: buyerProfile }] = await Promise.all([
+    admin.from('profiles').select('notify_prefs').eq('id', listing.seller_id).single(),
+    admin.from('profiles').select('display_name').eq('id', user.id).single(),
+  ]);
+  if (wantsEmail(sellerProfile?.notify_prefs, 'new_request')) {
+    const to = await verifiedEmailFor(listing.seller_id);
+    if (to) {
+      const { subject, html } = newRequestEmail(
+        buyerProfile?.display_name ?? 'A Trojan',
+        row.listing?.title ?? 'your listing',
+      );
+      void sendEmail(to, subject, html);
+    }
+  }
+
   return NextResponse.json(
-    { reveal: toDto(data as unknown as RevealRow, user.id) },
+    { reveal: toDto(row, user.id) },
     { status: 201 },
   );
 }

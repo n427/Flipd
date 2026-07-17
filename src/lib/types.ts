@@ -25,6 +25,7 @@ export interface Profile {
   contact_email: string | null;
   bio: string | null;
   avatar_url: string | null;
+  notify_prefs: Record<string, { email?: boolean; sms?: boolean }> | null;
   is_demo: boolean;
   created_at: string;
 }
