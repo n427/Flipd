@@ -291,8 +291,8 @@ export function WebListingDetail({
       )}
 
       {/* Gallery: main photo + stacked side photos */}
-      <div style={{ display: 'grid', gridTemplateColumns: sideIdx.length > 0 ? '1.6fr 1fr' : '1fr', gap: 10, marginBottom: 28 }}>
-        <div style={{ position: 'relative', aspectRatio: sideIdx.length > 0 ? '3 / 2' : '2 / 1', borderRadius: 'var(--r-img)', overflow: 'hidden', background: 'var(--surface)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: sideIdx.length > 0 ? '2fr 1fr' : '1fr', gap: 10, marginBottom: 28, maxWidth: sideIdx.length > 0 ? undefined : 640 }}>
+        <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 'var(--r-img)', overflow: 'hidden', background: 'var(--surface)' }}>
           {photos[activePhoto] ? (
             <img
               src={photos[activePhoto]}
@@ -446,7 +446,6 @@ export function WebCreate({
   onPublish, onCancel, store,
 }: { onPublish: (formData: FormData) => void; onCancel: () => void; store: FlipdStore }) {
   const [attempted, setAttempted] = React.useState(false);
-  const [showPreview, setShowPreview] = React.useState(false);
   const [category, setCategory] = React.useState<string | null>(null);
   const [title, setTitle] = React.useState('');
   const [price, setPrice] = React.useState('');
@@ -517,9 +516,6 @@ export function WebCreate({
     }
   };
 
-  const toneFor = (id: string | null): PhotoTone =>
-    (({ services: 'cardinal', food: 'gold', event: 'cardinal', housing: 'cream', goods: 'cream' } as Record<string, PhotoTone>)[id || ''] || 'cream');
-
   const parseFocus = (f: string): [number, number] => {
     const [x, y] = f.split(' ').map((p) => parseFloat(p));
     return [isNaN(x) ? 50 : x, isNaN(y) ? 50 : y];
@@ -579,33 +575,21 @@ export function WebCreate({
     onPublish(fd);
   };
 
-  const previewListing: Listing = {
-    id: 'preview',
-    category: category || 'goods',
-    categoryLabel: (CATEGORIES.find((c) => c.id === category) || {}).label || 'Goods',
-    title: title.trim() || 'Untitled listing',
-    price: price ? Number(price) : undefined,
-    priceLabel: price ? '$' + price : 'Free',
-    meta: location,
-    photoTone: toneFor(category),
-    photoLabel: 'your photo',
-    photo_urls: photos.map((p) => p.url),
-    photo_focus: photoFocus,
-    description,
-    seller: { id: store.me?.id ?? '', name: store.me?.display_name ?? 'You', unit: store.me?.school_unit ?? '', year: '' },
-    postedLabel: 'just now',
-  };
-
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 32px 80px' }}>
-      <button onClick={onCancel} style={{ background: 'none', border: 0, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 12.5 }}>
-        <Icon name="chevronLeft" size={14} /> Cancel
-      </button>
-      <h1 style={{ fontWeight: 800, fontSize: 24, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '14px 0 28px' }}>New listing</h1>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 32px 80px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 34 }}>
+        <Wordmark size={20} />
+        <Button kind="secondary" size="sm" onClick={onCancel}>Exit</Button>
+      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 48, alignItems: 'start' }}>
+      <h1 style={{ fontWeight: 800, fontSize: 30, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 6px' }}>What are you passing on?</h1>
+      <p style={{ fontFamily: 'var(--sans)', fontSize: 14, color: 'var(--muted)', margin: '0 0 32px' }}>
+        Everything here goes to another Trojan — fill in the basics and you’re live.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 44, alignItems: 'start' }}>
+        {/* Left: photos */}
         <div>
-          <label className="field-label">Photos</label>
           <input
             ref={fileInputRef}
             type="file"
@@ -614,150 +598,141 @@ export function WebCreate({
             style={{ display: 'none' }}
             onChange={handleFileChange}
           />
-          {photos.length > 1 && (
-            <div className="t-meta" style={{ fontSize: 11, marginBottom: 8, color: 'var(--muted)' }}>
-              Drag photos to reorder · the first photo is your cover
+          {photos[cropIndex] ? (
+            <div
+              onPointerDown={onCropPointerDown}
+              onPointerMove={onCropPointerMove}
+              onPointerUp={onCropPointerUp}
+              style={{ width: '100%', aspectRatio: '1.05', borderRadius: 14, overflow: 'hidden', cursor: 'grab', touchAction: 'none', userSelect: 'none', background: 'var(--surface)' }}
+            >
+              <img
+                src={photos[cropIndex].url}
+                alt="cover"
+                draggable={false}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: photoFocus[cropIndex] || '50% 50%', display: 'block', pointerEvents: 'none' }}
+              />
             </div>
-          )}
-          {photos.length === 0 && (
+          ) : (
             <button
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
               style={{
-                width: '100%', minHeight: 380, borderRadius: 12,
-                border: '1.5px dashed var(--rule-strong)', background: 'var(--surface)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
-                cursor: 'pointer', marginBottom: 20,
+                width: '100%', aspectRatio: '1.05', borderRadius: 14, border: 0,
+                background: 'var(--surface)', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 10, cursor: 'pointer',
               }}
             >
-              <Icon name="plus" size={22} color="var(--muted)" />
-              <span style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink-2)' }}>Add photos</span>
-              <span style={{ fontFamily: 'var(--sans)', fontSize: 12, color: 'var(--muted)' }}>or drag them here · up to 8</span>
+              <span style={{ width: 44, height: 44, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow)' }}>
+                <Icon name="plus" size={18} color="var(--ink)" />
+              </span>
+              <span style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>Add photos</span>
+              <span style={{ fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--muted)', marginTop: -6 }}>The first one is your cover · up to 8</span>
             </button>
           )}
-          <div style={{ display: photos.length === 0 ? 'none' : 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
-            {photos.map((p, i) => (
-              <div
-                key={i}
-                draggable
-                onDragStart={() => setDragIndex(i)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => { if (dragIndex !== null) reorderPhotos(dragIndex, i); setDragIndex(null); }}
-                onDragEnd={() => setDragIndex(null)}
-                onClick={() => setCropIndex(i)}
-                style={{ position: 'relative', height: 110, borderRadius: 8, overflow: 'hidden', cursor: 'grab', opacity: dragIndex === i ? 0.4 : 1, outline: cropIndex === i ? '2px solid var(--ink)' : 'none', outlineOffset: -1 }}
-              >
-                <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: photoFocus[i] || '50% 50%' }} />
-                <button
-                  onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
-                  style={{
-                    position: 'absolute', top: 3, right: 3, width: 20, height: 20,
-                    borderRadius: '50%', border: 0, background: 'rgba(0,0,0,0.55)',
-                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', padding: 0,
-                  }}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 10 }}>
+            {Array.from({ length: photos.length > 4 ? 8 : 4 }).map((_, i) => (
+              photos[i] ? (
+                <div
+                  key={i}
+                  draggable
+                  onDragStart={() => setDragIndex(i)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => { if (dragIndex !== null) reorderPhotos(dragIndex, i); setDragIndex(null); }}
+                  onDragEnd={() => setDragIndex(null)}
+                  onClick={() => setCropIndex(i)}
+                  style={{ position: 'relative', aspectRatio: '1.4', borderRadius: 10, overflow: 'hidden', cursor: 'grab', opacity: dragIndex === i ? 0.4 : 1, outline: cropIndex === i ? '2px solid var(--ink)' : 'none', outlineOffset: -2 }}
                 >
-                  <Icon name="x" size={10} />
-                </button>
-              </div>
+                  <img src={photos[i].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: photoFocus[i] || '50% 50%' }} />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
+                    aria-label="Remove photo"
+                    style={{ position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: '50%', border: 0, background: 'rgba(0,0,0,0.55)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                  >
+                    <Icon name="x" size={9} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  key={i}
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ aspectRatio: '1.4', borderRadius: 10, border: '1.5px dashed var(--rule-strong)', background: i === 0 ? 'var(--surface)' : 'none', cursor: 'pointer' }}
+                  aria-label="Add photo"
+                />
+              )
             ))}
-            {photos.length > 0 && photos.length < 8 && (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  height: 110, borderRadius: 8, border: '1.5px dashed var(--rule-strong)',
-                  background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'var(--muted-2)', cursor: 'pointer',
-                }}
-              >
-                <Icon name="plus" size={18} />
-              </button>
-            )}
           </div>
 
-          {photos[cropIndex] && (
-            <div style={{ marginBottom: 24 }}>
-              <div className="field-label" style={{ marginBottom: 8 }}>
-                Crop photo {cropIndex + 1} · drag to reposition
-              </div>
-              <div
-                onPointerDown={onCropPointerDown}
-                onPointerMove={onCropPointerMove}
-                onPointerUp={onCropPointerUp}
-                style={{ width: 220, aspectRatio: '1 / 1', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--rule)', cursor: 'grab', touchAction: 'none', userSelect: 'none' }}
-              >
-                <img
-                  src={photos[cropIndex].url}
-                  alt="crop preview"
-                  draggable={false}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: photoFocus[cropIndex] || '50% 50%', display: 'block', pointerEvents: 'none' }}
-                />
-              </div>
-            </div>
-          )}
+          <p style={{ fontFamily: 'var(--sans)', fontSize: 12.5, lineHeight: 1.55, color: 'var(--muted)', margin: '14px 0 0' }}>
+            Tip: shoot near a window, and include the flaw if there is one. Buyers trust listings that show everything.
+          </p>
         </div>
 
+        {/* Right: details */}
         <div>
-          <label className="field-label">Category</label>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 22 }}>
+          <label className="field-label">It’s in the category of…</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
             {CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
               <CategoryChip key={c.id} category={c} active={category === c.id} onClick={() => setCategory(c.id)} />
             ))}
           </div>
 
-          <label className="field-label">Title</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className="field" placeholder="e.g. Sourdough loaves" style={{ marginBottom: 24 }} />
+          <label className="field-label">Give it a title</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className="field" placeholder="e.g. Mini fridge, two gentle years old" style={{ marginBottom: 22 }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <label className="field-label" style={{ margin: 0 }}>Description</label>
-            <button
-              onClick={generateDescription}
-              disabled={!title.trim() || aiLoading}
-              style={{
-                background: 'none', border: '1px solid var(--rule-strong)', borderRadius: 6,
-                padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 11.5,
-                color: (!title.trim() || aiLoading) ? 'var(--muted-2)' : 'var(--accent)',
-                cursor: (!title.trim() || aiLoading) ? 'default' : 'pointer',
-              }}
-            >
-              <Icon name="sparkle" size={12} />
-              {aiLoading ? 'Generating…' : 'Generate with AI'}
-            </button>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+            <label className="field-label" style={{ margin: 0 }}>Tell its story</label>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+              <button
+                onClick={generateDescription}
+                disabled={!title.trim() || aiLoading}
+                style={{
+                  background: 'none', border: 0, padding: 0,
+                  fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12,
+                  color: (!title.trim() || aiLoading) ? 'var(--muted-2)' : 'var(--accent)',
+                  cursor: (!title.trim() || aiLoading) ? 'default' : 'pointer',
+                }}
+              >
+                {aiLoading ? 'Generating…' : 'Generate with AI'}
+              </button>
+              <span style={{ fontFamily: 'var(--sans)', fontSize: 12, color: 'var(--muted)' }}>{description.length} / 500</span>
+            </span>
           </div>
           <textarea
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => setDescription(e.target.value.slice(0, 500))}
             className="field"
-            placeholder="Describe your item - condition, size, why you're selling it…"
-            rows={3}
-            style={{ marginBottom: 24, resize: 'vertical' }}
+            rows={4}
+            style={{ marginBottom: 22, resize: 'vertical' }}
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 12, marginBottom: 22, alignItems: 'end' }}>
             <div>
               <label className="field-label">Price</label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 600 }}>$</span>
-                <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" className="field" placeholder="0" style={{ paddingLeft: 28, fontWeight: 600 }} />
+                <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" className="field" placeholder="40" style={{ paddingLeft: 28, fontWeight: 600 }} />
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-              <button onClick={() => setNeg(!neg)} style={{ width: '100%', height: 47, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: neg ? 'var(--ink)' : '#fff', color: neg ? '#fff' : 'var(--ink-2)', border: '1px solid ' + (neg ? 'var(--ink)' : 'var(--rule)'), borderRadius: 12, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
-                {neg && <Icon name="check" size={14} />} Negotiable
-              </button>
-            </div>
+            <button
+              onClick={() => setNeg(!neg)}
+              role="switch"
+              aria-checked={neg}
+              style={{ height: 47, display: 'inline-flex', alignItems: 'center', gap: 10, background: '#fff', border: '1.5px solid var(--rule)', borderRadius: 12, padding: '0 14px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}
+            >
+              <span style={{ width: 38, height: 22, borderRadius: 999, background: neg ? 'var(--accent)' : 'var(--rule-strong)', position: 'relative', transition: 'background 160ms ease-out', flexShrink: 0 }}>
+                <span style={{ position: 'absolute', top: 2, left: neg ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 160ms ease-out' }} />
+              </span>
+              Open to offers
+            </button>
           </div>
 
-          <label className="field-label">Pickup location</label>
-          <div style={{ position: 'relative', marginBottom: 24 }}>
-            <Icon name="mapPin" size={16} color="var(--muted)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
-            <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="USC Village" className="field" style={{ paddingLeft: 38 }} />
-          </div>
+          <label className="field-label">Where you’ll meet</label>
+          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="USC Village" className="field" style={{ marginBottom: 22 }} />
 
-          <label className="field-label">Contact</label>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 28 }}>
+          <label className="field-label">How buyers reach you</label>
+          <div style={{ display: 'flex', gap: 8 }}>
             {([{ id: 'instagram', label: 'Instagram' }, { id: 'phone', label: 'Text' }, { id: 'email', label: 'Email' }] as const).map((c) => {
               const active = contact.includes(c.id);
               return (
@@ -767,31 +742,18 @@ export function WebCreate({
               );
             })}
           </div>
-
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <Button kind="ghost" onClick={() => setShowPreview((v) => !v)}>
-              {showPreview ? 'Hide preview' : 'Preview'}
-            </Button>
-            <div style={{ flex: 1 }} />
-            <Button kind="primary" size="lg" onClick={publish}>Publish</Button>
-          </div>
-          {attempted && missing.length > 0 && (
-            <div style={{ fontSize: 12.5, marginTop: 10, textAlign: 'right', color: 'var(--accent)' }}>
-              Add {missing[0]} to publish.
-            </div>
-          )}
         </div>
       </div>
 
-      {showPreview && (
-        <div style={{ border: '1px solid var(--rule)', borderRadius: 12, padding: 20, marginTop: 32 }}>
-          <WebListingDetail
-            store={store}
-            preview
-            onBack={() => {}}
-            onReveal={() => {}}
-            listing={previewListing}
-          />
+      <hr className="rule" style={{ margin: '36px 0 20px' }} />
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <span style={{ fontFamily: 'var(--sans)', fontSize: 13, color: 'var(--muted)' }}>Step 1 of 1 — that’s the whole thing.</span>
+        <div style={{ flex: 1 }} />
+        <Button kind="primary" size="lg" onClick={publish}>Publish listing</Button>
+      </div>
+      {attempted && missing.length > 0 && (
+        <div style={{ fontSize: 12.5, marginTop: 10, textAlign: 'right', color: 'var(--accent)' }}>
+          Add {missing[0]} to publish.
         </div>
       )}
     </div>

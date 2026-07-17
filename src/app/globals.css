@@ -82,7 +82,7 @@ button { font: inherit; cursor: pointer; }
 
 /* Buttons */
 .btn {
-  font-weight: 600; font-size: 13px; border-radius: 10px;
+  font-weight: 600; font-size: 13px; border-radius: 8px;
   padding: 10px 22px; border: 1.5px solid transparent;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   white-space: nowrap; transition: all 160ms ease-out; text-decoration: none;
