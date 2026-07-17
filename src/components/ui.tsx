@@ -126,11 +126,15 @@ export function ListingCard({
         ) : (
           <Placeholder label={listing.photoLabel} tone={listing.photoTone} height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
         )}
-        {listing.eventPill && (
+        {listing.eventPill ? (
           <div style={{ position: 'absolute', top: 8, left: 8 }}>
             <Pill kind="event">{listing.eventPill}</Pill>
           </div>
-        )}
+        ) : listing.spokenFor ? (
+          <span style={{ position: 'absolute', top: 8, left: 8, background: 'rgba(255,255,255,0.92)', borderRadius: 999, padding: '4px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 11, color: 'var(--ink-2)' }}>
+            Spoken for
+          </span>
+        ) : null}
       </div>
       <div style={{ padding: compact ? '9px 2px 0' : '11px 2px 0', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>

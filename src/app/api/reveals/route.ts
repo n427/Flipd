@@ -12,6 +12,7 @@ type RevealRow = {
   status: RevealStatus;
   created_at: string;
   expires_at: string;
+  offer: number | null;
   listing: { title: string; contact: string[]; archived: boolean } | null;
   listing_title: string | null;
   buyer: ProfileRef | null;
@@ -28,7 +29,7 @@ type ProfileRef = {
   contact_email: string | null;
 };
 
-const SELECT = `id, listing_id, listing_title, buyer_id, seller_id, status, created_at, expires_at,
+const SELECT = `id, listing_id, listing_title, buyer_id, seller_id, status, created_at, expires_at, offer,
   listing:listings(title, contact, archived),
   buyer:profiles!reveal_requests_buyer_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email),
   seller:profiles!reveal_requests_seller_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email)`;
@@ -53,11 +54,12 @@ function toDto(row: RevealRow, viewerId: string) {
     status,
     created_at: row.created_at,
     expires_at: row.expires_at,
+    offer: row.offer,
     counterpart,
   };
   // Contact info is only ever exposed to the buyer, only once approved,
   // and only for the methods the seller offered on the listing.
-  if (isBuyer && status === 'approved' && row.seller) {
+  if (isBuyer && (status === 'approved' || status === 'completed') && row.seller) {
     const offered = row.listing?.contact ?? [];
     dto.contact = {
       ...(offered.includes('instagram') && row.seller.contact_instagram
@@ -100,8 +102,10 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  const { listing_id } = await req.json().catch(() => ({}));
+  const { listing_id, offer } = await req.json().catch(() => ({}));
   if (!listing_id) return NextResponse.json({ error: 'listing_id required' }, { status: 400 });
+  // Offers are optional; anything non-positive or non-numeric is simply no-offer.
+  const offerAmount = Number.isFinite(Number(offer)) && Number(offer) > 0 ? Math.round(Number(offer)) : null;
 
   const { data: listing } = await admin
     .from('listings')
@@ -117,7 +121,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await admin
     .from('reveal_requests')
-    .insert({ listing_id, buyer_id: user.id, seller_id: listing.seller_id })
+    .insert({ listing_id, buyer_id: user.id, seller_id: listing.seller_id, offer: offerAmount })
     .select(SELECT)
     .single();
   if (error) {

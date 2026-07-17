@@ -50,8 +50,8 @@ export default function ListingPage({ params }: { params: { id: string } }) {
         <RevealModal
           listing={listing}
           onClose={() => setModal(null)}
-          onContinue={async () => {
-            const r = await store.requestReveal(listing.id);
+          onContinue={async (offer) => {
+            const r = await store.requestReveal(listing.id, offer);
             if (!r.ok && r.error) alert(r.error);
             setModal(null);
           }}

@@ -6,6 +6,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, Button } from '@/components/ui';
+import { RequestTimeline } from '@/components/WebApp';
 import { useStore } from '@/lib/store-context';
 import { timeLeftLabel } from '@/lib/validation';
 import type { ActivityItem } from '@/lib/types';
@@ -63,21 +64,31 @@ export default function RequestsPage() {
               <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', border: '1px solid var(--rule)', borderRadius: 14, background: '#fff' }}>
                 <Avatar name={a.who} src={a.avatarUrl} size={44} tone="cream" />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)' }}>{a.who}</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <span style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)' }}>{a.who}</span>
+                    {a.offer != null && (
+                      <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 12.5, color: 'var(--accent)' }}>
+                        offers ${a.offer.toLocaleString('en-US')}
+                      </span>
+                    )}
+                  </div>
                   <div className="t-meta" style={{ fontSize: 12.5, marginTop: 1 }}>
                     {a.school || 'USC'} · asked {a.when} ago
                     {a.status === 'PENDING' && timeLeftLabel(a.expiresAt) && (
                       <span style={{ color: 'var(--accent)', fontWeight: 600 }}> · {timeLeftLabel(a.expiresAt)}</span>
                     )}
                   </div>
+                  <RequestTimeline status={a.status} />
                 </div>
                 {a.status === 'PENDING' ? (
                   <div style={{ display: 'flex', gap: 8 }}>
                     <Button kind="primary" size="sm" onClick={() => approve(a)}>Approve</Button>
                     <Button kind="ghost" size="sm" onClick={() => store.respondReveal(a.id, 'decline')}>Decline</Button>
                   </div>
+                ) : a.status === 'APPROVED' ? (
+                  <Button kind="secondary" size="sm" onClick={() => store.respondReveal(a.id, 'complete')}>Mark completed</Button>
                 ) : (
-                  <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.07em', color: a.status === 'APPROVED' ? 'var(--ink)' : 'var(--muted)' }}>
+                  <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.07em', color: a.status === 'COMPLETED' ? 'var(--ink)' : 'var(--muted)' }}>
                     {a.status}
                   </span>
                 )}

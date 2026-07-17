@@ -29,6 +29,7 @@ type DbListing = {
   photo_urls?: string[] | null;
   photo_focus?: string[] | null;
   archived?: boolean | null;
+  spoken_for?: boolean | null;
   created_at?: string | null;
   seller?: DbSeller;
 };
@@ -40,6 +41,7 @@ type RevealDto = {
   status: RevealStatus;
   created_at: string;
   expires_at: string;
+  offer?: number | null;
   counterpart: { id: string; display_name: string | null; school_unit: string | null; class_year: string | null; avatar_url: string | null } | null;
   listing_archived?: boolean;
   listing_removed?: boolean;
@@ -91,6 +93,7 @@ function mapDbListing(row: DbListing, meId: string | null): Listing {
     photo_urls: row.photo_urls || [],
     photo_focus: row.photo_focus || [],
     archived: row.archived ?? false,
+    spokenFor: row.spoken_for ?? false,
     created_at: row.created_at || undefined,
     postedLabel: formatPostedDate(row.created_at) || 'just now',
     contactMethod: (row.contact?.[0] as Listing['contactMethod']) || 'instagram',
@@ -121,6 +124,7 @@ function mapReveal(dto: RevealDto, dir: 'in' | 'out'): ActivityItem {
     listingRemoved: dto.listing_removed ?? false,
     when: timeAgo(dto.created_at),
     expiresAt: dto.expires_at,
+    offer: dto.offer ?? undefined,
     status: effectiveRevealStatus(dto.status, dto.expires_at).toUpperCase() as ActivityStatus,
     contact: dto.contact,
   };
@@ -139,8 +143,8 @@ export interface FlipdStore {
   removeListing: (id: string) => Promise<boolean>;
   getListing: (id: string) => Promise<Listing | null>;
   setArchived: (id: string, archived: boolean) => Promise<boolean>;
-  requestReveal: (listingId: string) => Promise<{ ok: boolean; error?: string }>;
-  respondReveal: (id: string, action: 'approve' | 'decline', opts?: { markSold?: boolean }) => Promise<boolean>;
+  requestReveal: (listingId: string, offer?: number) => Promise<{ ok: boolean; error?: string }>;
+  respondReveal: (id: string, action: 'approve' | 'decline' | 'complete', opts?: { markSold?: boolean }) => Promise<boolean>;
   latestRevealFor: (listingId: string) => ActivityItem | undefined;
   pendingByListing: Record<string, number>;
   refreshActivity: () => Promise<void>;
@@ -291,11 +295,11 @@ export function useFlipdStore(): FlipdStore {
     return true;
   };
 
-  const requestReveal = async (listingId: string) => {
+  const requestReveal = async (listingId: string, offer?: number) => {
     const res = await fetch('/api/reveals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ listing_id: listingId }),
+      body: JSON.stringify({ listing_id: listingId, offer }),
     }).catch(() => null);
     if (!res) return { ok: false, error: 'Network error — try again.' };
     if (res.status === 409) { await refreshActivity(); return { ok: true }; }
@@ -307,7 +311,7 @@ export function useFlipdStore(): FlipdStore {
     return { ok: true };
   };
 
-  const respondReveal = async (id: string, action: 'approve' | 'decline', opts: { markSold?: boolean } = {}) => {
+  const respondReveal = async (id: string, action: 'approve' | 'decline' | 'complete', opts: { markSold?: boolean } = {}) => {
     const res = await fetch(`/api/reveals/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -315,7 +319,7 @@ export function useFlipdStore(): FlipdStore {
     }).catch(() => null);
     if (!res || !res.ok) return false;
     setActivity((prev) => prev.map((a) =>
-      a.id === id ? { ...a, status: action === 'approve' ? 'APPROVED' : 'DECLINED' } : a,
+      a.id === id ? { ...a, status: action === 'approve' ? 'APPROVED' : action === 'complete' ? 'COMPLETED' : 'DECLINED' } : a,
     ));
     if (opts.markSold) {
       const sold = activity.find((a) => a.id === id);
@@ -337,7 +341,7 @@ export function useFlipdStore(): FlipdStore {
 
   const myRevealFor = (listingId: string) =>
     activity.find((a) => a.dir === 'out' && a.listingId === listingId &&
-      (a.status === 'PENDING' || a.status === 'APPROVED'));
+      (a.status === 'PENDING' || a.status === 'APPROVED' || a.status === 'COMPLETED'));
 
   // Newest request regardless of status — activity is sorted newest-first.
   const latestRevealFor = (listingId: string) =>

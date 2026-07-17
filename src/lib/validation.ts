@@ -1,7 +1,7 @@
 // Pure helpers shared by API routes and the client store. No imports — keep
 // this file dependency-free so it stays trivially unit-testable.
 
-export type RevealStatus = 'pending' | 'approved' | 'declined' | 'expired';
+export type RevealStatus = 'pending' | 'approved' | 'declined' | 'expired' | 'completed';
 
 export function isUscEmail(email: string): boolean {
   const e = email.trim().toLowerCase();

@@ -46,6 +46,7 @@ export interface Listing {
   photo_urls?: string[];
   photo_focus?: string[];
   archived?: boolean;
+  spokenFor?: boolean;
   created_at?: string;
   mine?: boolean;
   eventPill?: string;
@@ -55,7 +56,7 @@ export interface Listing {
 }
 
 export type ActivityDir = 'in' | 'out';
-export type ActivityStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'EXPIRED';
+export type ActivityStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'EXPIRED' | 'COMPLETED';
 
 export interface RevealContact {
   instagram?: string;
@@ -75,6 +76,7 @@ export interface ActivityItem {
   listingRemoved: boolean;
   when: string;
   expiresAt: string;
+  offer?: number;
   status: ActivityStatus;
   contact?: RevealContact;
 }

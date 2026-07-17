@@ -10,7 +10,7 @@ import { Avatar, Button, Callout, CategoryChip, ListingCard, Pill, Placeholder, 
 import { CATEGORIES } from '@/lib/data';
 import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
 import { timeLeftLabel } from '@/lib/validation';
-import type { ActivityItem, Listing, PhotoTone } from '@/lib/types';
+import type { ActivityItem, ActivityStatus, Listing, PhotoTone } from '@/lib/types';
 
 interface DropdownOption { id: string; label: string; }
 
@@ -113,12 +113,48 @@ export function WebAppHeader({
   );
 }
 
+// ── Request status timeline ──────────────────────────────────────────
+// Requested -> Approved -> Contact shared -> Completed, with Declined /
+// Expired as terminal branches. Approval and contact-sharing are one
+// transition in the model, so approval lights both stages.
+export function RequestTimeline({ status }: { status: ActivityStatus }) {
+  if (status === 'DECLINED' || status === 'EXPIRED') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--ink)' }} />
+        <span style={{ fontFamily: 'var(--sans)', fontSize: 11.5, color: 'var(--muted)' }}>Requested</span>
+        <span style={{ width: 14, height: 1, background: 'var(--rule-strong)' }} />
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--muted-2)' }} />
+        <span style={{ fontFamily: 'var(--sans)', fontSize: 11.5, color: 'var(--muted)' }}>
+          {status === 'DECLINED' ? 'Declined' : 'Expired'}
+        </span>
+      </div>
+    );
+  }
+  const stages = ['Requested', 'Approved', 'Contact shared', 'Completed'];
+  const reached = status === 'PENDING' ? 0 : status === 'APPROVED' ? 2 : 3;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+      {stages.map((label, i) => (
+        <React.Fragment key={label}>
+          {i > 0 && <span style={{ width: 14, height: 1, background: i <= reached ? 'var(--ink)' : 'var(--rule-strong)' }} />}
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: i <= reached ? 'var(--ink)' : 'var(--rule-strong)' }} />
+          <span style={{ fontFamily: 'var(--sans)', fontSize: 11.5, fontWeight: i === reached ? 700 : 400, color: i <= reached ? 'var(--ink)' : 'var(--muted)' }}>
+            {label}
+          </span>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
 // ── Activity row (shared by notifications + profile) ────────────────
 function ActivityRow({
   a, onApprove, onDecline, last, compact,
 }: { a: ActivityItem; onApprove?: (id: string) => void; onDecline?: (id: string) => void; last?: boolean; compact?: boolean }) {
   const statusFg = ({
     APPROVED: 'var(--ink)',
+    COMPLETED: 'var(--ink)',
     EXPIRED: 'var(--muted)',
     DECLINED: 'var(--muted)',
     PENDING: 'var(--accent)',
@@ -148,6 +184,7 @@ function ActivityRow({
             This request expired after 72 hours.
           </div>
         )}
+        {a.dir === 'out' && !compact && <RequestTimeline status={a.status} />}
 
         {a.dir === 'out' && a.status === 'APPROVED' && a.contact && (
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
@@ -340,7 +377,7 @@ export function WebListingDetail({
   const priceLine = (size: number) => (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 14 }}>
       <span style={{ fontWeight: 700, fontSize: size, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{listing.priceLabel}</span>
-      {listing.negotiable && <span style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--muted)' }}>or best offer</span>}
+      {listing.negotiable && <span style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--muted)' }}>open to offers</span>}
     </div>
   );
 
@@ -1056,7 +1093,8 @@ function ModalScrim({ children, onClose }: { children: React.ReactNode; onClose:
   );
 }
 
-export function RevealModal({ listing, onClose, onContinue }: { listing: Listing; onClose: () => void; onContinue: () => void }) {
+export function RevealModal({ listing, onClose, onContinue }: { listing: Listing; onClose: () => void; onContinue: (offer?: number) => void }) {
+  const [offerText, setOfferText] = React.useState('');
   const handleShare = async () => {
     const confetti = (await import('canvas-confetti')).default;
     confetti({
@@ -1065,7 +1103,8 @@ export function RevealModal({ listing, onClose, onContinue }: { listing: Listing
       origin: { y: 0.55 },
       colors: ['#990000', '#FFCC00', '#ffffff'],
     });
-    onContinue();
+    const parsed = parseInt(offerText, 10);
+    onContinue(Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
   };
   return (
     <ModalScrim onClose={onClose}>
@@ -1078,9 +1117,21 @@ export function RevealModal({ listing, onClose, onContinue }: { listing: Listing
           <h2 style={{ fontWeight: 800, fontSize: 24, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 10px' }}>
             Share your info with <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>{listing.seller.name.split(' ')[0]}</em>?
           </h2>
-          <p className="t-body" style={{ fontSize: 13.5, margin: '0 0 20px' }}>
+          <p className="t-body" style={{ fontSize: 13.5, margin: '0 0 16px' }}>
             We&apos;ll share your <strong>name</strong>, <strong>school</strong>, and <strong>year</strong> with this seller. They have 72 hours to approve. If they do, you&apos;ll see their preferred contact method.
           </p>
+          <label className="field-label">Your offer (optional)</label>
+          <div style={{ position: 'relative', marginBottom: 20 }}>
+            <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 600 }}>$</span>
+            <input
+              value={offerText}
+              onChange={(e) => setOfferText(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              inputMode="numeric"
+              placeholder={listing.price && listing.price > 0 ? String(listing.price) : '0'}
+              className="field"
+              style={{ paddingLeft: 28, fontWeight: 600 }}
+            />
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button kind="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Button>
             <Button kind="primary" onClick={handleShare} style={{ flex: 1 }} icon="arrowRight">Share</Button>
@@ -1162,8 +1213,8 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         <RevealModal
           listing={selected}
           onClose={() => setModal(null)}
-          onContinue={async () => {
-            const r = await store.requestReveal(selected.id);
+          onContinue={async (offer) => {
+            const r = await store.requestReveal(selected.id, offer);
             if (!r.ok && r.error) alert(r.error);
             setModal(null);
           }}

@@ -12,8 +12,8 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { action, mark_sold } = await req.json().catch(() => ({}));
-  if (action !== 'approve' && action !== 'decline') {
-    return NextResponse.json({ error: "action must be 'approve' or 'decline'" }, { status: 400 });
+  if (action !== 'approve' && action !== 'decline' && action !== 'complete') {
+    return NextResponse.json({ error: "action must be 'approve', 'decline', or 'complete'" }, { status: 400 });
   }
 
   const { data: existing } = await admin
@@ -26,14 +26,18 @@ export async function PATCH(
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
   const status = effectiveRevealStatus(existing.status as RevealStatus, existing.expires_at);
-  if (status !== 'pending') {
+  if (action === 'complete') {
+    if (status !== 'approved') {
+      return NextResponse.json({ error: `only approved requests can be completed (this one is ${status})` }, { status: 409 });
+    }
+  } else if (status !== 'pending') {
     return NextResponse.json({ error: `request is already ${status}` }, { status: 409 });
   }
 
   const { data, error } = await admin
     .from('reveal_requests')
     .update({
-      status: action === 'approve' ? 'approved' : 'declined',
+      status: action === 'approve' ? 'approved' : action === 'complete' ? 'completed' : 'declined',
       resolved_at: new Date().toISOString(),
     })
     .eq('id', params.id)
