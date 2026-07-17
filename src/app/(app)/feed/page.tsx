@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { WebAppFeed } from '@/components/WebApp';
 import { useStore } from '@/lib/store-context';
 
-export default function FeedPage() {
+function FeedPageInner() {
   const router = useRouter();
   const store = useStore();
   const params = useSearchParams();
@@ -35,5 +35,13 @@ export default function FeedPage() {
       priceFilter={priceFilter}
       setPriceFilter={setPriceFilter}
     />
+  );
+}
+
+export default function FeedPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <FeedPageInner />
+    </React.Suspense>
   );
 }
