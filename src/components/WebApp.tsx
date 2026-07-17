@@ -277,11 +277,26 @@ export function WebListingDetail({
 }: { store: FlipdStore; listing: Listing; onBack: () => void; onReveal: () => void; preview?: boolean }) {
   const saved = preview ? false : store.isSaved(listing.id);
   const reveal = preview ? undefined : store.myRevealFor(listing.id);
-  const [activePhoto, setActivePhoto] = React.useState(0);
   const photos = listing.photo_urls ?? [];
-  const others = photos.map((_, i) => i).filter((i) => i !== activePhoto);
-  const sideIdx = others.slice(0, 2);
-  const extraCount = photos.length - 1 - sideIdx.length;
+  const [lightbox, setLightbox] = React.useState<number | null>(null);
+  const n = photos.length;
+
+  React.useEffect(() => {
+    if (lightbox === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightbox(null);
+      if (e.key === 'ArrowRight') setLightbox((i) => (i === null ? i : (i + 1) % n));
+      if (e.key === 'ArrowLeft') setLightbox((i) => (i === null ? i : (i - 1 + n) % n));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox, n]);
+
+  const tile = (idx: number, style: React.CSSProperties = {}) => (
+    <div key={idx} onClick={() => setLightbox(idx)} style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)', ...style }}>
+      <img src={photos[idx]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[idx] || '50% 50%' }} />
+    </div>
+  );
   return (
     <div style={{ padding: '24px 32px 64px', maxWidth: 1180, margin: '0 auto' }}>
       {!preview && (
@@ -290,37 +305,57 @@ export function WebListingDetail({
       </button>
       )}
 
-      {/* Gallery: main photo + stacked side photos */}
-      <div style={{ display: 'grid', gridTemplateColumns: sideIdx.length > 0 ? '2fr 1fr' : '1fr', gap: 10, marginBottom: 28, maxWidth: sideIdx.length > 0 ? undefined : 640 }}>
-        <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 'var(--r-img)', overflow: 'hidden', background: 'var(--surface)' }}>
-          {photos[activePhoto] ? (
-            <img
-              src={photos[activePhoto]}
-              alt={listing.title}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[activePhoto] || '50% 50%' }}
-            />
-          ) : (
-            <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
-          )}
-          {photos.length > 1 && (
-            <div style={{ position: 'absolute', left: 12, bottom: 12, background: '#fff', borderRadius: 999, padding: '4px 11px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12, color: 'var(--ink)', boxShadow: 'var(--shadow)' }}>
-              {activePhoto + 1} / {photos.length}
-            </div>
-          )}
-        </div>
-        {sideIdx.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateRows: sideIdx.length > 1 ? '1fr 1fr' : '1fr', gap: 10 }}>
-            {sideIdx.map((idx, n) => (
-              <div key={idx} onClick={() => setActivePhoto(idx)} style={{ position: 'relative', borderRadius: 'var(--r-img)', overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)' }}>
-                <img src={photos[idx]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[idx] || '50% 50%' }} />
-                {n === sideIdx.length - 1 && extraCount > 0 && (
-                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>
-                    +{extraCount} photos
-                  </div>
-                )}
-              </div>
-            ))}
+      {/* Gallery: Airbnb-style adaptive grid; click opens lightbox */}
+      <div style={{ position: 'relative', marginBottom: 28 }}>
+        {n === 0 && (
+          <div style={{ aspectRatio: '2 / 1', borderRadius: 14, overflow: 'hidden' }}>
+            <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} />
           </div>
+        )}
+        {n === 1 && (
+          <div onClick={() => setLightbox(0)} style={{ position: 'relative', aspectRatio: '2 / 1', borderRadius: 14, overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)' }}>
+            <img
+              src={photos[0]}
+              alt=""
+              aria-hidden
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(28px) brightness(1.05)', transform: 'scale(1.15)', opacity: 0.55 }}
+            />
+            <img
+              src={photos[0]}
+              alt={listing.title}
+              style={{ position: 'absolute', inset: 0, margin: 'auto', maxWidth: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          </div>
+        )}
+        {n === 2 && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden' }}>
+            {tile(0, { aspectRatio: '4 / 3' })}
+            {tile(1, { aspectRatio: '4 / 3' })}
+          </div>
+        )}
+        {(n === 3 || n === 4) && (
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gridTemplateRows: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', aspectRatio: '3 / 2' }}>
+            {tile(0, { gridRow: 'span 2' })}
+            {tile(1)}
+            {tile(2)}
+          </div>
+        )}
+        {n >= 5 && (
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', aspectRatio: '2 / 1' }}>
+            {tile(0, { gridRow: 'span 2' })}
+            {tile(1)}
+            {tile(2)}
+            {tile(3)}
+            {tile(4)}
+          </div>
+        )}
+        {n > 1 && (
+          <button
+            onClick={() => setLightbox(0)}
+            style={{ position: 'absolute', right: 14, bottom: 14, background: '#fff', border: '1px solid var(--ink)', borderRadius: 8, padding: '7px 14px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13, color: 'var(--ink)', cursor: 'pointer', boxShadow: 'var(--shadow)' }}
+          >
+            Show all photos
+          </button>
         )}
       </div>
 
@@ -429,6 +464,35 @@ export function WebListingDetail({
           )}
         </div>
       </div>
+
+      {lightbox !== null && photos[lightbox] && (
+        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(17,17,17,0.93)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={() => setLightbox(null)} aria-label="Close photos" style={{ position: 'absolute', top: 20, right: 24, width: 36, height: 36, borderRadius: '50%', border: 0, background: 'rgba(255,255,255,0.14)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <Icon name="x" size={16} color="#fff" />
+          </button>
+          {n > 1 && (
+            <button onClick={(e) => { e.stopPropagation(); setLightbox((lightbox - 1 + n) % n); }} aria-label="Previous photo" style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', width: 40, height: 40, borderRadius: '50%', border: 0, background: 'rgba(255,255,255,0.14)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <Icon name="chevronLeft" size={18} color="#fff" />
+            </button>
+          )}
+          <img
+            src={photos[lightbox]}
+            alt={listing.title}
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '86vw', maxHeight: '84vh', objectFit: 'contain', borderRadius: 8 }}
+          />
+          {n > 1 && (
+            <button onClick={(e) => { e.stopPropagation(); setLightbox((lightbox + 1) % n); }} aria-label="Next photo" style={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)', width: 40, height: 40, borderRadius: '50%', border: 0, background: 'rgba(255,255,255,0.14)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <Icon name="chevronLeft" size={18} color="#fff" style={{ transform: 'rotate(180deg)' }} />
+            </button>
+          )}
+          {n > 1 && (
+            <div style={{ position: 'absolute', bottom: 22, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
+              {lightbox + 1} / {n}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
