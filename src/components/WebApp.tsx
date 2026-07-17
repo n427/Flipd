@@ -440,7 +440,8 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
 export function WebCreate({
   onPublish, onCancel, store,
 }: { onPublish: (formData: FormData) => void; onCancel: () => void; store: FlipdStore }) {
-  const [step, setStep] = React.useState(1);
+  const [attempted, setAttempted] = React.useState(false);
+  const [showPreview, setShowPreview] = React.useState(false);
   const [category, setCategory] = React.useState<string | null>(null);
   const [title, setTitle] = React.useState('');
   const [price, setPrice] = React.useState('');
@@ -509,7 +510,7 @@ export function WebCreate({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
-          category: cats.find((c) => c.id === category)?.label || category || 'goods',
+          category: CATEGORIES.find((c) => c.id === category)?.label || category || 'goods',
         }),
       });
       const data = await res.json();
@@ -521,13 +522,6 @@ export function WebCreate({
     }
   };
 
-  const cats = [
-    { id: 'services', label: 'Services', sub: 'Nails, hair, tutoring, photo', icon: 'services', tone: 'cardinal' },
-    { id: 'food', label: 'Food & Baking', sub: 'Bakers, meal prep, drinks', icon: 'food', tone: 'gold' },
-    { id: 'event', label: 'Popups', sub: 'Events, fundraisers, tickets', icon: 'event', tone: 'cardinal' },
-    { id: 'housing', label: 'Housing', sub: 'Sublets, takeovers, roommates', icon: 'housing', tone: 'cream' },
-    { id: 'goods', label: 'General Goods', sub: 'Furniture, books, electronics', icon: 'goods', tone: 'cream' },
-  ];
   const toneFor = (id: string | null): PhotoTone =>
     (({ services: 'cardinal', food: 'gold', event: 'cardinal', housing: 'cream', goods: 'cream' } as Record<string, PhotoTone>)[id || ''] || 'cream');
 
@@ -562,10 +556,24 @@ export function WebCreate({
     e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
+  const missing = [
+    !category && 'a category',
+    photos.length === 0 && 'a photo',
+    !title.trim() && 'a title',
+    !description.trim() && 'a description',
+    !price.trim() && 'a price',
+    !location.trim() && 'a pickup location',
+    contact.length === 0 && 'a contact method',
+  ].filter(Boolean) as string[];
+
   const publish = () => {
+    if (missing.length > 0) {
+      setAttempted(true);
+      return;
+    }
     const fd = new FormData();
     fd.append('category', category || 'goods');
-    fd.append('title', title || 'Untitled listing');
+    fd.append('title', title.trim());
     fd.append('description', description);
     fd.append('price', price);
     fd.append('negotiable', String(neg));
@@ -576,47 +584,42 @@ export function WebCreate({
     onPublish(fd);
   };
 
+  const previewListing: Listing = {
+    id: 'preview',
+    category: category || 'goods',
+    categoryLabel: (CATEGORIES.find((c) => c.id === category) || {}).label || 'Goods',
+    title: title.trim() || 'Untitled listing',
+    price: price ? Number(price) : undefined,
+    priceLabel: price ? '$' + price : 'Free',
+    meta: location,
+    photoTone: toneFor(category),
+    photoLabel: 'your photo',
+    photo_urls: photos.map((p) => p.url),
+    photo_focus: photoFocus,
+    description,
+    seller: { id: store.me?.id ?? '', name: store.me?.display_name ?? 'You', unit: store.me?.school_unit ?? '', year: '' },
+    postedLabel: 'just now',
+  };
+
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '28px 32px 80px' }}>
-      {/* Stepper */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-        <button onClick={step === 1 ? onCancel : () => setStep(step - 1)} style={{ background: 'none', border: 0, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 12.5 }}>
-          <Icon name="chevronLeft" size={14} /> {step === 1 ? 'Cancel' : 'Back'}
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: '28px 24px 80px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 26 }}>
+        <button onClick={onCancel} style={{ background: 'none', border: 0, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 12.5 }}>
+          <Icon name="chevronLeft" size={14} /> Cancel
         </button>
-        <div style={{ flex: 1 }} />
-        {[1, 2, 3].map((n) => (
-          <span key={n} style={{ width: n === step ? 22 : 7, height: 7, borderRadius: 999, background: n <= step ? 'var(--ink)' : 'var(--rule-strong)', transition: 'all 180ms' }} />
-        ))}
-        <div style={{ flex: 1 }} />
-        <span className="t-eyebrow" style={{ color: 'var(--muted)' }}>STEP {step} OF 3</span>
+        <h1 style={{ flex: 1, textAlign: 'center', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--ink)', margin: 0 }}>New listing</h1>
+        <span style={{ width: 52 }} />
       </div>
 
-      {step === 1 && (
-        <div>
-          <h1 className="t-h1" style={{ fontSize: 30, margin: '0 0 6px' }}>What are you posting?</h1>
-          <p className="t-meta" style={{ fontSize: 13, marginBottom: 24 }}>Picking one shapes the rest of the form.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {cats.map((c) => (
-              <button key={c.id} onClick={() => { setCategory(c.id); setStep(2); }} style={{ background: '#fff', border: '1.5px solid ' + (category === c.id ? 'var(--accent)' : 'var(--rule)'), borderRadius: 8, padding: '18px', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
-                <div style={{ width: 46, height: 46, borderRadius: 8, flexShrink: 0, background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={c.icon} size={22} color="var(--ink)" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{c.label}</div>
-                  <div className="t-meta" style={{ fontSize: 11, marginTop: 2 }}>{c.sub}</div>
-                </div>
-              </button>
+      <div>
+          <label className="field-label">Category</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 22 }}>
+            {CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
+              <CategoryChip key={c.id} category={c} active={category === c.id} onClick={() => setCategory(c.id)} />
             ))}
           </div>
-        </div>
-      )}
 
-      {step === 2 && (
-        <div>
-          <Pill kind="category" style={{ marginBottom: 12 }}>{((cats.find(c => c.id === category)?.label) || 'Goods').toUpperCase()}</Pill>
-          <h1 className="t-h1" style={{ fontSize: 28, margin: '0 0 22px' }}>Tell us about it.</h1>
-
-          <label className="field-label">Photos · up to 8 · at least 1 required</label>
+          <label className="field-label">Photos</label>
           <input
             ref={fileInputRef}
             type="file"
@@ -672,7 +675,7 @@ export function WebCreate({
           {photos[cropIndex] && (
             <div style={{ marginBottom: 24 }}>
               <div className="field-label" style={{ marginBottom: 8 }}>
-                Adjust crop — photo {cropIndex + 1} of {photos.length} — drag to reposition
+                Crop photo {cropIndex + 1} · drag to reposition
               </div>
               <div
                 onPointerDown={onCropPointerDown}
@@ -721,15 +724,14 @@ export function WebCreate({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
             <div>
-              <label className="field-label">Price · USD</label>
+              <label className="field-label">Price</label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 600 }}>$</span>
                 <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" className="field" placeholder="0" style={{ paddingLeft: 28, fontWeight: 600 }} />
               </div>
             </div>
-            <div>
-              <label className="field-label">Pricing</label>
-              <button onClick={() => setNeg(!neg)} style={{ width: '100%', height: 50, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: neg ? 'var(--cardinal)' : '#fff', color: neg ? '#fff' : 'var(--ink-2)', border: '1.5px solid ' + (neg ? 'var(--cardinal)' : 'var(--rule-strong)'), borderRadius: 8, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button onClick={() => setNeg(!neg)} style={{ width: '100%', height: 47, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: neg ? 'var(--ink)' : 'var(--surface)', color: neg ? '#fff' : 'var(--ink-2)', border: 0, borderRadius: 10, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
                 {neg && <Icon name="check" size={14} />} Negotiable
               </button>
             </div>
@@ -741,100 +743,43 @@ export function WebCreate({
             <input value={location} onChange={(e) => setLocation(e.target.value)} className="field" style={{ paddingLeft: 38 }} />
           </div>
 
-          <label className="field-label">How buyers reach you · after reveal</label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 28 }}>
-            {([{ id: 'instagram', label: 'Instagram', icon: 'instagram' }, { id: 'phone', label: 'Text', icon: 'phone' }, { id: 'email', label: 'Email', icon: 'mail' }] as const).map((c) => {
+          <label className="field-label">Contact</label>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 28 }}>
+            {([{ id: 'instagram', label: 'Instagram' }, { id: 'phone', label: 'Text' }, { id: 'email', label: 'Email' }] as const).map((c) => {
               const active = contact.includes(c.id);
               return (
-                <button key={c.id} onClick={() => setContact((prev) => prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id])} style={{ background: active ? 'var(--cardinal)' : '#fff', color: active ? '#fff' : 'var(--ink)', border: '1.5px solid ' + (active ? 'var(--cardinal)' : 'var(--rule-strong)'), borderRadius: 8, padding: '14px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5 }}>
-                  <Icon name={c.icon} size={16} /> {c.label}
+                <button key={c.id} onClick={() => setContact((prev) => prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id])} style={{ background: active ? 'var(--ink)' : 'var(--surface)', color: active ? '#fff' : 'var(--ink-2)', border: 0, borderRadius: 999, padding: '8px 16px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13 }}>
+                  {c.label}
                 </button>
               );
             })}
           </div>
 
-          {(() => {
-            const missing = [
-              photos.length === 0 && 'photo',
-              !title.trim() && 'title',
-              !description.trim() && 'description',
-              !price.trim() && 'price',
-              !location.trim() && 'pickup location',
-              contact.length === 0 && 'contact method',
-            ].filter(Boolean);
-            return (
-              <Button
-                kind="primary" full size="lg" icon="arrowRight"
-                onClick={() => setStep(3)}
-                disabled={missing.length > 0}
-              >
-                {missing.length > 0 ? `Add ${missing[0]} to continue` : 'Preview listing'}
-              </Button>
-            );
-          })()}
-        </div>
-      )}
-
-      {step === 3 && (
-        <div>
-          <h1 className="t-h1" style={{ fontSize: 28, margin: '0 0 4px' }}>Here&apos;s how buyers will see it.</h1>
-          <p className="t-meta" style={{ fontSize: 12.5, marginBottom: 22 }}>Looks good? Publish to go live on the feed.</p>
-
-          {/* Card preview */}
-          <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 10, padding: 24, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-            <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--rule)' }}>FEED CARD</div>
-            <div style={{ maxWidth: 260 }}>
-              <ListingCard
-                listing={{
-                  id: 'preview', category: category || 'goods',
-                  categoryLabel: (CATEGORIES.find((c) => c.id === category) || {}).label || 'Goods',
-                  title: title || 'Untitled listing', priceLabel: price ? '$' + price : 'Free',
-                  meta: location, photoTone: toneFor(category), photoLabel: 'your photo',
-                  photo_urls: photos.map((p) => p.url),
-                  photo_focus: photoFocus,
-                  seller: { id: store.me?.id ?? '', name: store.me?.display_name ?? 'You', unit: store.me?.school_unit ?? '', year: '' },
-                }}
+          {showPreview && (
+            <div style={{ border: '1px solid var(--rule)', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+              <WebListingDetail
+                store={store}
+                preview
+                onBack={() => {}}
+                onReveal={() => {}}
+                listing={previewListing}
               />
             </div>
-          </div>
+          )}
 
-          {/* Full listing preview */}
-          <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 10, padding: 24, marginBottom: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-            <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--rule)' }}>FULL LISTING</div>
-            <WebListingDetail
-              store={store}
-              preview
-              onBack={() => {}}
-              onReveal={() => {}}
-              listing={{
-                id: 'preview',
-                category: category || 'goods',
-                categoryLabel: (CATEGORIES.find((c) => c.id === category) || {}).label || 'Goods',
-                title: title || 'Untitled listing',
-                price: price ? Number(price) : undefined,
-                priceLabel: price ? '$' + price : 'Free',
-                meta: location,
-                photoTone: toneFor(category),
-                photoLabel: 'your photo',
-                photo_urls: photos.map((p) => p.url),
-                photo_focus: photoFocus,
-                description,
-                seller: { id: store.me?.id ?? '', name: store.me?.display_name ?? 'You', unit: store.me?.school_unit ?? '', year: '' },
-                postedLabel: 'just now',
-              }}
-            />
-            <div className="t-meta" style={{ fontSize: 11, marginTop: 12, textAlign: 'center', color: 'var(--muted)' }}>
-              This is exactly how buyers will see your listing.
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <Button kind="ghost" onClick={() => setStep(2)}>Back to edit</Button>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <Button kind="ghost" onClick={() => setShowPreview((v) => !v)}>
+              {showPreview ? 'Hide preview' : 'Preview'}
+            </Button>
             <div style={{ flex: 1 }} />
-            <Button kind="primary" size="lg" icon="check" onClick={publish}>Publish listing</Button>
+            <Button kind="primary" size="lg" onClick={publish}>Publish</Button>
           </div>
-        </div>
-      )}
+          {attempted && missing.length > 0 && (
+            <div style={{ fontSize: 12.5, marginTop: 10, textAlign: 'right', color: 'var(--accent)' }}>
+              Add {missing[0]} to publish.
+            </div>
+          )}
+      </div>
     </div>
   );
 }
