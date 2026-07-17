@@ -1,0 +1,73 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { admin } from '@/lib/supabase/admin';
+import { getSessionUser } from '@/lib/supabase/server';
+
+// GET /api/ratings?user=<id> — aggregate + recent reviews for a profile.
+export async function GET(req: NextRequest) {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const rateeId = new URL(req.url).searchParams.get('user') || user.id;
+  const { data, error } = await admin
+    .from('ratings')
+    .select('score, text, created_at, rater:profiles!ratings_rater_id_fkey(display_name)')
+    .eq('ratee_id', rateeId)
+    .order('created_at', { ascending: false });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const rows = data ?? [];
+  const count = rows.length;
+  const average = count > 0 ? rows.reduce((s, r) => s + r.score, 0) / count : null;
+  const reviews = rows
+    .filter((r) => r.text && r.text.trim())
+    .slice(0, 10)
+    .map((r) => ({
+      score: r.score,
+      text: r.text,
+      created_at: r.created_at,
+      rater: (r.rater as unknown as { display_name: string | null } | null)?.display_name ?? 'A Trojan',
+    }));
+  return NextResponse.json({ average, count, reviews });
+}
+
+// POST — leave one rating for the other party of a Completed transaction.
+export async function POST(req: NextRequest) {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const { request_id, score, text } = await req.json().catch(() => ({}));
+  const scoreNum = Number(score);
+  if (!request_id || !Number.isInteger(scoreNum) || scoreNum < 1 || scoreNum > 5) {
+    return NextResponse.json({ error: 'request_id and a score of 1-5 are required' }, { status: 400 });
+  }
+
+  const { data: request } = await admin
+    .from('reveal_requests')
+    .select('id, buyer_id, seller_id, status')
+    .eq('id', request_id)
+    .single();
+  if (!request) return NextResponse.json({ error: 'transaction not found' }, { status: 404 });
+  if (request.status !== 'completed') {
+    return NextResponse.json({ error: 'you can only rate a completed transaction' }, { status: 409 });
+  }
+  // The rater must be a party; the ratee is the other party.
+  let rateeId: string | null = null;
+  if (user.id === request.buyer_id) rateeId = request.seller_id;
+  else if (user.id === request.seller_id) rateeId = request.buyer_id;
+  if (!rateeId) return NextResponse.json({ error: 'not your transaction' }, { status: 403 });
+
+  const { error } = await admin.from('ratings').insert({
+    request_id,
+    rater_id: user.id,
+    ratee_id: rateeId,
+    score: scoreNum,
+    text: typeof text === 'string' && text.trim() ? text.trim().slice(0, 500) : null,
+  });
+  if (error) {
+    if (error.code === '23505') {
+      return NextResponse.json({ error: 'you already rated this transaction' }, { status: 409 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true });
+}

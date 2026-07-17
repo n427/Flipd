@@ -10,7 +10,7 @@ import { Avatar, Button, Callout, CategoryChip, ListingCard, Pill, Placeholder, 
 import { CATEGORIES } from '@/lib/data';
 import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
 import { timeLeftLabel } from '@/lib/validation';
-import type { ActivityItem, ActivityStatus, Listing, PhotoTone } from '@/lib/types';
+import type { ActivityItem, ActivityStatus, Listing, PhotoTone, RatingSummary } from '@/lib/types';
 
 interface DropdownOption { id: string; label: string; }
 
@@ -116,6 +116,60 @@ export function WebAppHeader({
   );
 }
 
+// ── Ratings ─────────────────────────────────────────────────────────
+export function Stars({ score, size = 15 }: { score: number; size?: number }) {
+  const full = Math.round(score);
+  return (
+    <span style={{ display: 'inline-flex', gap: 1, lineHeight: 1 }} aria-label={`${score} out of 5`}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <svg key={i} width={size} height={size} viewBox="0 0 24 24" fill={i <= full ? 'var(--accent)' : 'var(--rule-strong)'}>
+          <path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z" />
+        </svg>
+      ))}
+    </span>
+  );
+}
+
+export function RatingModal({ whom, onClose, onSubmit }: { whom: string; onClose: () => void; onSubmit: (score: number, text: string) => Promise<{ ok: boolean; error?: string }> }) {
+  const [score, setScore] = React.useState(0);
+  const [hover, setHover] = React.useState(0);
+  const [text, setText] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+  const shown = hover || score;
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(17,17,17,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: 400, boxShadow: 'var(--shadow-strong)' }}>
+        <h2 style={{ fontWeight: 800, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 4px' }}>Rate {whom}</h2>
+        <p style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)', margin: '0 0 16px' }}>How did the handoff go?</p>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16 }} onMouseLeave={() => setHover(0)}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <button key={i} type="button" onMouseEnter={() => setHover(i)} onClick={() => setScore(i)} aria-label={`${i} stars`} style={{ background: 'none', border: 0, padding: 2, cursor: 'pointer', lineHeight: 0 }}>
+              <svg width={30} height={30} viewBox="0 0 24 24" fill={i <= shown ? 'var(--accent)' : 'var(--rule-strong)'}>
+                <path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z" />
+              </svg>
+            </button>
+          ))}
+        </div>
+        <textarea className="field" rows={3} value={text} onChange={(e) => setText(e.target.value.slice(0, 500))} placeholder="Add a few words (optional)" style={{ marginBottom: 14, resize: 'vertical' }} />
+        {error && <div style={{ fontSize: 13, color: 'var(--accent)', marginBottom: 12 }}>{error}</div>}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Button kind="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Button>
+          <Button kind="primary" style={{ flex: 1 }} disabled={saving || score === 0} onClick={async () => {
+            if (score === 0) { setError('Pick a star rating.'); return; }
+            setSaving(true); setError('');
+            const r = await onSubmit(score, text);
+            if (r.ok) onClose();
+            else { setError(r.error || 'Could not submit — try again.'); setSaving(false); }
+          }}>
+            {saving ? 'Submitting…' : 'Submit'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Request status timeline ──────────────────────────────────────────
 // Requested -> Approved -> Contact shared -> Completed, with Declined /
 // Expired as terminal branches. Approval and contact-sharing are one
@@ -153,8 +207,8 @@ export function RequestTimeline({ status }: { status: ActivityStatus }) {
 
 // ── Activity row (shared by notifications + profile) ────────────────
 function ActivityRow({
-  a, onApprove, onDecline, last, compact,
-}: { a: ActivityItem; onApprove?: (id: string) => void; onDecline?: (id: string) => void; last?: boolean; compact?: boolean }) {
+  a, onApprove, onDecline, onRate, last, compact,
+}: { a: ActivityItem; onApprove?: (id: string) => void; onDecline?: (id: string) => void; onRate?: (a: ActivityItem) => void; last?: boolean; compact?: boolean }) {
   const statusFg = ({
     APPROVED: 'var(--ink)',
     COMPLETED: 'var(--ink)',
@@ -216,6 +270,11 @@ function ActivityRow({
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <Button kind="primary" size="sm" onClick={() => onApprove && onApprove(a.id)} style={{ padding: '6px 16px' }}>Approve</Button>
             <Button kind="ghost" size="sm" onClick={() => onDecline && onDecline(a.id)} style={{ padding: '6px 14px' }}>Decline</Button>
+          </div>
+        )}
+        {a.status === 'COMPLETED' && a.canRate && onRate && (
+          <div style={{ marginTop: 10 }}>
+            <Button kind="secondary" size="sm" onClick={() => onRate(a)} style={{ padding: '6px 16px' }}>Rate {a.who.split(' ')[0]}</Button>
           </div>
         )}
       </div>
@@ -1103,9 +1162,13 @@ function EmptyState({ icon, title, sub }: { icon: string; title: string; sub: st
 export function WebProfile({
   store, onListing, onApprove, onDecline, onEdit,
 }: { store: FlipdStore; onListing: (l: Listing) => void; onApprove: (id: string) => void; onDecline: (id: string) => void; onEdit: () => void }) {
-  const [tab, setTab] = React.useState<'listings' | 'past' | 'saved' | 'activity'>('listings');
+  const [tab, setTab] = React.useState<'listings' | 'past' | 'saved' | 'activity' | 'reviews'>('listings');
   const displayName = store.me?.display_name ?? 'Your profile';
   const avatarName = store.me?.display_name ?? 'Me';
+  const [rating, setRating] = React.useState<ActivityItem | null>(null);
+  const [summary, setSummary] = React.useState<RatingSummary>({ average: null, count: 0, reviews: [] });
+  const loadSummary = React.useCallback(() => { store.fetchRatings().then(setSummary).catch(() => {}); }, [store]);
+  React.useEffect(() => { loadSummary(); }, [loadSummary]);
   return (
     <div>
       {/* Banner */}
@@ -1119,6 +1182,13 @@ export function WebProfile({
             <div className="t-meta" style={{ fontSize: 13.5 }}>
               {[store.me?.school_unit, store.me?.class_year].filter(Boolean).join(' · ')}{[store.me?.school_unit, store.me?.class_year].some(Boolean) ? ' · ' : ''}joined {formatPostedDate(store.me?.created_at) || 'recently'}
             </div>
+            {summary.count > 0 && summary.average != null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                <Stars score={summary.average} size={14} />
+                <span style={{ fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{summary.average.toFixed(1)}</span>
+                <span className="t-meta" style={{ fontSize: 12.5 }}>· {summary.count} rating{summary.count === 1 ? '' : 's'}</span>
+              </div>
+            )}
             {store.me?.bio && (
               <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)', marginTop: 6, maxWidth: 520 }}>
                 {store.me.bio}
@@ -1140,6 +1210,7 @@ export function WebProfile({
             { id: 'past', label: 'Past Listings', count: store.pastListings.length },
             { id: 'saved', label: 'Saved', count: store.savedListings.length },
             { id: 'activity', label: 'Activity', count: store.pendingCount || null },
+            { id: 'reviews', label: 'Reviews', count: summary.count || null },
           ] as const).map((t) => {
             const active = tab === t.id;
             return (
@@ -1193,12 +1264,42 @@ export function WebProfile({
           ) : (
             <div style={{ maxWidth: 640 }}>
               {store.activity.map((a, i) => (
-                <ActivityRow key={a.id} a={a} onApprove={onApprove} onDecline={onDecline} last={i === store.activity.length - 1} />
+                <ActivityRow key={a.id} a={a} onApprove={onApprove} onDecline={onDecline} onRate={setRating} last={i === store.activity.length - 1} />
+              ))}
+            </div>
+          )
+        )}
+        {tab === 'reviews' && (
+          summary.reviews.length === 0 ? (
+            <EmptyState icon="star" title="No reviews yet" sub="After a completed sale, the other party can leave you a rating." />
+          ) : (
+            <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {summary.reviews.map((rev, i) => (
+                <div key={i} style={{ border: '1px solid var(--rule)', borderRadius: 14, padding: '16px 18px', background: '#fff' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Stars score={rev.score} size={14} />
+                    <span style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>{rev.rater}</span>
+                    <span className="t-meta" style={{ fontSize: 12, marginLeft: 'auto' }}>{formatPostedDate(rev.created_at)}</span>
+                  </div>
+                  {rev.text && <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.5 }}>{rev.text}</div>}
+                </div>
               ))}
             </div>
           )
         )}
       </div>
+
+      {rating && (
+        <RatingModal
+          whom={rating.who.split(' ')[0]}
+          onClose={() => setRating(null)}
+          onSubmit={async (score, text) => {
+            const r = await store.rateTransaction(rating.id, score, text);
+            if (r.ok) loadSummary();
+            return r;
+          }}
+        />
+      )}
     </div>
   );
 }

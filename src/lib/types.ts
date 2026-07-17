@@ -79,6 +79,7 @@ export interface ActivityItem {
   offer?: number;
   unread: boolean;
   dismissed: boolean;
+  canRate: boolean;
   status: ActivityStatus;
   contact?: RevealContact;
 }
@@ -106,4 +107,17 @@ export interface FilterArgs {
   query?: string;
   sort?: 'recent' | 'low' | 'high';
   priceFilter?: 'any' | 'free' | 'u25' | 'u100';
+}
+
+export interface RatingReview {
+  score: number;
+  text: string | null;
+  created_at: string;
+  rater: string;
+}
+
+export interface RatingSummary {
+  average: number | null;
+  count: number;
+  reviews: RatingReview[];
 }

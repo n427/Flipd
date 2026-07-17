@@ -39,7 +39,7 @@ const SELECT = `id, listing_id, listing_title, buyer_id, seller_id, status, crea
   buyer:profiles!reveal_requests_buyer_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email),
   seller:profiles!reveal_requests_seller_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email)`;
 
-function toDto(row: RevealRow, viewerId: string) {
+function toDto(row: RevealRow, viewerId: string, ratedRequestIds: Set<string> = new Set()) {
   const status = effectiveRevealStatus(row.status, row.expires_at);
   const isBuyer = row.buyer_id === viewerId;
   const counterpartRaw = isBuyer ? row.seller : row.buyer;
@@ -66,6 +66,8 @@ function toDto(row: RevealRow, viewerId: string) {
       ? Boolean(row.resolved_at) && (!row.buyer_seen_at || row.buyer_seen_at < row.resolved_at!)
       : !row.seller_seen_at,
     dismissed: Boolean(isBuyer ? row.buyer_dismissed_at : row.seller_dismissed_at),
+    // Either party may rate a completed transaction once.
+    can_rate: status === 'completed' && !ratedRequestIds.has(row.id),
   };
   // Contact info is only ever exposed to the buyer, only once approved,
   // and only for the methods the seller offered on the listing.
@@ -103,9 +105,14 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const rows = (data ?? []) as unknown as RevealRow[];
+  const { data: myRatings } = await admin
+    .from('ratings')
+    .select('request_id')
+    .eq('rater_id', user.id);
+  const ratedIds = new Set((myRatings ?? []).map((r) => r.request_id));
   return NextResponse.json({
-    incoming: rows.filter((r) => r.seller_id === user.id).map((r) => toDto(r, user.id)),
-    outgoing: rows.filter((r) => r.buyer_id === user.id).map((r) => toDto(r, user.id)),
+    incoming: rows.filter((r) => r.seller_id === user.id).map((r) => toDto(r, user.id, ratedIds)),
+    outgoing: rows.filter((r) => r.buyer_id === user.id).map((r) => toDto(r, user.id, ratedIds)),
   });
 }
 

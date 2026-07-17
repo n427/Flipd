@@ -6,7 +6,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, Button } from '@/components/ui';
-import { RequestTimeline } from '@/components/WebApp';
+import { RequestTimeline, RatingModal } from '@/components/WebApp';
 import { useStore } from '@/lib/store-context';
 import { timeLeftLabel } from '@/lib/validation';
 import type { ActivityItem } from '@/lib/types';
@@ -15,6 +15,7 @@ export default function RequestsPage() {
   const router = useRouter();
   const store = useStore();
   const [confirmSold, setConfirmSold] = React.useState<ActivityItem | null>(null);
+  const [rating, setRating] = React.useState<ActivityItem | null>(null);
 
   const incoming = store.activity.filter((a) => a.dir === 'in');
   const byListing = new Map<string, ActivityItem[]>();
@@ -87,6 +88,8 @@ export default function RequestsPage() {
                   </div>
                 ) : a.status === 'APPROVED' ? (
                   <Button kind="secondary" size="sm" onClick={() => store.respondReveal(a.id, 'complete')}>Mark completed</Button>
+                ) : a.status === 'COMPLETED' && a.canRate ? (
+                  <Button kind="secondary" size="sm" onClick={() => setRating(a)}>Rate {a.who.split(' ')[0]}</Button>
                 ) : (
                   <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.07em', color: a.status === 'COMPLETED' ? 'var(--ink)' : 'var(--muted)' }}>
                     {a.status}
@@ -123,6 +126,14 @@ export default function RequestsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {rating && (
+        <RatingModal
+          whom={rating.who.split(' ')[0]}
+          onClose={() => setRating(null)}
+          onSubmit={(score, text) => store.rateTransaction(rating.id, score, text)}
+        />
       )}
     </div>
   );

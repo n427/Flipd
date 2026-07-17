@@ -3,7 +3,7 @@
 import React from 'react';
 import { CATEGORIES } from './data';
 import type {
-  ActivityItem, ActivityStatus, FilterArgs, Listing, Profile, RevealContact, Seller,
+  ActivityItem, ActivityStatus, FilterArgs, Listing, Profile, RatingSummary, RevealContact, Seller,
 } from './types';
 import { effectiveRevealStatus, type RevealStatus } from './validation';
 
@@ -44,6 +44,7 @@ type RevealDto = {
   offer?: number | null;
   unread?: boolean;
   dismissed?: boolean;
+  can_rate?: boolean;
   counterpart: { id: string; display_name: string | null; school_unit: string | null; class_year: string | null; avatar_url: string | null } | null;
   listing_archived?: boolean;
   listing_removed?: boolean;
@@ -129,6 +130,7 @@ function mapReveal(dto: RevealDto, dir: 'in' | 'out'): ActivityItem {
     offer: dto.offer ?? undefined,
     unread: dto.unread ?? false,
     dismissed: dto.dismissed ?? false,
+    canRate: dto.can_rate ?? false,
     status: effectiveRevealStatus(dto.status, dto.expires_at).toUpperCase() as ActivityStatus,
     contact: dto.contact,
   };
@@ -155,6 +157,8 @@ export interface FlipdStore {
   blockUser: (userId: string) => Promise<boolean>;
   unblockUser: (userId: string) => Promise<boolean>;
   reportTarget: (target: { listingId?: string; userId?: string }, reason: string, note?: string) => Promise<boolean>;
+  rateTransaction: (requestId: string, score: number, text?: string) => Promise<{ ok: boolean; error?: string }>;
+  fetchRatings: (userId?: string) => Promise<RatingSummary>;
   unreadCount: number;
   markAllSeen: () => Promise<void>;
   dismissNotification: (id: string) => Promise<void>;
@@ -388,6 +392,27 @@ export function useFlipdStore(): FlipdStore {
     return Boolean(res && res.ok);
   };
 
+  const rateTransaction = async (requestId: string, score: number, text?: string) => {
+    const res = await fetch('/api/ratings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request_id: requestId, score, text }),
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      const body = await res?.json().catch(() => ({}));
+      return { ok: false, error: body?.error || 'Could not submit — try again.' };
+    }
+    setActivity((prev) => prev.map((a) => (a.id === requestId ? { ...a, canRate: false } : a)));
+    return { ok: true as const };
+  };
+
+  const fetchRatings = async (userId?: string) => {
+    const q = userId ? `?user=${userId}` : '';
+    const res = await fetch(`/api/ratings${q}`).catch(() => null);
+    if (!res || !res.ok) return { average: null, count: 0, reviews: [] };
+    return res.json();
+  };
+
   const markAllSeen = async () => {
     setActivity((prev) => prev.map((a) => ({ ...a, unread: false })));
     await fetch('/api/reveals/seen', {
@@ -436,7 +461,7 @@ export function useFlipdStore(): FlipdStore {
   return {
     me, listings, listingsLoading, savedIds, activity,
     isSaved, toggleSave, addListing, updateListing, removeListing, getListing, setArchived,
-    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, blockedIds, blockUser, unblockUser, reportTarget, unreadCount, markAllSeen, dismissNotification, signOut,
+    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, blockedIds, blockUser, unblockUser, reportTarget, rateTransaction, fetchRatings, unreadCount, markAllSeen, dismissNotification, signOut,
     myListings, pastListings, savedListings, pendingCount,
   };
 }
