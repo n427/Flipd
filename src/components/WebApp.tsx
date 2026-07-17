@@ -577,15 +577,10 @@ export function WebCreate({
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 32px 80px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 34 }}>
-        <Wordmark size={20} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '10px 0 32px' }}>
+        <h1 style={{ fontWeight: 800, fontSize: 30, letterSpacing: '-0.03em', color: 'var(--ink)', margin: 0 }}>What are you passing on?</h1>
         <Button kind="secondary" size="sm" onClick={onCancel}>Exit</Button>
       </div>
-
-      <h1 style={{ fontWeight: 800, fontSize: 30, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 6px' }}>What are you passing on?</h1>
-      <p style={{ fontFamily: 'var(--sans)', fontSize: 14, color: 'var(--muted)', margin: '0 0 32px' }}>
-        Everything here goes to another Trojan — fill in the basics and you’re live.
-      </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 44, alignItems: 'start' }}>
         {/* Left: photos */}
@@ -746,9 +741,7 @@ export function WebCreate({
       </div>
 
       <hr className="rule" style={{ margin: '36px 0 20px' }} />
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <span style={{ fontFamily: 'var(--sans)', fontSize: 13, color: 'var(--muted)' }}>Step 1 of 1 — that’s the whole thing.</span>
-        <div style={{ flex: 1 }} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Button kind="primary" size="lg" onClick={publish}>Publish listing</Button>
       </div>
       {attempted && missing.length > 0 && (
