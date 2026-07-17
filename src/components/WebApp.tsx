@@ -275,53 +275,6 @@ export function WebAppFeed({
 export function WebListingDetail({
   store, listing, onBack, onReveal, preview = false,
 }: { store: FlipdStore; listing: Listing; onBack: () => void; onReveal: () => void; preview?: boolean }) {
-  const tile = (idx: number, style: React.CSSProperties = {}, more = 0) => (
-    <div key={idx} onClick={() => setLightbox(idx)} style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)', ...style }}>
-      <img src={photos[idx]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[idx] || '50% 50%' }} />
-      {more > 0 && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(40,35,30,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 16, color: '#fff' }}>
-          +{more}
-        </div>
-      )}
-    </div>
-  );
-
-  const story = (
-    <>
-      <div style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--accent)', marginBottom: 8 }}>
-        {listing.categoryLabel} · posted {listing.postedLabel || 'recently'}
-      </div>
-      <h1 style={{ fontWeight: 800, fontSize: 30, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 6px' }}>{listing.title}</h1>
-      {listing.meta && (
-        <div style={{ color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 13.5, marginBottom: 18 }}>
-          Pickup at {listing.meta.split(' · ')[0]}
-        </div>
-      )}
-      {listing.description?.trim() && (
-        <p style={{ fontFamily: 'var(--sans)', fontSize: 14.5, lineHeight: 1.65, color: 'var(--ink-2)', margin: '0 0 26px', whiteSpace: 'pre-wrap' }}>
-          {listing.description}
-        </p>
-      )}
-      <hr className="rule" style={{ margin: '0 0 20px' }} />
-      <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-        <Avatar name={listing.seller.name} size={44} tone="cream" />
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 14.5, color: 'var(--ink)' }}>
-              {listing.seller.name} listed this
-            </div>
-            {listing.seller.isDemo && <Pill kind="verified">FLIPD TEAM</Pill>}
-          </div>
-          {(listing.seller.unit || listing.seller.year) && (
-            <div className="t-meta" style={{ fontSize: 12.5, marginTop: 2 }}>
-              {[listing.seller.unit, listing.seller.year].filter(Boolean).join(' · ')}
-            </div>
-          )}
-        </div>
-      </div>
-    </>
-  );
-
   const saved = preview ? false : store.isSaved(listing.id);
   const reveal = preview ? undefined : store.myRevealFor(listing.id);
   const photos = listing.photo_urls ?? [];
@@ -339,132 +292,213 @@ export function WebListingDetail({
     return () => window.removeEventListener('keydown', onKey);
   }, [lightbox, n]);
 
+  // Mosaic tile. Corner rounding is group-level: 16px on outer corners, 4px inside.
+  const tile = (idx: number, radius: string, opts: { span2?: boolean; pill?: boolean; more?: number } = {}) => (
+    <div
+      key={idx}
+      onClick={() => setLightbox(idx)}
+      style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)', borderRadius: radius, ...(opts.span2 ? { gridRow: 'span 2' } : {}) }}
+    >
+      <img src={photos[idx]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[idx] || '50% 50%' }} />
+      {opts.pill && (
+        <span style={{ position: 'absolute', left: 14, bottom: 14, background: 'rgba(255,255,255,0.92)', borderRadius: 8, padding: '5px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12, color: 'var(--ink)' }}>
+          1 / {n}
+        </span>
+      )}
+      {(opts.more ?? 0) > 0 && (
+        <>
+          <span style={{ position: 'absolute', inset: 0, background: 'rgba(17,17,17,0.35)', borderRadius: radius }} />
+          <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 14, color: '#fff' }}>
+            +{opts.more} more
+          </span>
+        </>
+      )}
+    </div>
+  );
+
+  const priceLine = (size: number) => (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 14 }}>
+      <span style={{ fontWeight: 700, fontSize: size, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{listing.priceLabel}</span>
+      {listing.negotiable && <span style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--muted)' }}>or best offer</span>}
+    </div>
+  );
+
+  // Action stack: owner archive/restore, approved contact, or reveal/save.
+  const actions = (full: boolean) => (
+    !preview && listing.mine ? (
+      listing.archived ? (
+        <>
+          <Button kind="primary" full={full} size="lg" onClick={async () => { await store.setArchived(listing.id, false); onBack(); }}>
+            Restore to feed
+          </Button>
+          <div className="t-meta" style={{ fontSize: 11.5, marginTop: 12, color: 'var(--muted)' }}>
+            This listing is in your past listings.
+          </div>
+        </>
+      ) : (
+        <>
+          <Button kind="secondary" full={full} size="lg" onClick={async () => { await store.setArchived(listing.id, true); onBack(); }}>
+            Move to past listings
+          </Button>
+          <div className="t-meta" style={{ fontSize: 11.5, marginTop: 12, color: 'var(--muted)' }}>
+            Removes it from the feed. You can restore it anytime.
+          </div>
+        </>
+      )
+    ) : reveal?.status === 'APPROVED' && reveal.contact ? (
+      <div>
+        <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 12 }}>CONTACT</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {reveal.contact.instagram && (
+            <a href={`https://instagram.com/${reveal.contact.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
+              <Icon name="instagram" size={16} color="var(--ink)" /> {reveal.contact.instagram}
+            </a>
+          )}
+          {reveal.contact.phone && (
+            <a href={`tel:${reveal.contact.phone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
+              <Icon name="phone" size={16} color="var(--ink)" /> {reveal.contact.phone}
+            </a>
+          )}
+          {reveal.contact.email && (
+            <a href={`mailto:${reveal.contact.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
+              <Icon name="mail" size={16} color="var(--ink)" /> {reveal.contact.email}
+            </a>
+          )}
+        </div>
+      </div>
+    ) : (
+      <>
+        <div style={{ display: 'flex', flexDirection: full ? 'column' : 'row', gap: 10 }}>
+          {reveal?.status === 'PENDING' ? (
+            <Button kind="secondary" full={full} size="lg" disabled>Requested — waiting on seller</Button>
+          ) : (
+            <Button kind="primary" full={full} size="lg" onClick={preview ? () => {} : onReveal} disabled={preview}>Reveal Contact</Button>
+          )}
+          <Button kind="secondary" full={full} size="lg" onClick={() => { if (!preview) store.toggleSave(listing.id); }} disabled={preview}>
+            {saved ? 'Saved' : 'Save'}
+          </Button>
+        </div>
+        <div className="t-meta" style={{ fontSize: 11.5, marginTop: 12, color: 'var(--muted)' }}>
+          {listing.seller.name.split(' ')[0]} will see your name, school, and year — everyone here is verified USC.
+        </div>
+      </>
+    )
+  );
+
+  const categoryLine = (
+    <div style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--accent)', marginBottom: 8 }}>
+      {listing.categoryLabel} · posted {listing.postedLabel || 'recently'}
+    </div>
+  );
+  const titleBlock = (
+    <>
+      <h1 style={{ fontWeight: 700, fontSize: 26, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 4px' }}>{listing.title}</h1>
+      {listing.meta && (
+        <div style={{ color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 14, marginBottom: 16 }}>
+          Pickup at {listing.meta.split(' · ')[0]}
+        </div>
+      )}
+    </>
+  );
+  const descriptionBlock = listing.description?.trim() ? (
+    <p style={{ fontFamily: 'var(--sans)', fontSize: 15, lineHeight: 1.55, color: 'var(--ink-2)', margin: '0 0 20px', whiteSpace: 'pre-wrap' }}>
+      {listing.description}
+    </p>
+  ) : null;
+  const sellerRow = (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'center', borderTop: '1px solid var(--rule)', marginTop: 22, paddingTop: 18 }}>
+      <Avatar name={listing.seller.name} size={40} tone="cream" />
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
+            {listing.seller.name} listed this
+          </div>
+          {listing.seller.isDemo && <Pill kind="verified">FLIPD TEAM</Pill>}
+        </div>
+        {(listing.seller.unit || listing.seller.year) && (
+          <div className="t-meta" style={{ fontSize: 13, marginTop: 2 }}>
+            {[listing.seller.unit, listing.seller.year].filter(Boolean).join(' · ')}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{ padding: '24px 32px 64px', maxWidth: 1180, margin: '0 auto' }}>
+    <div style={{ padding: '24px 32px 64px', maxWidth: 1100, margin: '0 auto' }}>
       {!preview && (
-      <button onClick={onBack} style={{ background: 'none', border: 0, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 12.5, marginBottom: 18 }}>
+      <button onClick={onBack} style={{ background: 'none', border: 0, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 13, marginBottom: 22 }}>
         <Icon name="chevronLeft" size={14} /> Back to feed
       </button>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 48, alignItems: 'start' }}>
-        {/* Left: adaptive mosaic — layout upgrades as photos are added */}
-        <div>
-          {n <= 1 ? (
-            /* 1 photo (or none): page reflows — story sits beside the square */
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 340px) 1fr', gap: 30, alignItems: 'start' }}>
-              <div
-                onClick={() => { if (n > 0) setLightbox(0); }}
-                style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 14, overflow: 'hidden', cursor: n > 0 ? 'pointer' : 'default', background: 'var(--surface)' }}
-              >
-                {n > 0 ? (
-                  <img src={photos[0]} alt={listing.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }} />
-                ) : (
-                  <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
-                )}
-                {n === 1 && (
-                  <div style={{ position: 'absolute', left: 10, bottom: 10, background: '#fff', borderRadius: 999, padding: '3px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 11.5, color: 'var(--ink)', boxShadow: 'var(--shadow)' }}>
-                    1 / 1
-                  </div>
-                )}
-              </div>
-              <div>{story}</div>
-            </div>
-          ) : (
-            <>
-              {n === 2 && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', aspectRatio: '2.02 / 1' }}>
-                  {tile(0)}
-                  {tile(1)}
-                </div>
-              )}
-              {(n === 3 || n === 4) && (
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gridTemplateRows: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', aspectRatio: '3.03 / 2' }}>
-                  {tile(0, { gridRow: 'span 2' })}
-                  {tile(1)}
-                  {tile(2, {}, n - 3)}
-                </div>
-              )}
-              {n >= 5 && (
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 8, borderRadius: 14, overflow: 'hidden', aspectRatio: '2.05 / 1' }}>
-                  {tile(0, { gridRow: 'span 2' })}
-                  {tile(1)}
-                  {tile(2)}
-                  {tile(3)}
-                  {tile(4, {}, n - 5)}
-                </div>
-              )}
-              <div style={{ marginTop: 26 }}>{story}</div>
-            </>
-          )}
-        </div>
-
-        {/* Right: price + action panel */}
-        <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 16, padding: 24, boxShadow: 'var(--shadow)', position: 'sticky', top: 90 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 18 }}>
-            <span style={{ fontWeight: 800, fontSize: 28, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{listing.priceLabel}</span>
-            {listing.negotiable && <span className="t-meta" style={{ fontSize: 13 }}>or best offer</span>}
-          </div>
-          {!preview && listing.mine ? (
-            listing.archived ? (
-              <>
-                <Button kind="primary" full size="lg" icon="upload" onClick={async () => { await store.setArchived(listing.id, false); onBack(); }}>
-                  Restore to feed
-                </Button>
-                <div className="t-meta" style={{ fontSize: 11, marginTop: 12, textAlign: 'center', color: 'var(--muted)' }}>
-                  This listing is in your past listings.
-                </div>
-              </>
+      {n <= 1 ? (
+        /* 4a: one photo — page reflows, info beside the square, no side panel */
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 340px) 1fr', gap: 40, alignItems: 'start' }}>
+          <div
+            onClick={() => { if (n > 0) setLightbox(0); }}
+            style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 16, overflow: 'hidden', cursor: n > 0 ? 'pointer' : 'default', background: 'var(--surface)' }}
+          >
+            {n > 0 ? (
+              <img src={photos[0]} alt={listing.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }} />
             ) : (
-              <>
-                <Button kind="secondary" full size="lg" icon="x" onClick={async () => { await store.setArchived(listing.id, true); onBack(); }}>
-                  Move to past listings
-                </Button>
-                <div className="t-meta" style={{ fontSize: 11, marginTop: 12, textAlign: 'center', color: 'var(--muted)' }}>
-                  Removes it from the feed. You can restore it anytime.
-                </div>
-              </>
-            )
-          ) : reveal?.status === 'APPROVED' && reveal.contact ? (
-            <div>
-              <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 12 }}>CONTACT</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {reveal.contact.instagram && (
-                  <a href={`https://instagram.com/${reveal.contact.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
-                    <Icon name="instagram" size={16} color="var(--ink)" /> {reveal.contact.instagram}
-                  </a>
-                )}
-                {reveal.contact.phone && (
-                  <a href={`tel:${reveal.contact.phone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
-                    <Icon name="phone" size={16} color="var(--ink)" /> {reveal.contact.phone}
-                  </a>
-                )}
-                {reveal.contact.email && (
-                  <a href={`mailto:${reveal.contact.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
-                    <Icon name="mail" size={16} color="var(--ink)" /> {reveal.contact.email}
-                  </a>
-                )}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {reveal?.status === 'PENDING' ? (
-                  <Button kind="secondary" full size="lg" disabled>Requested — waiting on seller</Button>
-                ) : (
-                  <Button kind="primary" full size="lg" onClick={preview ? () => {} : onReveal} disabled={preview}>Reveal Contact</Button>
-                )}
-                <Button kind="secondary" full size="lg" onClick={() => { if (!preview) store.toggleSave(listing.id); }} disabled={preview}>
-                  {saved ? 'Saved' : 'Save for later'}
-                </Button>
-              </div>
-              <div className="t-meta" style={{ fontSize: 11.5, marginTop: 14, textAlign: 'center', color: 'var(--muted)' }}>
-                {listing.seller.name.split(' ')[0]} will see your name, school, and year — everyone here is verified USC.
-              </div>
-            </>
-          )}
+              <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
+            )}
+            {n === 1 && (
+              <span style={{ position: 'absolute', left: 14, bottom: 14, background: 'rgba(255,255,255,0.92)', borderRadius: 8, padding: '5px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12, color: 'var(--ink)' }}>
+                1 / 1
+              </span>
+            )}
+          </div>
+          <div>
+            {categoryLine}
+            {titleBlock}
+            {priceLine(24)}
+            {descriptionBlock}
+            {actions(false)}
+            {sellerRow}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* 4b/4c/4d: full-width mosaic, then story + price panel */
+        <>
+          {n === 2 && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, aspectRatio: '2.02 / 1' }}>
+              {tile(0, '16px 4px 4px 16px', { pill: true })}
+              {tile(1, '4px 16px 16px 4px')}
+            </div>
+          )}
+          {(n === 3 || n === 4) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gridTemplateRows: '1fr 1fr', gap: 10, aspectRatio: '3.03 / 2' }}>
+              {tile(0, '16px 4px 4px 16px', { span2: true, pill: true })}
+              {tile(1, '4px 16px 4px 4px')}
+              {tile(2, '4px 4px 16px 4px', { more: n - 3 })}
+            </div>
+          )}
+          {n >= 5 && (
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 10, aspectRatio: '2.05 / 1' }}>
+              {tile(0, '16px 4px 4px 16px', { span2: true, pill: true })}
+              {tile(1, '4px')}
+              {tile(2, '4px 16px 4px 4px')}
+              {tile(3, '4px')}
+              {tile(4, '4px 4px 16px 4px', { more: n - 5 })}
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 40, marginTop: 26, alignItems: 'start' }}>
+            <div>
+              {categoryLine}
+              {titleBlock}
+              {descriptionBlock}
+              {sellerRow}
+            </div>
+            <div style={{ border: '1px solid var(--rule)', borderRadius: 16, background: '#fff', padding: 20, boxShadow: 'var(--shadow)', position: 'sticky', top: 90 }}>
+              {priceLine(22)}
+              {actions(true)}
+            </div>
+          </div>
+        </>
+      )}
 
       {lightbox !== null && photos[lightbox] && (
         <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(17,17,17,0.93)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
