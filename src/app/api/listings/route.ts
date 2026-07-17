@@ -20,7 +20,11 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false });
 
   if (mine) query = query.eq('seller_id', user.id);
-  if (!includeArchived) query = query.eq('archived', false);
+  if (includeArchived) {
+    query = query.or(`archived.eq.false,seller_id.eq.${user.id}`);
+  } else {
+    query = query.eq('archived', false);
+  }
   if (category && category !== 'all') query = query.eq('category', category);
   if (q) query = query.ilike('title', `%${q}%`);
 

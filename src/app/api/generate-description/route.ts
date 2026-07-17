@@ -1,9 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionUser } from '@/lib/supabase/server';
 
 const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
   const { title, category } = await req.json();
 
   if (!title || !category) {

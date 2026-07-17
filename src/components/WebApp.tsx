@@ -418,7 +418,7 @@ export function WebListingDetail({
                 </Button>
               </div>
               <div className="t-meta" style={{ fontSize: 11, marginTop: 12, textAlign: 'center', color: 'var(--muted)' }}>
-                Your name and @usc.edu email will be shared with the seller.
+                Your name, school, and year will be shared with the seller.
               </div>
             </>
           )}
@@ -972,7 +972,7 @@ export function RevealModal({ listing, onClose, onContinue }: { listing: Listing
             Share your info with <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>{listing.seller.name.split(' ')[0]}</em>?
           </h2>
           <p className="t-body" style={{ fontSize: 13.5, margin: '0 0 20px' }}>
-            We&apos;ll share your <strong>name</strong> and <strong>@usc.edu email</strong> with this seller. They have 72 hours to approve. If they do, you&apos;ll see their preferred contact method.
+            We&apos;ll share your <strong>name</strong>, <strong>school</strong>, and <strong>year</strong> with this seller. They have 72 hours to approve. If they do, you&apos;ll see their preferred contact method.
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button kind="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Button>

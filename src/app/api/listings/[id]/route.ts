@@ -18,6 +18,9 @@ export async function GET(
     .single();
 
   if (error || !data) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  if (data.archived && data.seller_id !== user.id) {
+    return NextResponse.json({ error: 'not found' }, { status: 404 });
+  }
   return NextResponse.json({ listing: data });
 }
 
