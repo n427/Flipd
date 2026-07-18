@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getSessionUser } from '@/lib/supabase/server';
-import { effectiveRevealStatus, type RevealStatus } from '@/lib/validation';
-import { approvalEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
+import { effectiveRevealStatus, resolveSharedContact, type RevealStatus } from '@/lib/validation';
+import { sharedContactEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
 
 export async function PATCH(
   req: NextRequest,
@@ -18,7 +18,7 @@ export async function PATCH(
 
   const { data: existing } = await admin
     .from('reveal_requests')
-    .select('id, listing_id, buyer_id, seller_id, status, expires_at, listing:listings(title)')
+    .select('id, listing_id, buyer_id, seller_id, status, expires_at, buyer_contact, listing:listings(title)')
     .eq('id', params.id)
     .single();
   if (!existing) return NextResponse.json({ error: 'not found' }, { status: 404 });
@@ -45,27 +45,40 @@ export async function PATCH(
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Event 2: the approval payload — email the buyer the revealed contact
-  // method + value immediately.
+  // Event 2: the approval payload — email both parties the contact info
+  // they're each owed (mutual reveal).
   if (action === 'approve') {
-    const [{ data: buyerProfile }, { data: sellerProfile }] = await Promise.all([
-      admin.from('profiles').select('notify_prefs').eq('id', existing.buyer_id).single(),
-      admin.from('profiles').select('display_name, contact_method, contact_instagram, contact_phone, contact_email').eq('id', existing.seller_id).single(),
+    const [{ data: buyerProfile }, { data: sellerProfile }, { data: listingRow }] = await Promise.all([
+      admin.from('profiles').select('display_name, notify_prefs, contact_instagram, contact_phone, contact_email').eq('id', existing.buyer_id).single(),
+      admin.from('profiles').select('display_name, notify_prefs, contact_instagram, contact_phone, contact_email').eq('id', existing.seller_id).single(),
+      admin.from('listings').select('title, contact').eq('id', existing.listing_id).single(),
     ]);
-    const method = sellerProfile?.contact_method;
-    const value = method
-      ? ({ instagram: sellerProfile?.contact_instagram, phone: sellerProfile?.contact_phone, email: sellerProfile?.contact_email } as Record<string, string | null>)[method]
-      : null;
-    if (method && value && wantsEmail(buyerProfile?.notify_prefs, 'approval')) {
+    const listingTitle = listingRow?.title ?? 'a listing';
+
+    // Buyer gets the seller's offered contact (all offered methods).
+    const sellerShared = resolveSharedContact(listingRow?.contact ?? [], {
+      instagram: sellerProfile?.contact_instagram ?? null,
+      phone: sellerProfile?.contact_phone ?? null,
+      email: sellerProfile?.contact_email ?? null,
+    });
+    if (Object.keys(sellerShared).length && wantsEmail(buyerProfile?.notify_prefs, 'approval')) {
       const to = await verifiedEmailFor(existing.buyer_id);
       if (to) {
-        const listingTitle = (existing as unknown as { listing: { title: string } | null }).listing?.title ?? 'a listing';
-        const { subject, html } = approvalEmail(
-          sellerProfile?.display_name ?? 'The seller',
-          listingTitle,
-          method,
-          value,
-        );
+        const { subject, html } = sharedContactEmail(sellerProfile?.display_name ?? 'The seller', listingTitle, sellerShared);
+        void sendEmail(to, subject, html);
+      }
+    }
+
+    // Seller gets the buyer's chosen contact (mutual — the new half).
+    const buyerShared = resolveSharedContact((existing as unknown as { buyer_contact: string[] | null }).buyer_contact ?? [], {
+      instagram: buyerProfile?.contact_instagram ?? null,
+      phone: buyerProfile?.contact_phone ?? null,
+      email: buyerProfile?.contact_email ?? null,
+    });
+    if (Object.keys(buyerShared).length && wantsEmail(sellerProfile?.notify_prefs, 'approval')) {
+      const to = await verifiedEmailFor(existing.seller_id);
+      if (to) {
+        const { subject, html } = sharedContactEmail(buyerProfile?.display_name ?? 'The buyer', listingTitle, buyerShared);
         void sendEmail(to, subject, html);
       }
     }

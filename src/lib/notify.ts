@@ -83,6 +83,19 @@ export function approvalEmail(sellerName: string, listingTitle: string, method: 
   };
 }
 
+// Mutual-aware: lists every shared method, not just one. `contact` is the
+// output of resolveSharedContact (method -> value).
+export function sharedContactEmail(actorName: string, listingTitle: string, contact: Partial<Record<string, string>>) {
+  const labels: Record<string, string> = { instagram: 'Instagram', phone: 'Text', email: 'Email' };
+  const lines = Object.entries(contact)
+    .map(([m, v]) => `<p style="font-size:17px"><strong>${esc(labels[m] || m)}:</strong> ${esc(v as string)}</p>`)
+    .join('');
+  return {
+    subject: `${actorName} — you're connected on "${listingTitle}"`,
+    html: wrap(`<p>You're connected on <strong>${esc(listingTitle)}</strong>. Here's how to reach <strong>${esc(actorName)}</strong>:</p>${lines}<p>Reach out — they're expecting you.</p>`),
+  };
+}
+
 // Event 3 — seller: request expiring soon. No contact info.
 export function reminderEmail(buyerName: string, listingTitle: string, hoursLeft: number) {
   return {
