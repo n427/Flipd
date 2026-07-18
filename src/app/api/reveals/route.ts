@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getSessionUser } from '@/lib/supabase/server';
-import { effectiveRevealStatus, type RevealStatus } from '@/lib/validation';
+import { effectiveRevealStatus, resolveSharedContact, type RevealStatus } from '@/lib/validation';
 import { newRequestEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
 
 type RevealRow = {
@@ -119,7 +119,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  const { listing_id, offer } = await req.json().catch(() => ({}));
+  const { listing_id, offer, buyer_contact } = await req.json().catch(() => ({}));
   if (!listing_id) return NextResponse.json({ error: 'listing_id required' }, { status: 400 });
   // Offers are optional; anything non-positive or non-numeric is simply no-offer.
   const offerAmount = Number.isFinite(Number(offer)) && Number(offer) > 0 ? Math.round(Number(offer)) : null;
@@ -145,9 +145,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'You can’t send a request for this listing.' }, { status: 403 });
   }
 
+  // Validate the buyer's chosen methods against their stored profile values —
+  // never trust the client. Empty/absent list falls back to all stored methods.
+  const { data: buyerProfile } = await admin
+    .from('profiles')
+    .select('contact_instagram, contact_phone, contact_email')
+    .eq('id', user.id)
+    .single();
+  const buyerValues = {
+    instagram: buyerProfile?.contact_instagram ?? null,
+    phone: buyerProfile?.contact_phone ?? null,
+    email: buyerProfile?.contact_email ?? null,
+  };
+  const requested: string[] = Array.isArray(buyer_contact) && buyer_contact.length > 0
+    ? buyer_contact
+    : ['instagram', 'phone', 'email'];
+  const buyerContact = Object.keys(resolveSharedContact(requested, buyerValues));
+
   const { data, error } = await admin
     .from('reveal_requests')
-    .insert({ listing_id, buyer_id: user.id, seller_id: listing.seller_id, offer: offerAmount })
+    .insert({ listing_id, buyer_id: user.id, seller_id: listing.seller_id, offer: offerAmount, buyer_contact: buyerContact })
     .select(SELECT)
     .single();
   if (error) {
@@ -158,7 +175,7 @@ export async function POST(req: NextRequest) {
   }
   // Event 1: tell the seller someone asked (no contact info in this email).
   const row = data as unknown as RevealRow;
-  const [{ data: sellerProfile }, { data: buyerProfile }] = await Promise.all([
+  const [{ data: sellerProfile }, { data: buyerNameProfile }] = await Promise.all([
     admin.from('profiles').select('notify_prefs').eq('id', listing.seller_id).single(),
     admin.from('profiles').select('display_name').eq('id', user.id).single(),
   ]);
@@ -166,7 +183,7 @@ export async function POST(req: NextRequest) {
     const to = await verifiedEmailFor(listing.seller_id);
     if (to) {
       const { subject, html } = newRequestEmail(
-        buyerProfile?.display_name ?? 'A Trojan',
+        buyerNameProfile?.display_name ?? 'A Trojan',
         row.listing?.title ?? 'your listing',
       );
       void sendEmail(to, subject, html);
