@@ -27,3 +27,21 @@ export function timeLeftLabel(expiresAt: string, now: Date = new Date()): string
   if (mins < 60) return `${mins}m left`;
   return `${Math.floor(mins / 60)}h left`;
 }
+
+type ContactValues = { instagram: string | null; phone: string | null; email: string | null };
+export type ContactMethod = 'instagram' | 'phone' | 'email';
+const METHOD_ORDER: ContactMethod[] = ['instagram', 'phone', 'email'];
+
+// The methods actually shared = chosen ∩ (methods with a stored value).
+export function resolveSharedContact(chosen: string[], values: ContactValues): Partial<Record<ContactMethod, string>> {
+  const out: Partial<Record<ContactMethod, string>> = {};
+  for (const m of METHOD_ORDER) {
+    if (chosen.includes(m) && values[m]) out[m] = values[m] as string;
+  }
+  return out;
+}
+
+// First present method in priority order — used as the legacy "primary" hint.
+export function primaryMethod(values: ContactValues): ContactMethod | null {
+  return METHOD_ORDER.find((m) => Boolean(values[m])) ?? null;
+}
