@@ -70,20 +70,7 @@ export function newRequestEmail(buyerName: string, listingTitle: string) {
   };
 }
 
-// Event 2 — buyer: approved. This one carries the revealed payload.
-export function approvalEmail(sellerName: string, listingTitle: string, method: string, value: string) {
-  const label = ({ instagram: 'Instagram', phone: 'Text', email: 'Email' } as Record<string, string>)[method] || method;
-  return {
-    subject: `${sellerName} approved you — here's their contact`,
-    html: wrap(
-      `<p><strong>${esc(sellerName)}</strong> approved your request for <strong>${esc(listingTitle)}</strong>.</p>
-       <p style="font-size:17px"><strong>${esc(label)}:</strong> ${esc(value)}</p>
-       <p>Reach out — they're expecting you.</p>`,
-    ),
-  };
-}
-
-// Mutual-aware: lists every shared method, not just one. `contact` is the
+// Event 2 — approved. Mutual-aware: lists every shared method, not just one. `contact` is the
 // output of resolveSharedContact (method -> value).
 export function sharedContactEmail(actorName: string, listingTitle: string, contact: Partial<Record<string, string>>) {
   const labels: Record<string, string> = { instagram: 'Instagram', phone: 'Text', email: 'Email' };

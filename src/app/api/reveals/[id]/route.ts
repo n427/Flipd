@@ -18,7 +18,7 @@ export async function PATCH(
 
   const { data: existing } = await admin
     .from('reveal_requests')
-    .select('id, listing_id, buyer_id, seller_id, status, expires_at, buyer_contact, listing:listings(title)')
+    .select('id, listing_id, buyer_id, seller_id, status, expires_at, buyer_contact')
     .eq('id', params.id)
     .single();
   if (!existing) return NextResponse.json({ error: 'not found' }, { status: 404 });

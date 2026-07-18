@@ -71,20 +71,24 @@ function toDto(row: RevealRow, viewerId: string, ratedRequestIds: Set<string> = 
     can_rate: status === 'completed' && !ratedRequestIds.has(row.id),
   };
   // Both parties see the other's chosen contact once approved/completed.
+  // Only attach `contact` when at least one method resolves, so surfaces
+  // never render an empty "CONTACT" block for an approved-but-empty reveal.
   if (status === 'approved' || status === 'completed') {
+    let shared: Partial<Record<'instagram' | 'phone' | 'email', string>> = {};
     if (isBuyer && row.seller) {
-      dto.contact = resolveSharedContact(row.listing?.contact ?? [], {
+      shared = resolveSharedContact(row.listing?.contact ?? [], {
         instagram: row.seller.contact_instagram,
         phone: row.seller.contact_phone,
         email: row.seller.contact_email,
       });
     } else if (!isBuyer && row.buyer) {
-      dto.contact = resolveSharedContact(row.buyer_contact ?? [], {
+      shared = resolveSharedContact(row.buyer_contact ?? [], {
         instagram: row.buyer.contact_instagram,
         phone: row.buyer.contact_phone,
         email: row.buyer.contact_email,
       });
     }
+    if (Object.keys(shared).length > 0) dto.contact = shared;
   }
   return dto;
 }
@@ -161,9 +165,10 @@ export async function POST(req: NextRequest) {
     phone: buyerProfile?.contact_phone ?? null,
     email: buyerProfile?.contact_email ?? null,
   };
-  const requested: string[] = Array.isArray(buyer_contact) && buyer_contact.length > 0
-    ? buyer_contact
-    : ['instagram', 'phone', 'email'];
+  // Only share what the buyer explicitly picked. If the client sent no
+  // selection (e.g. a stale tab from before the picker existed), share
+  // nothing rather than auto-exposing every stored method.
+  const requested: string[] = Array.isArray(buyer_contact) ? buyer_contact : [];
   const buyerContact = Object.keys(resolveSharedContact(requested, buyerValues));
 
   const { data, error } = await admin
