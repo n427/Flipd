@@ -64,6 +64,60 @@ export function Placeholder({
   );
 }
 
+// ── Image with graceful fallback ─────────────────────────────────────
+// Renders an <img>, but falls back to the branded <Placeholder> when the
+// source fails to load (dead URL, 404, network blip) — so a broken image
+// looks identical to a no-photo listing instead of a raw broken-image glyph.
+export function ImageWithFallback({
+  src, alt, imgStyle, fallbackLabel, fallbackTone, fallbackRadius = 0,
+}: {
+  src: string;
+  alt: string;
+  imgStyle?: React.CSSProperties;
+  fallbackLabel?: string | null;
+  fallbackTone?: PhotoTone;
+  fallbackRadius?: number;
+}) {
+  const [errored, setErrored] = React.useState(false);
+
+  // Reset the error flag when the source *changes* (not on initial mount), so
+  // a new valid photo isn't masked by a previous src's failure. Guarding on
+  // the previous src is essential: an unconditional [src] effect also runs on
+  // mount, which would clobber the synchronous failure detection below.
+  const prevSrc = React.useRef(src);
+  React.useEffect(() => {
+    if (prevSrc.current !== src) {
+      prevSrc.current = src;
+      setErrored(false);
+    }
+  }, [src]);
+
+  // Catch the SSR race: the browser can fire the native `error` event while
+  // parsing server-rendered HTML — before React hydrates and attaches its
+  // onError handler — so the synthetic onError never fires and the fallback
+  // would never show. On mount we inspect the DOM node directly: an image
+  // that has finished loading (`complete`) with zero intrinsic width
+  // (`naturalWidth === 0`) has already failed. onError still covers any
+  // failure that happens after hydration.
+  const checkNode = React.useCallback((img: HTMLImageElement | null) => {
+    if (img && img.complete && img.naturalWidth === 0) setErrored(true);
+  }, []);
+
+  if (errored) {
+    return (
+      <Placeholder
+        label={fallbackLabel}
+        tone={fallbackTone}
+        height="100%"
+        radius={fallbackRadius}
+        style={{ position: 'absolute', inset: 0 }}
+      />
+    );
+  }
+
+  return <img ref={checkNode} src={src} alt={alt} style={imgStyle} onError={() => setErrored(true)} />;
+}
+
 // ── Callout ──────────────────────────────────────────────────────────
 export function Callout({
   eyebrow, children, style = {},
@@ -118,10 +172,12 @@ export function ListingCard({
     <>
       <div className="listing-photo" style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 'var(--r-img)', overflow: 'hidden', background: 'var(--surface)' }}>
         {listing.photo_urls?.[0] ? (
-          <img
+          <ImageWithFallback
             src={listing.photo_urls[0]}
             alt={listing.title}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }}
+            imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }}
+            fallbackLabel={listing.photoLabel}
+            fallbackTone={listing.photoTone}
           />
         ) : (
           <Placeholder label={listing.photoLabel} tone={listing.photoTone} height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
@@ -137,7 +193,7 @@ export function ListingCard({
         ) : null}
       </div>
       <div style={{ padding: compact ? '9px 2px 0' : '11px 2px 0', display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+        <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {listing.title}
         </div>
         <div className="t-meta" style={{ fontSize: 13, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
