@@ -153,7 +153,7 @@ export interface FlipdStore {
   removeListing: (id: string) => Promise<boolean>;
   getListing: (id: string) => Promise<Listing | null>;
   setArchived: (id: string, archived: boolean) => Promise<boolean>;
-  requestReveal: (listingId: string, offer?: number) => Promise<{ ok: boolean; error?: string }>;
+  requestReveal: (listingId: string, offer?: number, buyerContact?: string[]) => Promise<{ ok: boolean; error?: string }>;
   respondReveal: (id: string, action: 'approve' | 'decline' | 'complete', opts?: { markSold?: boolean }) => Promise<boolean>;
   latestRevealFor: (listingId: string) => ActivityItem | undefined;
   pendingByListing: Record<string, number>;
@@ -320,11 +320,11 @@ export function useFlipdStore(): FlipdStore {
     return true;
   };
 
-  const requestReveal = async (listingId: string, offer?: number) => {
+  const requestReveal = async (listingId: string, offer?: number, buyerContact?: string[]) => {
     const res = await fetch('/api/reveals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ listing_id: listingId, offer }),
+      body: JSON.stringify({ listing_id: listingId, offer, buyer_contact: buyerContact }),
     }).catch(() => null);
     if (!res) return { ok: false, error: 'Network error — try again.' };
     if (res.status === 409) { await refreshActivity(); return { ok: true }; }

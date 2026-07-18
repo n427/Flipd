@@ -6,11 +6,11 @@
 // All wired to the in-memory store.
 import React from 'react';
 import { Icon } from './Icon';
-import { Avatar, Button, Callout, CategoryChip, ListingCard, Pill, Placeholder, Wordmark } from './ui';
+import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, Pill, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
 import { timeLeftLabel } from '@/lib/validation';
-import type { ActivityItem, ActivityStatus, Listing, PhotoTone, RatingSummary } from '@/lib/types';
+import type { ActivityItem, ActivityStatus, Listing, PhotoTone, Profile, RatingSummary } from '@/lib/types';
 
 const TITLE_MAX = 80;
 const MEETUP_SPOTS = ['USC Village', 'Leavey Library', 'Tutor Campus Center', 'Trousdale Pkwy', 'The Lorenzo', 'Cardinal Gardens'];
@@ -500,7 +500,7 @@ export function WebListingDetail({
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLightbox(idx); } }}
       style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)', borderRadius: radius, ...(opts.span2 ? { gridRow: 'span 2' } : {}) }}
     >
-      <img src={photos[idx]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[idx] || '50% 50%' }} />
+      <ImageWithFallback src={photos[idx]} alt="" imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[idx] || '50% 50%' }} fallbackLabel={listing.photoLabel} fallbackTone="cream" />
       {opts.pill && (
         <span style={{ position: 'absolute', left: 14, bottom: 14, background: 'rgba(255,255,255,0.92)', borderRadius: 8, padding: '5px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12, color: 'var(--ink)' }}>
           1 / {n}
@@ -694,7 +694,7 @@ export function WebListingDetail({
             style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 16, overflow: 'hidden', cursor: n > 0 ? 'pointer' : 'default', background: 'var(--surface)' }}
           >
             {n > 0 ? (
-              <img src={photos[0]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }} />
+              <ImageWithFallback src={photos[0]} alt="" imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }} fallbackLabel={listing.photoLabel} fallbackTone="cream" />
             ) : (
               <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
             )}
@@ -1477,9 +1477,26 @@ function ModalScrim({ children, onClose }: { children: React.ReactNode; onClose:
   );
 }
 
-export function RevealModal({ listing, onClose, onContinue }: { listing: Listing; onClose: () => void; onContinue: (offer?: number) => void }) {
+const CONTACT_METHOD_LABELS: Record<'instagram' | 'phone' | 'email', string> = {
+  instagram: 'Instagram',
+  phone: 'Text',
+  email: 'Email',
+};
+const CONTACT_METHOD_ICONS: Record<'instagram' | 'phone' | 'email', string> = {
+  instagram: 'instagram',
+  phone: 'phone',
+  email: 'mail',
+};
+
+export function RevealModal({ listing, me, onClose, onContinue }: { listing: Listing; me: Profile | null; onClose: () => void; onContinue: (offer?: number, buyerContact?: string[]) => void }) {
   const [offerText, setOfferText] = React.useState('');
+  const saved = (['instagram', 'phone', 'email'] as const).filter((k) => me?.[`contact_${k}` as const]);
+  const [checked, setChecked] = React.useState<Record<string, boolean>>(() => Object.fromEntries(saved.map((k) => [k, true])));
+  const chosen = saved.filter((k) => checked[k]);
+  const canShare = chosen.length >= 1;
+  const firstName = listing.seller.name.split(' ')[0];
   const handleShare = async () => {
+    if (!canShare) return;
     const confetti = (await import('canvas-confetti')).default;
     confetti({
       particleCount: 120,
@@ -1488,7 +1505,7 @@ export function RevealModal({ listing, onClose, onContinue }: { listing: Listing
       colors: ['#990000', '#FFCC00', '#ffffff'],
     });
     const parsed = parseInt(offerText, 10);
-    onContinue(Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
+    onContinue(Number.isFinite(parsed) && parsed > 0 ? parsed : undefined, chosen);
   };
   return (
     <ModalScrim onClose={onClose}>
@@ -1499,11 +1516,41 @@ export function RevealModal({ listing, onClose, onContinue }: { listing: Listing
         </div>
         <div style={{ padding: '24px 28px' }}>
           <h2 style={{ fontWeight: 800, fontSize: 24, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 10px' }}>
-            Share your info with <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>{listing.seller.name.split(' ')[0]}</em>?
+            Share your info with <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>{firstName}</em>?
           </h2>
           <p className="t-body" style={{ fontSize: 13.5, margin: '0 0 16px' }}>
-            We&apos;ll share your <strong>name</strong>, <strong>school</strong>, and <strong>year</strong> with this seller. They have 72 hours to approve. If they do, you&apos;ll see their preferred contact method.
+            We&apos;ll share your <strong>name</strong>, <strong>school</strong>, and <strong>year</strong>, and the contact methods you pick below. If {firstName} approves, you&apos;ll each see the other&apos;s contact.
           </p>
+          {saved.length === 0 ? (
+            <p className="t-body" style={{ fontSize: 13.5, margin: '0 0 20px' }}>
+              Add a contact method to request. <a href="/profile/edit" style={{ color: 'var(--ink)', textDecoration: 'underline', fontWeight: 600 }}>Edit profile</a>
+            </p>
+          ) : (
+            <div style={{ marginBottom: 20 }}>
+              <label className="field-label">Share these methods</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {saved.map((k) => (
+                  <label
+                    key={k}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      border: '1.5px solid var(--rule)', borderRadius: 12,
+                      padding: '11px 14px', cursor: 'pointer', fontSize: 14.5,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!checked[k]}
+                      onChange={(e) => setChecked((prev) => ({ ...prev, [k]: e.target.checked }))}
+                      style={{ width: 16, height: 16 }}
+                    />
+                    <Icon name={CONTACT_METHOD_ICONS[k]} size={16} color="var(--muted)" />
+                    <span style={{ fontWeight: 600 }}>{CONTACT_METHOD_LABELS[k]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <label className="field-label">Your offer (optional)</label>
           <div style={{ position: 'relative', marginBottom: 20 }}>
             <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 600 }}>$</span>
@@ -1518,7 +1565,7 @@ export function RevealModal({ listing, onClose, onContinue }: { listing: Listing
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button kind="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Button>
-            <Button kind="primary" onClick={handleShare} style={{ flex: 1 }} icon="arrowRight">Share</Button>
+            <Button kind={canShare ? 'primary' : 'disabled'} onClick={handleShare} disabled={!canShare} style={{ flex: 1 }} icon="arrowRight">Share</Button>
           </div>
         </div>
       </div>
@@ -1587,9 +1634,10 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
       {modal === 'reveal' && selected && (
         <RevealModal
           listing={selected}
+          me={store.me}
           onClose={() => setModal(null)}
-          onContinue={async (offer) => {
-            const r = await store.requestReveal(selected.id, offer);
+          onContinue={async (offer, buyerContact) => {
+            const r = await store.requestReveal(selected.id, offer, buyerContact);
             if (!r.ok && r.error) alert(r.error);
             setModal(null);
           }}
