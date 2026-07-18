@@ -6,10 +6,14 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, Button } from '@/components/ui';
-import { RequestTimeline, RatingModal } from '@/components/WebApp';
+import { RequestTimeline, RatingModal, ContactLinks } from '@/components/WebApp';
 import { useStore } from '@/lib/store-context';
 import { timeLeftLabel } from '@/lib/validation';
-import type { ActivityItem } from '@/lib/types';
+import type { ActivityItem, RevealContact } from '@/lib/types';
+
+function hasContact(contact?: RevealContact): contact is RevealContact {
+  return !!contact && (!!contact.instagram || !!contact.phone || !!contact.email);
+}
 
 export default function RequestsPage() {
   const router = useRouter();
@@ -80,6 +84,11 @@ export default function RequestsPage() {
                     )}
                   </div>
                   <RequestTimeline status={a.status} />
+                  {(a.status === 'APPROVED' || a.status === 'COMPLETED') && hasContact(a.contact) && (
+                    <div style={{ marginTop: 8 }}>
+                      <ContactLinks contact={a.contact} variant="row" />
+                    </div>
+                  )}
                 </div>
                 {a.status === 'PENDING' ? (
                   <div style={{ display: 'flex', gap: 8 }}>

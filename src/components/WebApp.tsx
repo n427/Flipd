@@ -10,7 +10,7 @@ import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, 
 import { CATEGORIES } from '@/lib/data';
 import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
 import { timeLeftLabel } from '@/lib/validation';
-import type { ActivityItem, ActivityStatus, Listing, PhotoTone, Profile, RatingSummary } from '@/lib/types';
+import type { ActivityItem, ActivityStatus, Listing, PhotoTone, Profile, RatingSummary, RevealContact } from '@/lib/types';
 
 const TITLE_MAX = 80;
 const MEETUP_SPOTS = ['USC Village', 'Leavey Library', 'Tutor Campus Center', 'Trousdale Pkwy', 'The Lorenzo', 'Cardinal Gardens'];
@@ -173,6 +173,37 @@ export function RatingModal({ whom, onClose, onSubmit }: { whom: string; onClose
   );
 }
 
+// ── Contact links (shared: activity row "row" variant + listing-detail "plain" variant) ──
+export function ContactLinks({ contact, variant = 'row' }: { contact: RevealContact; variant?: 'row' | 'plain' }) {
+  const row = variant === 'row';
+  const linkStyle: React.CSSProperties = row
+    ? { display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }
+    : { display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' };
+  const iconSize = row ? 13 : 16;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: row ? 6 : 10, alignItems: row ? 'flex-start' : undefined }}>
+      {contact.instagram && (
+        <a href={`https://instagram.com/${contact.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer" style={linkStyle}>
+          <Icon name="instagram" size={iconSize} color={row ? undefined : 'var(--ink)'} />
+          {row ? contact.instagram : <>{' '}{contact.instagram}</>}
+        </a>
+      )}
+      {contact.phone && (
+        <a href={`tel:${contact.phone}`} style={linkStyle}>
+          <Icon name="phone" size={iconSize} color={row ? undefined : 'var(--ink)'} />
+          {row ? contact.phone : <>{' '}{contact.phone}</>}
+        </a>
+      )}
+      {contact.email && (
+        <a href={`mailto:${contact.email}`} style={linkStyle}>
+          <Icon name="mail" size={iconSize} color={row ? undefined : 'var(--ink)'} />
+          {row ? contact.email : <>{' '}{contact.email}</>}
+        </a>
+      )}
+    </div>
+  );
+}
+
 // ── Request status timeline ──────────────────────────────────────────
 // Requested -> Approved -> Contact shared -> Completed, with Declined /
 // Expired as terminal branches. Approval and contact-sharing are one
@@ -247,25 +278,8 @@ function ActivityRow({
         {a.dir === 'out' && !compact && <RequestTimeline status={a.status} />}
 
         {a.dir === 'out' && a.status === 'APPROVED' && a.contact && (
-          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-            {a.contact.instagram && (
-              <a href={`https://instagram.com/${a.contact.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}>
-                <Icon name="instagram" size={13} />
-                {a.contact.instagram}
-              </a>
-            )}
-            {a.contact.phone && (
-              <a href={`tel:${a.contact.phone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}>
-                <Icon name="phone" size={13} />
-                {a.contact.phone}
-              </a>
-            )}
-            {a.contact.email && (
-              <a href={`mailto:${a.contact.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}>
-                <Icon name="mail" size={13} />
-                {a.contact.email}
-              </a>
-            )}
+          <div style={{ marginTop: 8 }}>
+            <ContactLinks contact={a.contact} variant="row" />
           </div>
         )}
 
@@ -564,23 +578,7 @@ export function WebListingDetail({
     ) : reveal?.status === 'APPROVED' && reveal.contact ? (
       <div>
         <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 12 }}>CONTACT</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {reveal.contact.instagram && (
-            <a href={`https://instagram.com/${reveal.contact.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
-              <Icon name="instagram" size={16} color="var(--ink)" /> {reveal.contact.instagram}
-            </a>
-          )}
-          {reveal.contact.phone && (
-            <a href={`tel:${reveal.contact.phone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
-              <Icon name="phone" size={16} color="var(--ink)" /> {reveal.contact.phone}
-            </a>
-          )}
-          {reveal.contact.email && (
-            <a href={`mailto:${reveal.contact.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' }}>
-              <Icon name="mail" size={16} color="var(--ink)" /> {reveal.contact.email}
-            </a>
-          )}
-        </div>
+        <ContactLinks contact={reveal.contact} variant="plain" />
       </div>
     ) : (
       latestReveal?.status === 'DECLINED' ? (
