@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { primaryMethod } from '@/lib/validation';
 
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
@@ -19,8 +20,7 @@ export default function OnboardingPage() {
   const [year, setYear] = React.useState('');
   const [unit, setUnit] = React.useState('');
   const [photo, setPhoto] = React.useState<{ file: File; url: string } | null>(null);
-  const [method, setMethod] = React.useState<MethodId | null>(null);
-  const [value, setValue] = React.useState('');
+  const [contacts, setContacts] = React.useState<{ instagram: string; phone: string; email: string }>({ instagram: '', phone: '', email: '' });
   const [verifiedEmail, setVerifiedEmail] = React.useState('');
   const [error, setError] = React.useState('');
   const [saving, setSaving] = React.useState(false);
@@ -31,25 +31,21 @@ export default function OnboardingPage() {
     fetch('/api/me')
       .then((r) => (r.ok ? r.json() : { profile: null }))
       .then(({ profile }) => {
-        if (profile?.display_name && profile?.contact_method) {
-          router.replace('/feed');
-          return;
+        const hasContact = Boolean(profile?.contact_instagram || profile?.contact_phone || profile?.contact_email);
+        if (profile?.display_name && hasContact) { router.replace('/feed'); return; }
+        if (profile?.contact_email) {
+          setVerifiedEmail(profile.contact_email);
+          setContacts((c) => ({ ...c, email: profile.contact_email }));
         }
-        if (profile?.contact_email) setVerifiedEmail(profile.contact_email);
         if (profile?.display_name) setName(profile.display_name);
       })
       .catch(() => {});
   }, [router]);
 
-  const pickMethod = (id: MethodId) => {
-    setMethod(id);
-    setError('');
-    setValue(id === 'email' ? verifiedEmail : '');
-  };
-
   const finish = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!method || !value.trim()) { setError('Add a way for buyers to reach you.'); return; }
+    const filled = (['instagram', 'phone', 'email'] as const).filter((k) => contacts[k].trim());
+    if (filled.length === 0) { setError('Add at least one way to reach you.'); return; }
     setSaving(true);
     setError('');
     try {
@@ -66,8 +62,10 @@ export default function OnboardingPage() {
           display_name: name,
           class_year: year,
           school_unit: unit,
-          contact_method: method,
-          [`contact_${method}`]: value.trim(),
+          contact_method: primaryMethod({ instagram: contacts.instagram.trim() || null, phone: contacts.phone.trim() || null, email: contacts.email.trim() || null }),
+          contact_instagram: contacts.instagram.trim() || null,
+          contact_phone: contacts.phone.trim() || null,
+          contact_email: contacts.email.trim() || null,
         }),
       });
       if (!res.ok) {
@@ -104,7 +102,7 @@ export default function OnboardingPage() {
             This is what other Trojans see when you buy or sell.
           </p>
           <form onSubmit={next} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) setPhoto({ file: f, url: URL.createObjectURL(f) });
@@ -141,25 +139,18 @@ export default function OnboardingPage() {
             Shared only after you approve a request. You set this once.
           </p>
           <form onSubmit={finish} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {METHODS.map((m) => (
-                <button key={m.id} type="button" onClick={() => pickMethod(m.id)} style={{ background: method === m.id ? 'var(--ink)' : '#fff', color: method === m.id ? '#fff' : 'var(--ink-2)', border: '1px solid ' + (method === m.id ? 'var(--ink)' : 'var(--rule)'), borderRadius: 999, padding: '9px 18px', fontWeight: 600, fontSize: 13.5, cursor: 'pointer' }}>
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            {method && (
-              <div>
-                <label className="field-label">{METHODS.find((m) => m.id === method)!.valueLabel}</label>
+            {METHODS.map((m) => (
+              <div key={m.id}>
+                <label className="field-label">{m.valueLabel}</label>
                 <input
                   className="field"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  placeholder={METHODS.find((m) => m.id === method)!.placeholder}
-                  inputMode={method === 'phone' ? 'tel' : undefined}
+                  value={contacts[m.id]}
+                  onChange={(e) => setContacts((c) => ({ ...c, [m.id]: e.target.value }))}
+                  placeholder={m.placeholder}
+                  inputMode={m.id === 'phone' ? 'tel' : undefined}
                 />
               </div>
-            )}
+            ))}
             {error && <div style={{ fontSize: 13, color: 'var(--accent)' }}>{error}</div>}
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="button" className="btn btn-ghost" onClick={() => { setStep(1); setError(''); }}>Back</button>

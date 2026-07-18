@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store-context';
+import { primaryMethod } from '@/lib/validation';
 
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
@@ -29,8 +30,7 @@ export default function ProfileEditPage() {
   const [year, setYear] = React.useState('');
   const [unit, setUnit] = React.useState('');
   const [bio, setBio] = React.useState('');
-  const [method, setMethod] = React.useState<MethodId | null>(null);
-  const [value, setValue] = React.useState('');
+  const [contacts, setContacts] = React.useState<{ instagram: string; phone: string; email: string }>({ instagram: '', phone: '', email: '' });
   const [photo, setPhoto] = React.useState<{ file: File; url: string } | null>(null);
   const [prefs, setPrefs] = React.useState<Record<string, { email?: boolean; sms?: boolean }>>({});
   const [error, setError] = React.useState('');
@@ -44,22 +44,20 @@ export default function ProfileEditPage() {
     setYear(me.class_year ?? '');
     setUnit(me.school_unit ?? '');
     setBio(me.bio ?? '');
-    const m = (me.contact_method as MethodId | null) ?? null;
-    setMethod(m);
-    setValue(m ? (me[`contact_${m}`] ?? '') : '');
+    setContacts({
+      instagram: me.contact_instagram ?? '',
+      phone: me.contact_phone ?? '',
+      email: me.contact_email ?? '',
+    });
     setPrefs(me.notify_prefs ?? {});
     setLoaded(true);
   }, [me, loaded]);
 
-  const pickMethod = (id: MethodId) => {
-    setMethod(id);
-    setValue(me ? (me[`contact_${id}`] ?? '') : '');
-  };
-
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { setError('Your name is required.'); return; }
-    if (!method || !value.trim()) { setError('Keep one contact method filled in.'); return; }
+    const filled = (['instagram', 'phone', 'email'] as const).filter((k) => contacts[k].trim());
+    if (filled.length === 0) { setError('Add at least one way to reach you.'); return; }
     setSaving(true);
     setError('');
     try {
@@ -77,8 +75,10 @@ export default function ProfileEditPage() {
           class_year: year,
           school_unit: unit,
           bio,
-          contact_method: method,
-          [`contact_${method}`]: value.trim(),
+          contact_method: primaryMethod({ instagram: contacts.instagram.trim() || null, phone: contacts.phone.trim() || null, email: contacts.email.trim() || null }),
+          contact_instagram: contacts.instagram.trim() || null,
+          contact_phone: contacts.phone.trim() || null,
+          contact_email: contacts.email.trim() || null,
           notify_prefs: prefs,
         }),
       });
@@ -145,25 +145,20 @@ export default function ProfileEditPage() {
           <textarea className="field" rows={3} value={bio} onChange={(e) => setBio(e.target.value.slice(0, 300))} placeholder="A line about you" style={{ resize: 'vertical' }} />
         </div>
 
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <label className="field-label">How buyers reach you</label>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            {METHODS.map((m) => (
-              <button key={m.id} type="button" onClick={() => pickMethod(m.id)} style={{ background: method === m.id ? 'var(--ink)' : '#fff', color: method === m.id ? '#fff' : 'var(--ink-2)', border: '1px solid ' + (method === m.id ? 'var(--ink)' : 'var(--rule)'), borderRadius: 999, padding: '8px 16px', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                {m.label}
-              </button>
-            ))}
-          </div>
-          {method && (
-            <input
-              className="field"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder={METHODS.find((m) => m.id === method)!.placeholder}
-              inputMode={method === 'phone' ? 'tel' : undefined}
-              aria-label={METHODS.find((m) => m.id === method)!.valueLabel}
-            />
-          )}
+          {METHODS.map((m) => (
+            <div key={m.id}>
+              <label className="field-label">{m.valueLabel}</label>
+              <input
+                className="field"
+                value={contacts[m.id]}
+                onChange={(e) => setContacts((c) => ({ ...c, [m.id]: e.target.value }))}
+                placeholder={m.placeholder}
+                inputMode={m.id === 'phone' ? 'tel' : undefined}
+              />
+            </div>
+          ))}
         </div>
 
         <div>
