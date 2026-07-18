@@ -13,6 +13,7 @@ type RevealRow = {
   created_at: string;
   expires_at: string;
   offer: number | null;
+  buyer_contact: string[] | null;
   resolved_at: string | null;
   seller_seen_at: string | null;
   buyer_seen_at: string | null;
@@ -34,7 +35,7 @@ type ProfileRef = {
   contact_email: string | null;
 };
 
-const SELECT = `id, listing_id, listing_title, buyer_id, seller_id, status, created_at, expires_at, offer, resolved_at, seller_seen_at, buyer_seen_at, seller_dismissed_at, buyer_dismissed_at,
+const SELECT = `id, listing_id, listing_title, buyer_id, seller_id, status, created_at, expires_at, offer, buyer_contact, resolved_at, seller_seen_at, buyer_seen_at, seller_dismissed_at, buyer_dismissed_at,
   listing:listings(title, contact, archived),
   buyer:profiles!reveal_requests_buyer_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email),
   seller:profiles!reveal_requests_seller_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email)`;
@@ -69,18 +70,21 @@ function toDto(row: RevealRow, viewerId: string, ratedRequestIds: Set<string> = 
     // Either party may rate a completed transaction once.
     can_rate: status === 'completed' && !ratedRequestIds.has(row.id),
   };
-  // Contact info is only ever exposed to the buyer, only once approved,
-  // and only for the methods the seller offered on the listing.
-  if (isBuyer && (status === 'approved' || status === 'completed') && row.seller) {
-    const offered = row.listing?.contact ?? [];
-    dto.contact = {
-      ...(offered.includes('instagram') && row.seller.contact_instagram
-        ? { instagram: row.seller.contact_instagram } : {}),
-      ...(offered.includes('phone') && row.seller.contact_phone
-        ? { phone: row.seller.contact_phone } : {}),
-      ...(offered.includes('email') && row.seller.contact_email
-        ? { email: row.seller.contact_email } : {}),
-    };
+  // Both parties see the other's chosen contact once approved/completed.
+  if (status === 'approved' || status === 'completed') {
+    if (isBuyer && row.seller) {
+      dto.contact = resolveSharedContact(row.listing?.contact ?? [], {
+        instagram: row.seller.contact_instagram,
+        phone: row.seller.contact_phone,
+        email: row.seller.contact_email,
+      });
+    } else if (!isBuyer && row.buyer) {
+      dto.contact = resolveSharedContact(row.buyer_contact ?? [], {
+        instagram: row.buyer.contact_instagram,
+        phone: row.buyer.contact_phone,
+        email: row.buyer.contact_email,
+      });
+    }
   }
   return dto;
 }
