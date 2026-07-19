@@ -26,6 +26,9 @@ type DbListing = {
   price?: number | null;
   negotiable?: boolean | null;
   location?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  place_name?: string | null;
   contact?: string[] | null;
   photo_urls?: string[] | null;
   photo_focus?: string[] | null;
@@ -95,6 +98,9 @@ function mapDbListing(row: DbListing, meId: string | null): Listing {
     negotiable: row.negotiable ?? false,
     seller: mapSeller(row),
     meta: row.location || 'USC · pickup',
+    lat: row.lat ?? null,
+    lng: row.lng ?? null,
+    placeName: row.place_name ?? null,
     photoTone: 'cream',
     photoLabel: 'photo',
     photo_urls: row.photo_urls || [],

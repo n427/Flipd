@@ -42,6 +42,9 @@ export interface Listing {
   negotiable?: boolean;
   seller: Seller;
   meta: string;
+  lat?: number | null;
+  lng?: number | null;
+  placeName?: string | null;
   photoTone: PhotoTone;
   photoLabel: string;
   description?: string;
