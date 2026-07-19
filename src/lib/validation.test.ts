@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveRevealStatus, isUscEmail, timeLeftLabel, resolveSharedContact, primaryMethod } from './validation';
+import { effectiveRevealStatus, isUscEmail, timeLeftLabel, resolveSharedContact, primaryMethod, parseCoords, CAMPUS_SPOTS } from './validation';
 
 describe('isUscEmail', () => {
   it('accepts usc.edu addresses case-insensitively', () => {
@@ -66,5 +66,37 @@ describe('primaryMethod', () => {
     expect(primaryMethod({ instagram: null, phone: '1', email: 'e' })).toBe('phone');
     expect(primaryMethod({ instagram: null, phone: null, email: 'e' })).toBe('email');
     expect(primaryMethod({ instagram: null, phone: null, email: null })).toBe(null);
+  });
+});
+
+describe('parseCoords', () => {
+  it('accepts a valid in-range pair (numbers or numeric strings)', () => {
+    expect(parseCoords(34.0224, -118.2851)).toEqual({ lat: 34.0224, lng: -118.2851 });
+    expect(parseCoords('34.0224', '-118.2851')).toEqual({ lat: 34.0224, lng: -118.2851 });
+  });
+  it('rejects out-of-range values', () => {
+    expect(parseCoords(91, 0)).toBeNull();
+    expect(parseCoords(0, 181)).toBeNull();
+    expect(parseCoords(-91, 0)).toBeNull();
+  });
+  it('rejects when either is missing or non-numeric', () => {
+    expect(parseCoords(34.02, null)).toBeNull();
+    expect(parseCoords(undefined, -118.28)).toBeNull();
+    expect(parseCoords('abc', '-118.28')).toBeNull();
+    expect(parseCoords('', '')).toBeNull();
+  });
+  it('rejects NaN/Infinity', () => {
+    expect(parseCoords(NaN, 0)).toBeNull();
+    expect(parseCoords(0, Infinity)).toBeNull();
+  });
+});
+
+describe('CAMPUS_SPOTS', () => {
+  it('has the six known campus meetup spots with valid coordinates', () => {
+    const names = CAMPUS_SPOTS.map((s) => s.name);
+    expect(names).toEqual(['USC Village', 'Leavey Library', 'Tutor Campus Center', 'Trousdale Pkwy', 'The Lorenzo', 'Cardinal Gardens']);
+    for (const s of CAMPUS_SPOTS) {
+      expect(parseCoords(s.lat, s.lng)).toEqual({ lat: s.lat, lng: s.lng });
+    }
   });
 });
