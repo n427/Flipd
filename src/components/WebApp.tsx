@@ -10,7 +10,7 @@ import { LocationPicker } from './LocationPicker';
 import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, Pill, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
-import { timeLeftLabel } from '@/lib/validation';
+import { timeLeftLabel, parseEventWindow } from '@/lib/validation';
 import type { ActivityItem, ActivityStatus, Listing, PhotoTone, Profile, RatingSummary, RevealContact } from '@/lib/types';
 
 const TITLE_MAX = 80;
@@ -921,6 +921,14 @@ export function WebCreate({
   const [phase, setPhase] = React.useState<'form' | 'preview' | 'success'>('form');
   const [submitting, setSubmitting] = React.useState(false);
   const [categories, setCategories] = React.useState<string[]>(initial?.categories && initial.categories.length ? [...initial.categories] : initial?.category ? [initial.category] : []);
+  const isPopup = categories.includes('event');
+  const [eventDate, setEventDate] = React.useState(initial?.eventStart ? initial.eventStart.slice(0, 10) : '');
+  const [eventStartTime, setEventStartTime] = React.useState(
+    initial?.eventStart ? new Date(initial.eventStart).toTimeString().slice(0, 5) : '',
+  );
+  const [eventEndTime, setEventEndTime] = React.useState(
+    initial?.eventEnd ? new Date(initial.eventEnd).toTimeString().slice(0, 5) : '',
+  );
   const [title, setTitle] = React.useState(initial?.title ?? '');
   const [price, setPrice] = React.useState(initial?.price != null && initial.price > 0 ? String(initial.price) : initial ? '0' : '');
   const [neg, setNeg] = React.useState(initial?.negotiable ?? false);
@@ -1035,7 +1043,12 @@ export function WebCreate({
     photos.length === 0 && 'a photo',
     !title.trim() && 'a title',
     !description.trim() && 'a description',
-    !price.trim() && 'a price',
+    !isPopup && !price.trim() && 'a price',
+    isPopup && !eventDate && 'an event date',
+    isPopup && !eventStartTime && 'a start time',
+    isPopup && !eventEndTime && 'an end time',
+    isPopup && eventDate && eventStartTime && eventEndTime &&
+      !parseEventWindow(eventDate, eventStartTime, eventEndTime) && 'a valid time range (end after start)',
     !loc.name.trim() && 'a pickup location',
     !store.me?.contact_method && 'a contact method (set it in your profile)',
   ].filter(Boolean) as string[];
@@ -1046,8 +1059,13 @@ export function WebCreate({
     fd.append('categories', JSON.stringify(categories));
     fd.append('title', title.trim());
     fd.append('description', description);
-    fd.append('price', price);
-    fd.append('negotiable', String(neg));
+    if (isPopup) {
+      const win = parseEventWindow(eventDate, eventStartTime, eventEndTime);
+      if (win) { fd.append('event_start', win.start); fd.append('event_end', win.end); }
+    } else {
+      fd.append('price', price);
+      fd.append('negotiable', String(neg));
+    }
     fd.append('location', loc.name);
     fd.append('place_name', loc.name);
     if (loc.lat != null && loc.lng != null) { fd.append('lat', String(loc.lat)); fd.append('lng', String(loc.lng)); }
@@ -1085,9 +1103,11 @@ export function WebCreate({
     categoryLabel: (CATEGORIES.find((c) => c.id === categories[0]) || {}).label || 'Goods',
     categoryLabels: (categories.length ? categories : ['goods']).map((c) => (CATEGORIES.find((x) => x.id === c) || {}).label || 'Goods'),
     title: title.trim() || 'Untitled listing',
-    price: price ? Number(price) : undefined,
-    priceLabel: price && Number(price) > 0 ? '$' + Number(price).toLocaleString('en-US') : 'Free',
-    negotiable: neg,
+    price: isPopup ? undefined : price ? Number(price) : undefined,
+    priceLabel: isPopup ? '' : price && Number(price) > 0 ? '$' + Number(price).toLocaleString('en-US') : 'Free',
+    negotiable: isPopup ? false : neg,
+    eventStart: isPopup ? parseEventWindow(eventDate, eventStartTime, eventEndTime)?.start ?? null : undefined,
+    eventEnd: isPopup ? parseEventWindow(eventDate, eventStartTime, eventEndTime)?.end ?? null : undefined,
     meta: loc.name,
     lat: loc.lat,
     lng: loc.lng,
@@ -1286,26 +1306,37 @@ export function WebCreate({
             style={{ marginBottom: 22, resize: 'vertical' }}
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 12, marginBottom: 22, alignItems: 'end' }}>
-            <div>
-              <label className="field-label">Price<span style={{ color: 'var(--accent)' }}> *</span></label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 600 }}>$</span>
-                <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" className="field" placeholder="40" style={{ paddingLeft: 28, fontWeight: 600 }} />
+          {isPopup ? (
+            <div style={{ marginBottom: 22 }}>
+              <label className="field-label">When<span style={{ color: 'var(--accent)' }}> *</span></label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 12 }}>
+                <input type="date" className="field" value={eventDate} onChange={(e) => setEventDate(e.target.value)} aria-label="Event date" />
+                <input type="time" className="field" value={eventStartTime} onChange={(e) => setEventStartTime(e.target.value)} aria-label="Start time" />
+                <input type="time" className="field" value={eventEndTime} onChange={(e) => setEventEndTime(e.target.value)} aria-label="End time" />
               </div>
             </div>
-            <button
-              onClick={() => setNeg(!neg)}
-              role="switch"
-              aria-checked={neg}
-              style={{ height: 47, display: 'inline-flex', alignItems: 'center', gap: 10, background: '#fff', border: '1.5px solid var(--rule)', borderRadius: 12, padding: '0 14px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}
-            >
-              <span style={{ width: 38, height: 22, borderRadius: 999, background: neg ? 'var(--accent)' : 'var(--rule-strong)', position: 'relative', transition: 'background 160ms ease-out', flexShrink: 0 }}>
-                <span style={{ position: 'absolute', top: 2, left: neg ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 160ms ease-out' }} />
-              </span>
-              Open to offers
-            </button>
-          </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 12, marginBottom: 22, alignItems: 'end' }}>
+              <div>
+                <label className="field-label">Price<span style={{ color: 'var(--accent)' }}> *</span></label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 600 }}>$</span>
+                  <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" className="field" placeholder="40" style={{ paddingLeft: 28, fontWeight: 600 }} />
+                </div>
+              </div>
+              <button
+                onClick={() => setNeg(!neg)}
+                role="switch"
+                aria-checked={neg}
+                style={{ height: 47, display: 'inline-flex', alignItems: 'center', gap: 10, background: '#fff', border: '1.5px solid var(--rule)', borderRadius: 12, padding: '0 14px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}
+              >
+                <span style={{ width: 38, height: 22, borderRadius: 999, background: neg ? 'var(--accent)' : 'var(--rule-strong)', position: 'relative', transition: 'background 160ms ease-out', flexShrink: 0 }}>
+                  <span style={{ position: 'absolute', top: 2, left: neg ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 160ms ease-out' }} />
+                </span>
+                Open to offers
+              </button>
+            </div>
+          )}
 
           <label className="field-label">Where you&apos;ll meet<span style={{ color: 'var(--accent)' }}> *</span></label>
           <div style={{ marginBottom: 22 }}>
