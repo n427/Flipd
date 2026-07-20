@@ -107,12 +107,17 @@ than throwing). Returns `{ start: string; end: string } | null` (ISO strings):
 - **Store**: add `isReminded(listingId)` / `toggleReminder(listingId)` and a
   `popupReminders` set, mirroring `isSaved`/`toggleSave`/`savedListings`
   (`store.ts:155-157, 244-266`).
-- **Cron**: the existing hourly reminder cron (migration `009`, `reminderEmail`
-  in `notify.ts`) gains a query: for popups whose `event_start` is within the
-  next ~24h and `reminded_at is null`, email each opted-in buyer once, then set
-  `popup_reminders.reminded_at = now()` for those rows. Reuse the notify layer.
-  The `reminded_at` column (in the migration below) makes each buyer emailed at
-  most once per popup.
+- **Reminder sweep**: NOTE — there is **no cron wired today**. Migration `009`
+  enabled `pg_cron`/`pg_net` and added `reveal_requests.reminded_at`, and
+  `reminderEmail()` exists in `notify.ts`, but nothing calls it and no cron
+  route exists. So this feature **creates** the sweep: a new route
+  `GET /api/cron/popup-reminders`, guarded by a `CRON_SECRET` bearer check,
+  invoked by an external scheduler (Vercel Cron / Supabase pg_cron+pg_net). It
+  queries popups whose `event_start` is within the next ~24h, joins
+  `popup_reminders` where `reminded_at is null`, emails each opted-in buyer once
+  via a new `popupReminderEmail()` in `notify.ts`, then sets
+  `popup_reminders.reminded_at = now()` for those rows (at-most-once per buyer
+  per popup).
 
 #### DB migration (new)
 
