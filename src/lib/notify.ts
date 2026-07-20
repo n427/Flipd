@@ -104,3 +104,14 @@ export function expiryEmail(listingTitle: string) {
     ),
   };
 }
+
+// Buyer opt-in: a popup they asked to be reminded about is tomorrow.
+export function popupReminderEmail(listingTitle: string, whenLabel: string) {
+  return {
+    subject: `Reminder: "${listingTitle}" is coming up`,
+    html: wrap(
+      `<p><strong>${esc(listingTitle)}</strong> is happening <strong>${esc(whenLabel)}</strong>.</p>
+       <p>You asked us to remind you — see you there.</p>`,
+    ),
+  };
+}
