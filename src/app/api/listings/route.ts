@@ -76,13 +76,20 @@ export async function POST(req: NextRequest) {
   )) {
     return NextResponse.json({ error: 'event date/time required' }, { status: 400 });
   }
-  // Contact comes from the seller's profile now, not the form.
+  // Contact selection is per-listing (chips), intersected with the methods the
+  // profile actually has a value for. Falls back to all-filled if none sent.
   const { data: sellerProfile } = await supabase
     .from('profiles')
-    .select('contact_method')
+    .select('contact_instagram, contact_phone, contact_email')
     .eq('id', user.id)
     .single();
-  const contact = sellerProfile?.contact_method ? [sellerProfile.contact_method] : [];
+  const filled = (['instagram', 'phone', 'email'] as const).filter((k) => {
+    const col = k === 'instagram' ? 'contact_instagram' : k === 'phone' ? 'contact_phone' : 'contact_email';
+    return sellerProfile?.[col as keyof typeof sellerProfile];
+  });
+  const submitted = JSON.parse((formData.get('contact_methods') as string) || '[]') as string[];
+  const chosen = submitted.filter((m) => filled.includes(m as typeof filled[number]));
+  const contact = chosen.length ? chosen : filled;
   const photoFocusRaw = formData.getAll('photo_focus') as string[];
   const photoFiles = formData.getAll('photos') as File[];
 
