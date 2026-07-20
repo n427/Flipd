@@ -10,7 +10,7 @@ import { LocationPicker } from './LocationPicker';
 import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, Pill, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
-import { timeLeftLabel, parseEventWindow } from '@/lib/validation';
+import { timeLeftLabel, parseEventWindow, formatEventWindow } from '@/lib/validation';
 import type { ActivityItem, ActivityStatus, Listing, PhotoTone, Profile, RatingSummary, RevealContact } from '@/lib/types';
 
 const TITLE_MAX = 80;
@@ -533,8 +533,16 @@ export function WebListingDetail({
 
   const priceLine = (size: number) => (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 14 }}>
-      <span style={{ fontWeight: 700, fontSize: size, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{listing.priceLabel}</span>
-      {listing.negotiable && <span style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--muted)' }}>open to offers</span>}
+      {listing.eventStart && listing.eventEnd ? (
+        <span style={{ fontWeight: 700, fontSize: Math.round(size * 0.7), letterSpacing: '-0.01em', color: 'var(--ink)' }}>
+          {formatEventWindow(listing.eventStart, listing.eventEnd)}
+        </span>
+      ) : (
+        <>
+          <span style={{ fontWeight: 700, fontSize: size, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{listing.priceLabel}</span>
+          {listing.negotiable && <span style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--muted)' }}>open to offers</span>}
+        </>
+      )}
     </div>
   );
 
