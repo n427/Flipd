@@ -49,10 +49,12 @@ export function primaryMethod(values: ContactValues): ContactMethod | null {
 // Coordinates: both must be finite and in geographic range, else null (never
 // a partial pair). Accepts numbers or numeric strings (form-data values).
 export function parseCoords(latRaw: unknown, lngRaw: unknown): { lat: number; lng: number } | null {
+  // Treat blank/whitespace-only as missing (Number(' ') would be 0 = Null Island).
+  const latBlank = latRaw === null || latRaw === undefined || (typeof latRaw === 'string' && latRaw.trim() === '');
+  const lngBlank = lngRaw === null || lngRaw === undefined || (typeof lngRaw === 'string' && lngRaw.trim() === '');
+  if (latBlank || lngBlank) return null;
   const lat = typeof latRaw === 'number' ? latRaw : Number(latRaw);
   const lng = typeof lngRaw === 'number' ? lngRaw : Number(lngRaw);
-  if (latRaw === null || latRaw === undefined || latRaw === '') return null;
-  if (lngRaw === null || lngRaw === undefined || lngRaw === '') return null;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };

@@ -84,6 +84,8 @@ describe('parseCoords', () => {
     expect(parseCoords(undefined, -118.28)).toBeNull();
     expect(parseCoords('abc', '-118.28')).toBeNull();
     expect(parseCoords('', '')).toBeNull();
+    expect(parseCoords(' ', ' ')).toBeNull(); // whitespace-only is not Null Island
+    expect(parseCoords('  ', '-118.28')).toBeNull();
   });
   it('rejects NaN/Infinity', () => {
     expect(parseCoords(NaN, 0)).toBeNull();

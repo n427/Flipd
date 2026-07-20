@@ -634,7 +634,13 @@ export function WebListingDetail({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img alt={`Map showing ${listing.placeName || 'the pickup location'}`}
                 src={`https://maps.googleapis.com/maps/api/staticmap?center=${listing.lat},${listing.lng}&zoom=16&size=600x240&scale=2&markers=color:red%7C${listing.lat},${listing.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
-                style={{ width: '100%', height: 'auto', display: 'block' }} />
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+                onError={(e) => {
+                  // Static Maps API not enabled / referrer-blocked: hide the
+                  // broken image and its border; the link below still works.
+                  const a = e.currentTarget.parentElement;
+                  if (a) a.style.display = 'none';
+                }} />
             </a>
           )}
           <a href={`https://www.google.com/maps/search/?api=1&query=${listing.lat},${listing.lng}`}

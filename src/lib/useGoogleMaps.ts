@@ -17,7 +17,7 @@ export function useGoogleMaps(): Status {
     }
     let script = document.getElementById(SRC_ID) as HTMLScriptElement | null;
     const onLoad = () => setStatus('ready');
-    const onErr = () => setStatus('error');
+    const onErr = () => { script?.setAttribute('data-failed', '1'); setStatus('error'); };
     if (!script) {
       script = document.createElement('script');
       script.id = SRC_ID;
@@ -26,6 +26,9 @@ export function useGoogleMaps(): Status {
       script.addEventListener('load', onLoad);
       script.addEventListener('error', onErr);
       document.head.appendChild(script);
+    } else if (script.getAttribute('data-failed')) {
+      // A prior load already failed; neither event will fire again on remount.
+      setStatus('error');
     } else {
       script.addEventListener('load', onLoad);
       script.addEventListener('error', onErr);
