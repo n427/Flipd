@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveRevealStatus, isUscEmail, timeLeftLabel, resolveSharedContact, primaryMethod, parseCoords, CAMPUS_SPOTS } from './validation';
+import { effectiveRevealStatus, isUscEmail, timeLeftLabel, resolveSharedContact, primaryMethod, parseCoords, parseEventWindow, formatEventWindow, CAMPUS_SPOTS } from './validation';
 
 describe('isUscEmail', () => {
   it('accepts usc.edu addresses case-insensitively', () => {
@@ -90,6 +90,33 @@ describe('parseCoords', () => {
   it('rejects NaN/Infinity', () => {
     expect(parseCoords(NaN, 0)).toBeNull();
     expect(parseCoords(0, Infinity)).toBeNull();
+  });
+});
+
+describe('parseEventWindow', () => {
+  it('combines date + start/end into ISO strings', () => {
+    const w = parseEventWindow('2026-07-24', '19:00', '23:00');
+    expect(w).not.toBeNull();
+    expect(new Date(w!.start).getHours()).toBe(19);
+    expect(new Date(w!.end).getHours()).toBe(23);
+  });
+  it('returns null when a part is blank', () => {
+    expect(parseEventWindow('', '19:00', '23:00')).toBeNull();
+    expect(parseEventWindow('2026-07-24', '', '23:00')).toBeNull();
+    expect(parseEventWindow('2026-07-24', '19:00', '')).toBeNull();
+  });
+  it('returns null when end is not after start', () => {
+    expect(parseEventWindow('2026-07-24', '23:00', '19:00')).toBeNull();
+    expect(parseEventWindow('2026-07-24', '19:00', '19:00')).toBeNull();
+  });
+});
+
+describe('formatEventWindow', () => {
+  it('shows one date and a time range for a same-day window', () => {
+    const w = parseEventWindow('2026-07-24', '19:00', '23:00')!;
+    const label = formatEventWindow(w.start, w.end);
+    expect(label).toContain('Jul 24');
+    expect(label).toMatch(/7.*11/); // 7 … 11
   });
 });
 

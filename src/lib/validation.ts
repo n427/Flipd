@@ -66,3 +66,28 @@ export const CAMPUS_SPOTS: ReadonlyArray<{ name: string; lat: number; lng: numbe
   { name: 'Leavey Library', lat: 34.0217, lng: -118.2828 },
   { name: 'Tutor Campus Center', lat: 34.0205, lng: -118.2860 },
 ];
+
+// Combine a YYYY-MM-DD date with HH:MM start/end into ISO strings. Same-day
+// only: end must be strictly after start, else null (never a partial window).
+export function parseEventWindow(
+  date: string,
+  start: string,
+  end: string,
+): { start: string; end: string } | null {
+  if (!date?.trim() || !start?.trim() || !end?.trim()) return null;
+  const s = new Date(`${date}T${start}`);
+  const e = new Date(`${date}T${end}`);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return null;
+  if (e.getTime() <= s.getTime()) return null;
+  return { start: s.toISOString(), end: e.toISOString() };
+}
+
+// Human label for an event window: "Fri, Jul 24 · 7:00 – 11:00 PM".
+export function formatEventWindow(startIso: string, endIso: string): string {
+  const s = new Date(startIso);
+  const e = new Date(endIso);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return '';
+  const day = s.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const t = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${day} · ${t(s)} – ${t(e)}`;
+}
