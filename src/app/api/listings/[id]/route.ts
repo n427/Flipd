@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin as supabase } from '@/lib/supabase/admin';
 import { getSessionUser } from '@/lib/supabase/server';
+import { parseCoords } from '@/lib/validation';
 
 const SELLER_JOIN = '*, seller:profiles!listings_seller_id_fkey(id, display_name, handle, school_unit, class_year, is_demo)';
 
@@ -72,6 +73,8 @@ export async function PATCH(
   const price = parseInt((formData.get('price') as string) || '0', 10);
   const negotiable = formData.get('negotiable') === 'true';
   const location = formData.get('location') as string | null;
+  const coords = parseCoords(formData.get('lat'), formData.get('lng'));
+  const placeName = ((formData.get('place_name') as string | null) || '').trim() || null;
   const manifest = JSON.parse((formData.get('photo_manifest') as string) || '[]') as string[];
   const photoFocusRaw = formData.getAll('photo_focus') as string[];
   const newFiles = formData.getAll('photos') as File[];
@@ -113,6 +116,9 @@ export async function PATCH(
       price: isNaN(price) ? 0 : price,
       negotiable,
       location: location || null,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
+      place_name: placeName,
       photo_urls: photoUrls,
       photo_focus: focusArr,
     })

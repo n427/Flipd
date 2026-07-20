@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin as supabase } from '@/lib/supabase/admin';
 import { getSessionUser } from '@/lib/supabase/server';
+import { parseCoords } from '@/lib/validation';
 
 const SELLER_JOIN = '*, seller:profiles!listings_seller_id_fkey(id, display_name, handle, school_unit, class_year, is_demo)';
 
@@ -63,6 +64,8 @@ export async function POST(req: NextRequest) {
   const price = parseInt((formData.get('price') as string) || '0', 10);
   const negotiable = formData.get('negotiable') === 'true';
   const location = formData.get('location') as string | null;
+  const coords = parseCoords(formData.get('lat'), formData.get('lng'));
+  const placeName = ((formData.get('place_name') as string | null) || '').trim() || null;
   // Contact comes from the seller's profile now, not the form.
   const { data: sellerProfile } = await supabase
     .from('profiles')
@@ -108,6 +111,9 @@ export async function POST(req: NextRequest) {
       price: isNaN(price) ? 0 : price,
       negotiable,
       location: location || null,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
+      place_name: placeName,
       contact,
       photo_urls: photoUrls,
       photo_focus: focusArr,
