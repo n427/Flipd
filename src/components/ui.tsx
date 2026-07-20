@@ -202,9 +202,15 @@ export function ListingCard({
         <div className="t-meta" style={{ fontSize: 12, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {[listing.seller.name.split(' ')[0], listing.seller.unit, listing.seller.year].filter(Boolean).join(' · ')}
         </div>
-        <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em', color: listing.priceLabel === 'Free' ? 'var(--accent)' : 'var(--ink)' }}>
-          {listing.priceLabel}
-        </div>
+        {listing.eventStart && listing.eventEnd ? (
+          <div style={{ fontWeight: 700, fontSize: 13.5, letterSpacing: '-0.01em', color: 'var(--ink)' }}>
+            {listing.eventPill}
+          </div>
+        ) : (
+          <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em', color: listing.priceLabel === 'Free' ? 'var(--accent)' : 'var(--ink)' }}>
+            {listing.priceLabel}
+          </div>
+        )}
       </div>
     </>
   );
