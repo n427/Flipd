@@ -5,7 +5,7 @@ import { CATEGORIES } from './data';
 import type {
   ActivityItem, ActivityStatus, FilterArgs, Listing, Profile, RatingSummary, RevealContact, Seller,
 } from './types';
-import { effectiveRevealStatus, type RevealStatus } from './validation';
+import { effectiveRevealStatus, formatEventWindow, type RevealStatus } from './validation';
 
 type DbSeller = {
   id: string;
@@ -35,6 +35,8 @@ type DbListing = {
   archived?: boolean | null;
   spoken_for?: boolean | null;
   created_at?: string | null;
+  event_start?: string | null;
+  event_end?: string | null;
   seller?: DbSeller;
 };
 
@@ -110,6 +112,12 @@ function mapDbListing(row: DbListing, meId: string | null): Listing {
     created_at: row.created_at || undefined,
     postedLabel: formatPostedDate(row.created_at) || 'just now',
     contactMethod: (row.contact?.[0] as Listing['contactMethod']) || 'instagram',
+    eventStart: row.event_start ?? null,
+    eventEnd: row.event_end ?? null,
+    eventPill:
+      row.event_start && row.event_end
+        ? formatEventWindow(row.event_start, row.event_end)
+        : undefined,
   };
 }
 

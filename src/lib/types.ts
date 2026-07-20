@@ -55,6 +55,8 @@ export interface Listing {
   created_at?: string;
   mine?: boolean;
   eventPill?: string;
+  eventStart?: string | null;
+  eventEnd?: string | null;
   postedLabel?: string;
   contactMethod?: ContactMethod;
   isNew?: boolean;
