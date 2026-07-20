@@ -622,7 +622,28 @@ export function WebListingDetail({
   const titleBlock = (
     <>
       <h1 style={{ fontWeight: 700, fontSize: 26, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 4px' }}>{listing.title}</h1>
-      {listing.meta && (
+      {listing.lat != null && listing.lng != null ? (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 14, marginBottom: 8 }}>
+            Pickup at {listing.placeName || listing.meta.split(' · ')[0]}
+          </div>
+          {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
+            <a href={`https://www.google.com/maps/search/?api=1&query=${listing.lat},${listing.lng}`}
+              target="_blank" rel="noreferrer"
+              style={{ display: 'block', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--rule)' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt={`Map showing ${listing.placeName || 'the pickup location'}`}
+                src={`https://maps.googleapis.com/maps/api/staticmap?center=${listing.lat},${listing.lng}&zoom=16&size=600x240&scale=2&markers=color:red%7C${listing.lat},${listing.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
+                style={{ width: '100%', height: 'auto', display: 'block' }} />
+            </a>
+          )}
+          <a href={`https://www.google.com/maps/search/?api=1&query=${listing.lat},${listing.lng}`}
+            target="_blank" rel="noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+            <Icon name="mapPin" size={14} color="var(--ink)" /> Open in Google Maps
+          </a>
+        </div>
+      ) : listing.meta && (
         <div style={{ color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 14, marginBottom: 16 }}>
           Pickup at {listing.meta.split(' · ')[0]}
         </div>
