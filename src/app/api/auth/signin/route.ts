@@ -30,7 +30,16 @@ export async function POST(req: NextRequest) {
         { status: 429 },
       );
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Any other failure is almost always Supabase's email step erroring
+    // (e.g. AuthRetryableFetchError with an empty "{}" message when the
+    // built-in sender is down / unconfigured — fix by setting custom SMTP).
+    // Log the full shape server-side; never surface the opaque "{}" to users.
+    console.error('[signin] signInWithOtp failed', { message: error.message, code: error.code, status: error.status, name: error.name });
+    const usable = error.message && error.message !== '{}' ? error.message : null;
+    return NextResponse.json(
+      { error: usable || 'We couldn’t send your sign-in email right now. Please try again in a minute.' },
+      { status: 500 },
+    );
   }
   return NextResponse.json({ ok: true });
 }
