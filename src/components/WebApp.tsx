@@ -966,7 +966,11 @@ export function WebCreate({
   const [photoFocus, setPhotoFocus] = React.useState<string[]>(initial?.photo_focus ?? []);
   const availableMethods = (['instagram', 'phone', 'email'] as const)
     .filter((k) => store.me?.[`contact_${k}` as const]);
-  const [contactMethods, setContactMethods] = React.useState<string[]>(() => [...availableMethods]);
+  const [contactMethods, setContactMethods] = React.useState<string[]>(
+    () => initial?.contactMethods && initial.contactMethods.length
+      ? initial.contactMethods.filter((m) => availableMethods.includes(m))
+      : [...availableMethods],
+  );
   const [cropIndex, setCropIndex] = React.useState(0);
   const [dragIndex, setDragIndex] = React.useState<number | null>(null);
   const dragState = React.useRef<{ startX: number; startY: number; baseX: number; baseY: number; w: number; h: number } | null>(null);

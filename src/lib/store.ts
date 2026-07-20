@@ -111,7 +111,7 @@ function mapDbListing(row: DbListing, meId: string | null): Listing {
     spokenFor: row.spoken_for ?? false,
     created_at: row.created_at || undefined,
     postedLabel: formatPostedDate(row.created_at) || 'just now',
-    contactMethod: (row.contact?.[0] as Listing['contactMethod']) || 'instagram',
+    contactMethods: (row.contact ?? []) as Listing['contactMethods'],
     eventStart: row.event_start ?? null,
     eventEnd: row.event_end ?? null,
     eventPill:

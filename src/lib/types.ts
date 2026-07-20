@@ -58,7 +58,7 @@ export interface Listing {
   eventStart?: string | null;
   eventEnd?: string | null;
   postedLabel?: string;
-  contactMethod?: ContactMethod;
+  contactMethods?: ContactMethod[];
   isNew?: boolean;
 }
 
