@@ -964,6 +964,9 @@ export function WebCreate({
     () => (initial?.photo_urls ?? []).map((url) => ({ url })),
   );
   const [photoFocus, setPhotoFocus] = React.useState<string[]>(initial?.photo_focus ?? []);
+  const availableMethods = (['instagram', 'phone', 'email'] as const)
+    .filter((k) => store.me?.[`contact_${k}` as const]);
+  const [contactMethods, setContactMethods] = React.useState<string[]>(() => [...availableMethods]);
   const [cropIndex, setCropIndex] = React.useState(0);
   const [dragIndex, setDragIndex] = React.useState<number | null>(null);
   const dragState = React.useRef<{ startX: number; startY: number; baseX: number; baseY: number; w: number; h: number } | null>(null);
@@ -1070,7 +1073,8 @@ export function WebCreate({
     isPopup && eventDate && eventStartTime && eventEndTime &&
       !parseEventWindow(eventDate, eventStartTime, eventEndTime) && 'a valid time range (end after start)',
     !loc.name.trim() && 'a pickup location',
-    !store.me?.contact_method && 'a contact method (set it in your profile)',
+    availableMethods.length === 0 && 'a contact method (set it in your profile)',
+    availableMethods.length > 0 && contactMethods.length === 0 && 'at least one contact method',
   ].filter(Boolean) as string[];
 
   const buildFormData = () => {
@@ -1088,6 +1092,7 @@ export function WebCreate({
     }
     fd.append('location', loc.name);
     fd.append('place_name', loc.name);
+    fd.append('contact_methods', JSON.stringify(contactMethods));
     if (loc.lat != null && loc.lng != null) { fd.append('lat', String(loc.lat)); fd.append('lng', String(loc.lng)); }
     // Order-preserving photo manifest: existing photos travel as URLs, new ones as files.
     const manifest = photos.map((p) => (p.file ? '__new__' : p.url));
@@ -1364,13 +1369,37 @@ export function WebCreate({
           </div>
 
           <label className="field-label">How buyers reach you</label>
-          <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)' }}>
-            {store.me?.contact_method ? (
-              <>Via {({ instagram: 'Instagram', phone: 'text', email: 'email' } as Record<string, string>)[store.me.contact_method]}, from your profile.</>
-            ) : (
-              <span style={{ color: 'var(--accent)' }}>Add a contact method in your profile first.</span>
-            )}
-          </div>
+          {availableMethods.length === 0 ? (
+            <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--accent)' }}>
+              Add a contact method in your profile first.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {availableMethods.map((k) => {
+                const on = contactMethods.includes(k);
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setContactMethods((prev) =>
+                      prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k])}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 8,
+                      border: `1.5px solid ${on ? 'var(--ink)' : 'var(--rule)'}`,
+                      background: on ? 'var(--ink)' : '#fff',
+                      color: on ? '#fff' : 'var(--ink)',
+                      borderRadius: 999, padding: '8px 14px', cursor: 'pointer',
+                      fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5,
+                    }}
+                  >
+                    <Icon name={CONTACT_METHOD_ICONS[k]} size={15} color={on ? '#fff' : 'var(--muted)'} />
+                    {CONTACT_METHOD_LABELS[k]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
