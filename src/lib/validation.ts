@@ -65,7 +65,4 @@ export const CAMPUS_SPOTS: ReadonlyArray<{ name: string; lat: number; lng: numbe
   { name: 'USC Village', lat: 34.0259, lng: -118.2851 },
   { name: 'Leavey Library', lat: 34.0217, lng: -118.2828 },
   { name: 'Tutor Campus Center', lat: 34.0205, lng: -118.2860 },
-  { name: 'Trousdale Pkwy', lat: 34.0206, lng: -118.2855 },
-  { name: 'The Lorenzo', lat: 34.0197, lng: -118.2776 },
-  { name: 'Cardinal Gardens', lat: 34.0250, lng: -118.2905 },
 ];

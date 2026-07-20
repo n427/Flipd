@@ -94,9 +94,9 @@ describe('parseCoords', () => {
 });
 
 describe('CAMPUS_SPOTS', () => {
-  it('has the six known campus meetup spots with valid coordinates', () => {
+  it('has the known campus meetup spots with valid coordinates', () => {
     const names = CAMPUS_SPOTS.map((s) => s.name);
-    expect(names).toEqual(['USC Village', 'Leavey Library', 'Tutor Campus Center', 'Trousdale Pkwy', 'The Lorenzo', 'Cardinal Gardens']);
+    expect(names).toEqual(['USC Village', 'Leavey Library', 'Tutor Campus Center']);
     for (const s of CAMPUS_SPOTS) {
       expect(parseCoords(s.lat, s.lng)).toEqual({ lat: s.lat, lng: s.lng });
     }
