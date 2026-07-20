@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin as supabase } from '@/lib/supabase/admin';
 import { getSessionUser } from '@/lib/supabase/server';
-import { parseCoords } from '@/lib/validation';
+import { parseCoords, parseEventWindow } from '@/lib/validation';
 
 const SELLER_JOIN = '*, seller:profiles!listings_seller_id_fkey(id, display_name, handle, school_unit, class_year, is_demo)';
 
@@ -66,6 +66,16 @@ export async function POST(req: NextRequest) {
   const location = formData.get('location') as string | null;
   const coords = parseCoords(formData.get('lat'), formData.get('lng'));
   const placeName = ((formData.get('place_name') as string | null) || '').trim() || null;
+  const isPopup = categories.includes('event');
+  const eventStart = (formData.get('event_start') as string | null) || null;
+  const eventEnd = (formData.get('event_end') as string | null) || null;
+  if (isPopup && !parseEventWindow(
+    eventStart ? eventStart.slice(0, 10) : '',
+    eventStart ? new Date(eventStart).toTimeString().slice(0, 5) : '',
+    eventEnd ? new Date(eventEnd).toTimeString().slice(0, 5) : '',
+  )) {
+    return NextResponse.json({ error: 'event date/time required' }, { status: 400 });
+  }
   // Contact comes from the seller's profile now, not the form.
   const { data: sellerProfile } = await supabase
     .from('profiles')
@@ -108,7 +118,7 @@ export async function POST(req: NextRequest) {
       categories,
       title,
       description: description || null,
-      price: isNaN(price) ? 0 : price,
+      price: isPopup ? 0 : (isNaN(price) ? 0 : price),
       negotiable,
       location: location || null,
       lat: coords?.lat ?? null,
@@ -117,6 +127,8 @@ export async function POST(req: NextRequest) {
       contact,
       photo_urls: photoUrls,
       photo_focus: focusArr,
+      event_start: isPopup ? eventStart : null,
+      event_end: isPopup ? eventEnd : null,
     })
     .select(SELLER_JOIN)
     .single();
