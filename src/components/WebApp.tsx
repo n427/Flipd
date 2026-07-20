@@ -6,6 +6,7 @@
 // All wired to the in-memory store.
 import React from 'react';
 import { Icon } from './Icon';
+import { LocationPicker } from './LocationPicker';
 import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, Pill, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
@@ -13,7 +14,6 @@ import { timeLeftLabel } from '@/lib/validation';
 import type { ActivityItem, ActivityStatus, Listing, PhotoTone, Profile, RatingSummary, RevealContact } from '@/lib/types';
 
 const TITLE_MAX = 80;
-const MEETUP_SPOTS = ['USC Village', 'Leavey Library', 'Tutor Campus Center', 'Trousdale Pkwy', 'The Lorenzo', 'Cardinal Gardens'];
 
 interface DropdownOption { id: string; label: string; }
 
@@ -897,7 +897,11 @@ export function WebCreate({
   const [title, setTitle] = React.useState(initial?.title ?? '');
   const [price, setPrice] = React.useState(initial?.price != null && initial.price > 0 ? String(initial.price) : initial ? '0' : '');
   const [neg, setNeg] = React.useState(initial?.negotiable ?? false);
-  const [location, setLocation] = React.useState(initial?.meta && initial.meta !== 'USC · pickup' ? initial.meta : '');
+  const [loc, setLoc] = React.useState<{ name: string; lat: number | null; lng: number | null }>(() => ({
+    name: initial?.placeName ?? (initial?.meta && initial.meta !== 'USC · pickup' ? initial.meta : ''),
+    lat: initial?.lat ?? null,
+    lng: initial?.lng ?? null,
+  }));
   const [description, setDescription] = React.useState(initial?.description ?? '');
   const [aiLoading, setAiLoading] = React.useState(false);
   const [aiError, setAiError] = React.useState('');
@@ -1005,7 +1009,7 @@ export function WebCreate({
     !title.trim() && 'a title',
     !description.trim() && 'a description',
     !price.trim() && 'a price',
-    !location.trim() && 'a pickup location',
+    !loc.name.trim() && 'a pickup location',
     !store.me?.contact_method && 'a contact method (set it in your profile)',
   ].filter(Boolean) as string[];
 
@@ -1017,7 +1021,9 @@ export function WebCreate({
     fd.append('description', description);
     fd.append('price', price);
     fd.append('negotiable', String(neg));
-    fd.append('location', location);
+    fd.append('location', loc.name);
+    fd.append('place_name', loc.name);
+    if (loc.lat != null && loc.lng != null) { fd.append('lat', String(loc.lat)); fd.append('lng', String(loc.lng)); }
     // Order-preserving photo manifest: existing photos travel as URLs, new ones as files.
     const manifest = photos.map((p) => (p.file ? '__new__' : p.url));
     fd.append('photo_manifest', JSON.stringify(manifest));
@@ -1055,7 +1061,10 @@ export function WebCreate({
     price: price ? Number(price) : undefined,
     priceLabel: price && Number(price) > 0 ? '$' + Number(price).toLocaleString('en-US') : 'Free',
     negotiable: neg,
-    meta: location,
+    meta: loc.name,
+    lat: loc.lat,
+    lng: loc.lng,
+    placeName: loc.name,
     photoTone: 'cream',
     photoLabel: 'your photo',
     photo_urls: photos.map((p) => p.url),
@@ -1271,20 +1280,10 @@ export function WebCreate({
             </button>
           </div>
 
-          <label className="field-label">Where you’ll meet<span style={{ color: 'var(--accent)' }}> *</span></label>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-            {MEETUP_SPOTS.map((spot) => (
-              <button
-                key={spot}
-                type="button"
-                onClick={() => setLocation(spot)}
-                style={{ background: location === spot ? 'var(--ink)' : '#fff', color: location === spot ? '#fff' : 'var(--ink-2)', border: '1px solid ' + (location === spot ? 'var(--ink)' : 'var(--rule)'), borderRadius: 999, padding: '7px 14px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
-              >
-                {spot}
-              </button>
-            ))}
+          <label className="field-label">Where you&apos;ll meet<span style={{ color: 'var(--accent)' }}> *</span></label>
+          <div style={{ marginBottom: 22 }}>
+            <LocationPicker value={loc} onChange={setLoc} />
           </div>
-          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Or type another spot on or near campus" className="field" style={{ marginBottom: 22 }} />
 
           <label className="field-label">How buyers reach you</label>
           <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)' }}>
