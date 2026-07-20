@@ -159,9 +159,12 @@ export interface FlipdStore {
   listings: Listing[];
   listingsLoading: boolean;
   savedIds: Set<string>;
+  popupReminderIds: Set<string>;
   activity: ActivityItem[];
   isSaved: (id: string) => boolean;
   toggleSave: (id: string) => void;
+  isReminded: (id: string) => boolean;
+  toggleReminder: (id: string) => void;
   addListing: (formData: FormData) => Promise<Listing | null>;
   updateListing: (id: string, formData: FormData) => Promise<Listing | null>;
   removeListing: (id: string) => Promise<boolean>;
@@ -196,6 +199,7 @@ export function useFlipdStore(): FlipdStore {
   const [listings, setListings] = React.useState<Listing[]>([]);
   const [listingsLoading, setListingsLoading] = React.useState(true);
   const [savedIds, setSavedIds] = React.useState<Set<string>>(() => new Set());
+  const [popupReminderIds, setPopupReminderIds] = React.useState<Set<string>>(() => new Set());
   const [activity, setActivity] = React.useState<ActivityItem[]>([]);
   const [blockedIds, setBlockedIds] = React.useState<Set<string>>(() => new Set());
 
@@ -244,6 +248,11 @@ export function useFlipdStore(): FlipdStore {
       .then(({ ids }) => { if (alive && Array.isArray(ids)) setBlockedIds(new Set(ids)); })
       .catch(() => {});
 
+    fetch('/api/popup-reminders')
+      .then((r) => r.json())
+      .then(({ ids }) => { if (alive && Array.isArray(ids)) setPopupReminderIds(new Set(ids)); })
+      .catch(() => {});
+
     refreshActivity();
     const interval = setInterval(refreshActivity, 30_000);
     return () => { alive = false; clearInterval(interval); };
@@ -266,6 +275,28 @@ export function useFlipdStore(): FlipdStore {
       setSavedIds((prev) => {
         const next = new Set(prev);
         if (willSave) next.delete(id); else next.add(id);
+        return next;
+      });
+    });
+  };
+
+  const isReminded = (id: string) => popupReminderIds.has(id);
+
+  const toggleReminder = (id: string) => {
+    const willRemind = !popupReminderIds.has(id);
+    setPopupReminderIds((prev) => {
+      const next = new Set(prev);
+      if (willRemind) next.add(id); else next.delete(id);
+      return next;
+    });
+    fetch('/api/popup-reminders', {
+      method: willRemind ? 'POST' : 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listing_id: id }),
+    }).catch(() => {
+      setPopupReminderIds((prev) => {
+        const next = new Set(prev);
+        if (willRemind) next.delete(id); else next.add(id);
         return next;
       });
     });
@@ -477,8 +508,8 @@ export function useFlipdStore(): FlipdStore {
   const unreadCount = activity.filter((a) => a.unread && !a.dismissed).length;
 
   return {
-    me, listings, listingsLoading, savedIds, activity,
-    isSaved, toggleSave, addListing, updateListing, removeListing, getListing, setArchived,
+    me, listings, listingsLoading, savedIds, popupReminderIds, activity,
+    isSaved, toggleSave, isReminded, toggleReminder, addListing, updateListing, removeListing, getListing, setArchived,
     requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, blockedIds, blockUser, unblockUser, reportTarget, rateTransaction, fetchRatings, unreadCount, markAllSeen, dismissNotification, signOut,
     myListings, pastListings, savedListings, pendingCount,
   };

@@ -613,6 +613,18 @@ export function WebListingDetail({
           <Button kind="secondary" full={full} size="lg" onClick={() => { if (!preview) store.toggleSave(listing.id); }} disabled={preview}>
             {saved ? 'Saved' : 'Save'}
           </Button>
+          {listing.eventStart && (
+            <Button
+              kind={store.isReminded(listing.id) ? 'primary' : 'secondary'}
+              full={full}
+              size="lg"
+              icon="bell"
+              onClick={() => { if (!preview) store.toggleReminder(listing.id); }}
+              disabled={preview}
+            >
+              {store.isReminded(listing.id) ? 'Reminder on' : 'Remind me'}
+            </Button>
+          )}
         </div>
         <div className="t-meta" style={{ fontSize: 11.5, marginTop: 12, color: 'var(--muted)' }}>
           {listing.seller.name.split(' ')[0]} will see your name, school, and year — everyone here is verified USC.
