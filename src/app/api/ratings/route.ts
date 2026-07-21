@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
   const rateeId = new URL(req.url).searchParams.get('user') || user.id;
   const { data, error } = await admin
     .from('ratings')
-    .select('score, text, created_at, rater:profiles!ratings_rater_id_fkey(display_name)')
+    // Ratings are anonymous — never select the rater's profile.
+    .select('score, text, created_at')
     .eq('ratee_id', rateeId)
     .order('created_at', { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -18,14 +19,14 @@ export async function GET(req: NextRequest) {
   const rows = data ?? [];
   const count = rows.length;
   const average = count > 0 ? rows.reduce((s, r) => s + r.score, 0) / count : null;
+  // Star-only ratings (no written text) are still shown — otherwise the tab
+  // badge counts them but the list renders empty.
   const reviews = rows
-    .filter((r) => r.text && r.text.trim())
     .slice(0, 10)
     .map((r) => ({
       score: r.score,
       text: r.text,
       created_at: r.created_at,
-      rater: (r.rater as unknown as { display_name: string | null } | null)?.display_name ?? 'A Trojan',
     }));
   return NextResponse.json({ average, count, reviews });
 }

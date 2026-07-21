@@ -565,13 +565,14 @@ export function WebListingDetail({
               {store.pendingByListing[listing.id]} pending request{store.pendingByListing[listing.id] === 1 ? '' : 's'} — review →
             </a>
           )}
-          <Button kind="primary" full={full} size="lg" onClick={() => { if (typeof window !== 'undefined') window.location.href = `/listing/${listing.id}/edit`; }}>
-            Edit listing
-          </Button>
-          <div style={{ height: 10 }} />
-          <Button kind="secondary" full={full} size="lg" onClick={async () => { await store.setArchived(listing.id, true); onBack(); }}>
-            Move to past listings
-          </Button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Button kind="primary" size="lg" onClick={() => { if (typeof window !== 'undefined') window.location.href = `/listing/${listing.id}/edit`; }}>
+              Edit listing
+            </Button>
+            <Button kind="secondary" size="lg" onClick={async () => { await store.setArchived(listing.id, true); onBack(); }}>
+              Move to past listings
+            </Button>
+          </div>
           <div className="t-meta" style={{ fontSize: 11.5, marginTop: 12, color: 'var(--muted)' }}>
             Removes it from the feed. You can restore it anytime.
           </div>
@@ -610,7 +611,15 @@ export function WebListingDetail({
           ) : (
             <Button kind="primary" full={full} size="lg" onClick={preview ? () => {} : onReveal} disabled={preview}>Reveal Contact</Button>
           )}
-          <Button kind="secondary" full={full} size="lg" onClick={() => { if (!preview) store.toggleSave(listing.id); }} disabled={preview}>
+          <Button
+            kind={saved ? 'secondary-active' : 'secondary'}
+            full={full}
+            size="lg"
+            icon="bookmark"
+            onClick={() => { if (!preview) store.toggleSave(listing.id); }}
+            disabled={preview}
+            aria-pressed={saved}
+          >
             {saved ? 'Saved' : 'Save'}
           </Button>
           {listing.eventStart && (
@@ -685,11 +694,13 @@ export function WebListingDetail({
   const trustLinkStyle: React.CSSProperties = { background: 'none', border: 0, padding: 0, fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 500, color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 };
   const sellerRow = (
     <div style={{ display: 'flex', gap: 12, alignItems: 'center', borderTop: '1px solid var(--rule)', marginTop: 22, paddingTop: 18 }}>
-      <Avatar name={listing.seller.name} size={40} tone="cream" />
+      <a href={`/u/${listing.seller.id}`} aria-label={`View ${listing.seller.name}'s profile`} style={{ flexShrink: 0, display: 'block' }}>
+        <Avatar name={listing.seller.name} src={listing.seller.avatarUrl} size={40} tone="cream" />
+      </a>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
-            {listing.seller.name} listed this
+            <a href={`/u/${listing.seller.id}`} style={{ color: 'var(--ink)', textDecoration: 'none' }}>{listing.seller.name}</a> listed this
           </div>
           {listing.seller.isDemo && <Pill kind="verified">FLIPD TEAM</Pill>}
         </div>
@@ -1534,7 +1545,7 @@ export function WebProfile({
           store.activity.length === 0 ? (
             <EmptyState icon="bell" title="No activity yet" sub="Reveal requests you send and receive show up here." />
           ) : (
-            <div style={{ maxWidth: 640 }}>
+            <div>
               {store.activity.map((a, i) => (
                 <ActivityRow key={a.id} a={a} onApprove={onApprove} onDecline={onDecline} onRate={setRating} last={i === store.activity.length - 1} />
               ))}
@@ -1545,13 +1556,12 @@ export function WebProfile({
           summary.reviews.length === 0 ? (
             <EmptyState icon="star" title="No reviews yet" sub="After a completed sale, the other party can leave you a rating." />
           ) : (
-            <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: 12, alignItems: 'start' }}>
               {summary.reviews.map((rev, i) => (
                 <div key={i} style={{ border: '1px solid var(--rule)', borderRadius: 14, padding: '16px 18px', background: '#fff' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Stars score={rev.score} size={14} />
-                    <span style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>{rev.rater}</span>
-                    <span className="t-meta" style={{ fontSize: 12, marginLeft: 'auto' }}>{formatPostedDate(rev.created_at)}</span>
+                    <span className="t-meta" style={{ fontSize: 12 }}>{formatPostedDate(rev.created_at)}</span>
                   </div>
                   {rev.text && <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.5 }}>{rev.text}</div>}
                 </div>
@@ -1602,6 +1612,8 @@ export function RevealModal({ listing, me, onClose, onContinue }: { listing: Lis
   const [checked, setChecked] = React.useState<Record<string, boolean>>(() => Object.fromEntries(saved.map((k) => [k, true])));
   const chosen = saved.filter((k) => checked[k]);
   const canShare = chosen.length >= 1;
+  // Only sellers who marked the listing "open to offers" accept them.
+  const canOffer = !!listing.negotiable && !listing.eventStart;
   const firstName = listing.seller.name.split(' ')[0];
   const handleShare = async () => {
     if (!canShare) return;
@@ -1613,7 +1625,8 @@ export function RevealModal({ listing, me, onClose, onContinue }: { listing: Lis
       colors: ['#990000', '#FFCC00', '#ffffff'],
     });
     const parsed = parseInt(offerText, 10);
-    onContinue(Number.isFinite(parsed) && parsed > 0 ? parsed : undefined, chosen);
+    const offer = canOffer && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+    onContinue(offer, chosen);
   };
   return (
     <ModalScrim onClose={onClose}>
@@ -1659,18 +1672,22 @@ export function RevealModal({ listing, me, onClose, onContinue }: { listing: Lis
               </div>
             </div>
           )}
-          <label className="field-label">Your offer (optional)</label>
-          <div style={{ position: 'relative', marginBottom: 20 }}>
-            <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 600 }}>$</span>
-            <input
-              value={offerText}
-              onChange={(e) => setOfferText(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              inputMode="numeric"
-              placeholder={listing.price && listing.price > 0 ? String(listing.price) : '0'}
-              className="field"
-              style={{ paddingLeft: 28, fontWeight: 600 }}
-            />
-          </div>
+          {canOffer && (
+            <>
+              <label className="field-label">Your offer (optional)</label>
+              <div style={{ position: 'relative', marginBottom: 20 }}>
+                <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 600 }}>$</span>
+                <input
+                  value={offerText}
+                  onChange={(e) => setOfferText(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  inputMode="numeric"
+                  placeholder={listing.price && listing.price > 0 ? String(listing.price) : '0'}
+                  className="field"
+                  style={{ paddingLeft: 28, fontWeight: 600 }}
+                />
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', gap: 8 }}>
             <Button kind="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Button>
             <Button kind={canShare ? 'primary' : 'disabled'} onClick={handleShare} disabled={!canShare} style={{ flex: 1 }} icon="arrowRight">Share</Button>

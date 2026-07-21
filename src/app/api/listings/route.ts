@@ -3,7 +3,7 @@ import { admin as supabase } from '@/lib/supabase/admin';
 import { getSessionUser } from '@/lib/supabase/server';
 import { parseCoords, parseEventWindow } from '@/lib/validation';
 
-const SELLER_JOIN = '*, seller:profiles!listings_seller_id_fkey(id, display_name, handle, school_unit, class_year, is_demo)';
+const SELLER_JOIN = '*, seller:profiles!listings_seller_id_fkey(id, display_name, handle, school_unit, class_year, is_demo, avatar_url)';
 
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();

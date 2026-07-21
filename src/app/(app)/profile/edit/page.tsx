@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store-context';
 import { primaryMethod } from '@/lib/validation';
+import { Select } from '@/components/Select';
 
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
@@ -125,19 +126,24 @@ export default function ProfileEditPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label className="field-label">Class year</label>
-            <select aria-label="Class year" className="field" value={year} onChange={(e) => setYear(e.target.value)}>
-              <option value="">Class year</option>
-              {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-              {year && !YEARS.includes(year) && <option value={year}>{year}</option>}
-            </select>
+            <Select
+              label="Class year"
+              placeholder="Class year"
+              // Keep an existing off-list value selectable so saving can't drop it.
+              options={year && !YEARS.includes(year) ? [...YEARS, year] : YEARS}
+              value={year}
+              onChange={setYear}
+            />
           </div>
           <div>
             <label className="field-label">School / major</label>
-            <select aria-label="School or major" className="field" value={unit} onChange={(e) => setUnit(e.target.value)}>
-              <option value="">None</option>
-              {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-              {unit && !UNITS.includes(unit) && <option value={unit}>{unit}</option>}
-            </select>
+            <Select
+              label="School or major"
+              placeholder="None"
+              options={unit && !UNITS.includes(unit) ? [...UNITS, unit] : UNITS}
+              value={unit}
+              onChange={setUnit}
+            />
           </div>
         </div>
         <div>

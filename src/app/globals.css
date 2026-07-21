@@ -104,6 +104,13 @@ a, button, input, select, textarea, [tabindex] { outline-color: var(--accent); }
 .btn-primary:hover { background: var(--accent-dark); }
 .btn-secondary { background: var(--surface); color: var(--ink); }
 .btn-secondary:hover { background: var(--surface-2); }
+/* Toggled-on secondary (e.g. Saved) — reads as "on" without competing with
+   the primary CTA the way a second solid-accent button would. */
+.btn-secondary-active { background: var(--surface-2); color: var(--ink); border-color: var(--ink); }
+.btn-secondary-active:hover { background: var(--surface-2); }
+/* Solid bookmark reinforces the "on" state — Icon sets fill:none on the svg,
+   so the fill has to be re-applied to the path. */
+.btn-secondary-active svg path { fill: currentColor; }
 .btn-ghost { background: transparent; color: var(--ink); }
 .btn-ghost:hover { background: var(--surface); }
 .btn-on-dark { background: #fff; color: var(--ink); }
@@ -171,6 +178,15 @@ a, button, input, select, textarea, [tabindex] { outline-color: var(--accent); }
 .field-label {
   font-weight: 600; font-size: 13.5px; color: var(--ink);
   margin-bottom: 8px; display: block;
+}
+
+/* Select menu */
+@keyframes flipd-select-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes flipd-select-in { from { opacity: 0; } to { opacity: 1; } }
 }
 
 /* Wordmark */

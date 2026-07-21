@@ -130,11 +130,11 @@ export async function POST(req: NextRequest) {
   const { listing_id, offer, buyer_contact } = await req.json().catch(() => ({}));
   if (!listing_id) return NextResponse.json({ error: 'listing_id required' }, { status: 400 });
   // Offers are optional; anything non-positive or non-numeric is simply no-offer.
-  const offerAmount = Number.isFinite(Number(offer)) && Number(offer) > 0 ? Math.round(Number(offer)) : null;
+  const parsedOffer = Number.isFinite(Number(offer)) && Number(offer) > 0 ? Math.round(Number(offer)) : null;
 
   const { data: listing } = await admin
     .from('listings')
-    .select('id, seller_id, archived')
+    .select('id, seller_id, archived, negotiable')
     .eq('id', listing_id)
     .single();
   if (!listing || listing.archived) {
@@ -143,6 +143,9 @@ export async function POST(req: NextRequest) {
   if (listing.seller_id === user.id) {
     return NextResponse.json({ error: 'cannot request your own listing' }, { status: 400 });
   }
+  // The seller opted out of negotiation — drop any offer rather than reject the
+  // whole request, so a stale tab still sends a valid reveal.
+  const offerAmount = listing.negotiable ? parsedOffer : null;
 
   // Blocks are mutual for requests: neither party can request the other.
   const { data: blockRows } = await admin

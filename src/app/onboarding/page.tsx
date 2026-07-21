@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { primaryMethod } from '@/lib/validation';
+import { Select } from '@/components/Select';
 
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
@@ -118,14 +119,8 @@ export default function OnboardingPage() {
               <div style={{ fontSize: 13, color: 'var(--muted)' }}>Photo (optional)</div>
             </div>
             <input className="field" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-            <select aria-label="Class year" className="field" value={year} onChange={(e) => setYear(e.target.value)}>
-              <option value="">Class year</option>
-              {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-            <select aria-label="School or major" className="field" value={unit} onChange={(e) => setUnit(e.target.value)}>
-              <option value="">School / major (optional)</option>
-              {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
+            <Select label="Class year" placeholder="Class year" options={YEARS} value={year} onChange={setYear} />
+            <Select label="School or major" placeholder="School / major (optional)" options={UNITS} value={unit} onChange={setUnit} />
             {error && <div style={{ fontSize: 13, color: 'var(--accent)' }}>{error}</div>}
             <button type="submit" className="btn btn-primary" style={{ padding: '13px 22px' }}>Continue</button>
           </form>

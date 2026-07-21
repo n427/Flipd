@@ -14,6 +14,7 @@ type DbSeller = {
   school_unit: string | null;
   class_year: string | null;
   is_demo: boolean;
+  avatar_url: string | null;
 } | null;
 
 type DbListing = {
@@ -80,10 +81,11 @@ function mapSeller(row: DbListing): Seller {
     year: classYearLabel(s?.class_year ?? null),
     handle: s?.handle ?? undefined,
     isDemo: s?.is_demo ?? false,
+    avatarUrl: s?.avatar_url ?? undefined,
   };
 }
 
-function mapDbListing(row: DbListing, meId: string | null): Listing {
+export function mapDbListing(row: DbListing, meId: string | null): Listing {
   const price = row.price ?? 0;
   return {
     id: row.id,

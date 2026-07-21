@@ -136,7 +136,7 @@ export function Callout({
 
 // ── Button ───────────────────────────────────────────────────────────
 type ButtonProps = {
-  kind?: 'primary' | 'secondary' | 'ghost' | 'on-dark' | 'disabled';
+  kind?: 'primary' | 'secondary' | 'secondary-active' | 'ghost' | 'on-dark' | 'disabled';
   children?: React.ReactNode;
   full?: boolean;
   size?: 'sm' | 'md' | 'lg';

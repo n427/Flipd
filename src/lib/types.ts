@@ -11,6 +11,7 @@ export interface Seller {
   year: string;
   handle?: string;
   isDemo?: boolean;
+  avatarUrl?: string;
 }
 
 export interface Profile {
@@ -117,11 +118,11 @@ export interface FilterArgs {
   priceMax?: number | null;
 }
 
+// Ratings are anonymous — the rater is deliberately not carried here.
 export interface RatingReview {
   score: number;
   text: string | null;
   created_at: string;
-  rater: string;
 }
 
 export interface RatingSummary {
