@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveRevealStatus, isUscEmail, timeLeftLabel, resolveSharedContact, primaryMethod, parseCoords, parseEventWindow, formatEventWindow, CAMPUS_SPOTS } from './validation';
+import { effectiveRevealStatus, isUscEmail, timeLeftLabel, resolveSharedContact, primaryMethod, parseCoords, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom, CAMPUS_SPOTS } from './validation';
 
 describe('isUscEmail', () => {
   it('accepts usc.edu addresses case-insensitively', () => {
@@ -127,5 +127,78 @@ describe('CAMPUS_SPOTS', () => {
     for (const s of CAMPUS_SPOTS) {
       expect(parseCoords(s.lat, s.lng)).toEqual({ lat: s.lat, lng: s.lng });
     }
+  });
+});
+
+describe('shouldHintZoom', () => {
+  it('hints for a 16:9 screenshot at zoom 1 (the letterbox case)', () => {
+    expect(shouldHintZoom(16 / 9, 1)).toBe(true);
+  });
+
+  it('hints for a tall 9:16 photo too (portrait mirror)', () => {
+    expect(shouldHintZoom(9 / 16, 1)).toBe(true);
+  });
+
+  it('does not hint for a near-square photo — no bars to fix', () => {
+    expect(shouldHintZoom(1.05, 1)).toBe(false);
+    expect(shouldHintZoom(1.08, 1)).toBe(false); // within tolerance of the frame
+    expect(shouldHintZoom(4 / 3, 1)).toBe(true); // 4:3 is off enough to flag
+  });
+
+  it('stops hinting once zoomed enough to fill the frame', () => {
+    const wide = 16 / 9; // ~1.78; fillScale ≈ 1.78/1.05 ≈ 1.69
+    expect(shouldHintZoom(wide, 1)).toBe(true);
+    expect(shouldHintZoom(wide, 1.7)).toBe(false);
+  });
+
+  it('is safe when aspect is unknown or garbage', () => {
+    expect(shouldHintZoom(undefined, 1)).toBe(false);
+    expect(shouldHintZoom(null, 1)).toBe(false);
+    expect(shouldHintZoom(0, 1)).toBe(false);
+    expect(shouldHintZoom(NaN, 1)).toBe(false);
+  });
+});
+
+describe('fillZoom', () => {
+  it('auto-zooms a 16:9 photo to fill the frame', () => {
+    // Eased 60% of the way to fill (~1.69), so ~1.4 — trims bars without
+    // over-cropping. Should be a meaningful zoom, but well under full fill.
+    const z = fillZoom(16 / 9);
+    expect(z).toBeGreaterThan(1.2);
+    expect(z).toBeLessThan(1.6);
+  });
+
+  it('leaves near-square photos at 1 (no zoom)', () => {
+    expect(fillZoom(1.05)).toBe(1);
+    expect(fillZoom(1.08)).toBe(1); // within tolerance of the frame
+  });
+
+  it('auto-zooms a 4:3 photo (the common screenshot case)', () => {
+    expect(fillZoom(4 / 3)).toBeGreaterThan(1); // ~1.25
+  });
+
+  it('caps at the slider max for extreme panoramas', () => {
+    expect(fillZoom(5)).toBe(2.5);
+  });
+
+  it('snaps to the slider step (0.05)', () => {
+    const z = fillZoom(16 / 9);
+    expect(Math.round(z * 20) / 20).toBe(z);
+  });
+
+  it('gentle auto-zoom leaves the hint on — it trims, it does not fully fill', () => {
+    // Because fillZoom only eases partway, the photo still isn't filled, so the
+    // "drag Zoom to finish" hint should remain to invite the seller to complete it.
+    for (const aspect of [16 / 9, 4 / 3, 2, 9 / 16]) {
+      const z = fillZoom(aspect);
+      expect(z).toBeGreaterThan(1);
+      expect(shouldHintZoom(aspect, z)).toBe(true);
+    }
+  });
+
+  it('is safe on garbage input', () => {
+    expect(fillZoom(undefined)).toBe(1);
+    expect(fillZoom(NaN)).toBe(1);
+    expect(fillZoom(0)).toBe(1);
   });
 });

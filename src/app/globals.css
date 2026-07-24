@@ -116,6 +116,21 @@ a, button, input, select, textarea, [tabindex] { outline-color: var(--accent); }
 .btn-on-dark { background: #fff; color: var(--ink); }
 .btn-disabled { background: var(--surface); color: var(--muted-2); cursor: not-allowed; }
 
+/* Progress fill inside a button (see <Button progress={…} />). The bar parks
+   at ~90% once the bytes are sent and the server takes over; the pulse tells
+   the user work is still happening while the percentage can't move. */
+.btn-progress--pulse { animation: btn-progress-pulse 1.4s ease-in-out infinite; }
+@keyframes btn-progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+/* A looping animation is decoration, not information — drop it for users who
+   ask for reduced motion. The bar itself still fills. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-progress { transition: none; }
+  .btn-progress--pulse { animation: none; }
+}
+
 /* Pills */
 .pill {
   display: inline-flex; align-items: center; gap: 4px;
@@ -152,8 +167,10 @@ a, button, input, select, textarea, [tabindex] { outline-color: var(--accent); }
 /* Feed tile hover: whole card tints, photo zooms gently. */
 .listing-card { border-radius: 14px; padding: 10px; margin: -10px; transition: background 150ms ease-out; }
 .listing-card:hover { background: var(--surface); }
-.listing-card .listing-photo img { transition: transform 240ms ease-out; }
-.listing-card:hover .listing-photo img { transform: scale(1.04); }
+/* --photo-zoom is the per-photo crop scale (default 1); hover multiplies it so
+   a zoomed photo lifts from its own scale instead of snapping back to 1.04. */
+.listing-card .listing-photo img { transition: transform 240ms ease-out; transform: scale(var(--photo-zoom, 1)); }
+.listing-card:hover .listing-photo img { transform: scale(calc(var(--photo-zoom, 1) * 1.04)); }
 
 /* Callout */
 .callout {

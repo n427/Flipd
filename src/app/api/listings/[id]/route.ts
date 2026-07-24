@@ -77,6 +77,7 @@ export async function PATCH(
   const placeName = ((formData.get('place_name') as string | null) || '').trim() || null;
   const manifest = JSON.parse((formData.get('photo_manifest') as string) || '[]') as string[];
   const photoFocusRaw = formData.getAll('photo_focus') as string[];
+  const photoZoomRaw = formData.getAll('photo_zoom') as string[];
   const newFiles = formData.getAll('photos') as File[];
 
   if (!title) return NextResponse.json({ error: 'title required' }, { status: 400 });
@@ -105,6 +106,7 @@ export async function PATCH(
     photoUrls.push(urlData.publicUrl);
   }
   const focusArr = manifest.map((_, i) => photoFocusRaw[i] || '50% 50%');
+  const zoomArr = manifest.map((_, i) => photoZoomRaw[i] || '1');
 
   const { data, error } = await supabase
     .from('listings')
@@ -121,6 +123,7 @@ export async function PATCH(
       place_name: placeName,
       photo_urls: photoUrls,
       photo_focus: focusArr,
+      photo_zoom: zoomArr,
     })
     .eq('id', params.id)
     .select(SELLER_JOIN)

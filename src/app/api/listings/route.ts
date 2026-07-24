@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
   const chosen = submitted.filter((m) => filled.includes(m as typeof filled[number]));
   const contact = chosen.length ? chosen : filled;
   const photoFocusRaw = formData.getAll('photo_focus') as string[];
+  const photoZoomRaw = formData.getAll('photo_zoom') as string[];
   const photoFiles = formData.getAll('photos') as File[];
 
   if (!title) return NextResponse.json({ error: 'title required' }, { status: 400 });
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
   }
 
   const focusArr = photoFiles.map((_, i) => photoFocusRaw[i] || '50% 50%');
+  const zoomArr = photoFiles.map((_, i) => photoZoomRaw[i] || '1');
 
   const { data, error } = await supabase
     .from('listings')
@@ -134,6 +136,7 @@ export async function POST(req: NextRequest) {
       contact,
       photo_urls: photoUrls,
       photo_focus: focusArr,
+      photo_zoom: zoomArr,
       event_start: isPopup ? eventStart : null,
       event_end: isPopup ? eventEnd : null,
     })

@@ -2,6 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Icon } from './Icon';
+import { photoCropStyle } from '@/lib/store';
 import type { Listing, PhotoTone } from '@/lib/types';
 
 // ── Brand mark ───────────────────────────────────────────────────────
@@ -141,25 +142,67 @@ type ButtonProps = {
   full?: boolean;
   size?: 'sm' | 'md' | 'lg';
   icon?: string;
+  /**
+   * 0–1 fills the button left-to-right behind its label; `indeterminate`
+   * pulses the whole surface for work whose duration can't be measured.
+   * Omit for a normal button.
+   */
+  progress?: number | 'indeterminate';
 } & React.ButtonHTMLAttributes<HTMLButtonElement>;
 
 export function Button({
-  kind = 'primary', children, onClick, style = {}, full = false, size = 'md', icon, ...rest
+  kind = 'primary', children, onClick, style = {}, full = false, size = 'md', icon, progress, ...rest
 }: ButtonProps) {
   const sizes: Record<string, React.CSSProperties> = {
     sm: { padding: '7px 16px', fontSize: 12 },
     md: { padding: '10px 22px', fontSize: 13 },
     lg: { padding: '14px 28px', fontSize: 14 },
   };
+  const busy = progress != null;
+  const fraction = typeof progress === 'number' ? Math.max(0, Math.min(1, progress)) : 1;
   return (
     <button
       className={`btn btn-${kind}`}
       onClick={onClick}
-      style={{ ...sizes[size], width: full ? '100%' : undefined, ...style }}
+      style={{
+        ...sizes[size],
+        width: full ? '100%' : undefined,
+        ...(busy ? { position: 'relative', overflow: 'hidden' } : null),
+        ...style,
+      }}
+      // Screen readers get the same information the fill conveys visually.
+      aria-busy={busy || undefined}
+      role={busy ? 'progressbar' : undefined}
+      aria-valuemin={busy ? 0 : undefined}
+      aria-valuemax={busy ? 100 : undefined}
+      // Omitting aria-valuenow is what marks a progressbar indeterminate.
+      aria-valuenow={typeof progress === 'number' ? Math.round(fraction * 100) : undefined}
       {...rest}
     >
-      {icon && <Icon name={icon} size={14} />}
-      {children}
+      {busy && (
+        <span
+          aria-hidden="true"
+          className={progress === 'indeterminate' ? 'btn-progress btn-progress--pulse' : 'btn-progress'}
+          style={{
+            position: 'absolute', inset: 0,
+            transformOrigin: 'left center',
+            // scaleX is compositor-only, so frequent progress events don't
+            // force a layout pass the way animating width would.
+            transform: `scaleX(${fraction})`,
+            transition: 'transform 220ms cubic-bezier(0.4, 0, 0.2, 1)',
+            background: 'rgba(255, 255, 255, 0.22)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+      {/* Always a flex row so the icon↔label gap holds; `position:relative`
+          only when busy, to lift the label above the progress fill. Without the
+          flex here the wrapper is a single `.btn` child and `.btn`'s own gap
+          never lands between icon and text. */}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, ...(busy ? { position: 'relative' } : null) }}>
+        {icon && <Icon name={icon} size={14} />}
+        {children}
+      </span>
     </button>
   );
 }
@@ -175,7 +218,7 @@ export function ListingCard({
           <ImageWithFallback
             src={listing.photo_urls[0]}
             alt={listing.title}
-            imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }}
+            imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', ...photoCropStyle(listing.photo_focus?.[0], listing.photo_zoom?.[0]) }}
             fallbackLabel={listing.photoLabel}
             fallbackTone={listing.photoTone}
           />

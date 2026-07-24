@@ -3,6 +3,51 @@
 
 export type RevealStatus = 'pending' | 'approved' | 'declined' | 'expired' | 'completed';
 
+// Should we nudge the seller to zoom? True when the photo is enough wider or
+// taller than the crop frame that cover-fitting it leaves bars / cuts off a
+// lot, AND they haven't already zoomed enough to fill it.
+//   photoAspect / zoom : measured w/h of the source, and current zoom (>=1)
+//   frameAspect        : the crop tile's w/h (Flipd's tile is 1.05)
+//   tolerance          : ignore photos within this ratio of the frame (1.1 lets
+//                        near-square photos pass; 4:3 and wider are flagged)
+export function shouldHintZoom(
+  photoAspect: number | undefined | null,
+  zoom: number,
+  frameAspect = 1.05,
+  tolerance = 1.1,
+): boolean {
+  if (!photoAspect || !Number.isFinite(photoAspect) || photoAspect <= 0) return false;
+  // Mismatch in either orientation: wide photo in tallish frame, or vice-versa.
+  const mismatch = Math.max(photoAspect / frameAspect, frameAspect / photoAspect);
+  if (mismatch <= tolerance) return false;
+  // Zoom needed to fill the frame's short axis. Once reached, the hint is moot.
+  const fillScale = Math.max(photoAspect / frameAspect, frameAspect / photoAspect);
+  return (zoom || 1) < fillScale - 0.05;
+}
+
+// Auto-zoom applied to a non-square photo on upload. Aspect ratio tells us the
+// photo is off-shape but NOT how thick any baked-in bars are, so filling the
+// frame outright (mismatch) tends to over-crop when the bars are thin. Instead
+// we ease `strength` of the way from 1 toward the fill scale — trimming bars
+// without eating much content; the seller finishes with the slider.
+//   strength 0 = no auto-zoom, 1 = fill the frame completely.
+// 1 (no zoom) when within tolerance of the frame, so square-ish photos are
+// never scaled.
+export function fillZoom(
+  photoAspect: number | undefined | null,
+  frameAspect = 1.05,
+  tolerance = 1.1,
+  max = 2.5,
+  strength = 0.6,
+): number {
+  if (!photoAspect || !Number.isFinite(photoAspect) || photoAspect <= 0) return 1;
+  const mismatch = Math.max(photoAspect / frameAspect, frameAspect / photoAspect);
+  if (mismatch <= tolerance) return 1;
+  const eased = 1 + (mismatch - 1) * strength;
+  // Round to the slider's 0.05 step so the thumb lands on a real notch.
+  return Math.min(max, Math.round(eased * 20) / 20);
+}
+
 export function isUscEmail(email: string): boolean {
   const e = email.trim().toLowerCase();
   return /^[^\s@]+@usc\.edu$/.test(e);

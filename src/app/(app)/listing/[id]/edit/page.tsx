@@ -40,12 +40,13 @@ export default function ListingEditPage({ params }: { params: { id: string } }) 
       heading="Edit listing"
       submitLabel="Save changes"
       onCancel={() => router.push(`/listing/${params.id}`)}
-      onPublish={async (fd) => {
+      onPublish={async (fd, onProgress) => {
         try {
-          await store.updateListing(params.id, fd);
+          await store.updateListing(params.id, fd, onProgress);
           router.push(`/listing/${params.id}`);
         } catch (err) {
           alert('Could not save changes:\n\n' + (err instanceof Error ? err.message : 'Unknown error'));
+          throw err; // let WebCreate release the button's busy state
         }
       }}
     />

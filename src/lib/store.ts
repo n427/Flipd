@@ -33,6 +33,7 @@ type DbListing = {
   contact?: string[] | null;
   photo_urls?: string[] | null;
   photo_focus?: string[] | null;
+  photo_zoom?: string[] | null;
   archived?: boolean | null;
   spoken_for?: boolean | null;
   created_at?: string | null;
@@ -58,6 +59,28 @@ type RevealDto = {
   contact?: RevealContact;
 };
 
+// Per-photo crop styling. `cover` fills the tile; the extra scale() lets a
+// seller push baked-in letterbox bars (screenshots) outside the frame.
+// transform-origin follows the focus point so zooming keeps the chosen
+// subject centred instead of drifting toward the middle.
+export function photoCropStyle(
+  focus?: string | null,
+  zoom?: string | null,
+): React.CSSProperties {
+  const origin = focus || '50% 50%';
+  const z = Number(zoom);
+  const scale = Number.isFinite(z) && z > 1 ? Math.min(z, 3) : 1;
+  return {
+    objectFit: 'cover',
+    objectPosition: origin,
+    // --photo-zoom lets CSS compose this scale with its own (see the feed-card
+    // hover in globals.css); transform is the fallback where nothing composes.
+    ...(scale > 1
+      ? { ['--photo-zoom' as string]: String(scale), transform: `scale(${scale})`, transformOrigin: origin }
+      : {}),
+  };
+}
+
 export function formatPostedDate(iso?: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -65,7 +88,7 @@ export function formatPostedDate(iso?: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function classYearLabel(year: string | null): string {
+export function classYearLabel(year: string | null): string {
   if (!year) return '';
   // Numeric years abbreviate ("2027" -> ’27); named years ("Junior") pass through.
   if (/^\d{4}$/.test(year)) return `’${year.slice(-2)}`;
@@ -109,6 +132,7 @@ export function mapDbListing(row: DbListing, meId: string | null): Listing {
     photoLabel: 'photo',
     photo_urls: row.photo_urls || [],
     photo_focus: row.photo_focus || [],
+    photo_zoom: row.photo_zoom || [],
     archived: row.archived ?? false,
     spokenFor: row.spoken_for ?? false,
     created_at: row.created_at || undefined,
@@ -167,8 +191,8 @@ export interface FlipdStore {
   toggleSave: (id: string) => void;
   isReminded: (id: string) => boolean;
   toggleReminder: (id: string) => void;
-  addListing: (formData: FormData) => Promise<Listing | null>;
-  updateListing: (id: string, formData: FormData) => Promise<Listing | null>;
+  addListing: (formData: FormData, onProgress?: (fraction: number) => void) => Promise<Listing | null>;
+  updateListing: (id: string, formData: FormData, onProgress?: (fraction: number) => void) => Promise<Listing | null>;
   removeListing: (id: string) => Promise<boolean>;
   getListing: (id: string) => Promise<Listing | null>;
   setArchived: (id: string, archived: boolean) => Promise<boolean>;
@@ -304,36 +328,70 @@ export function useFlipdStore(): FlipdStore {
     });
   };
 
-  const addListing = async (formData: FormData): Promise<Listing | null> => {
-    let res: Response;
-    try {
-      res = await fetch('/api/listings', { method: 'POST', body: formData });
-    } catch (err) {
-      console.error('[addListing] network error', err);
-      throw new Error('Could not reach the server. Check your connection and try again.');
-    }
-    if (!res.ok) {
-      let detail = `HTTP ${res.status}`;
-      try {
-        const body = await res.json();
-        if (body?.error) detail = body.error;
-      } catch { /* no JSON body */ }
-      throw new Error(detail);
-    }
-    const { listing } = await res.json();
+  // Sends a listing FormData over XHR rather than fetch: only XHR exposes
+  // upload progress (`xhr.upload.onprogress`), and photo uploads are slow
+  // enough on a phone connection that a real percentage is worth the plumbing.
+  // Shared by create (POST) and edit (PATCH), which differ only in verb + URL.
+  const sendListing = (
+    method: 'POST' | 'PATCH',
+    url: string,
+    formData: FormData,
+    onProgress?: (fraction: number) => void,
+  ): Promise<{ listing: DbListing }> =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, url);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress?.(e.loaded / e.total);
+      };
+      // The last byte is sent, but the server still has to push each photo to
+      // storage and write the row. Report 1 so the caller can switch to its
+      // indeterminate "server working" state.
+      xhr.upload.onload = () => onProgress?.(1);
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            reject(new Error('Server returned an unreadable response.'));
+          }
+          return;
+        }
+        let detail = `HTTP ${xhr.status}`;
+        try {
+          const body = JSON.parse(xhr.responseText);
+          if (body?.error) detail = body.error;
+        } catch { /* no JSON body */ }
+        reject(new Error(detail));
+      };
+
+      xhr.onerror = () => {
+        console.error(`[sendListing] ${method} network error`);
+        reject(new Error('Could not reach the server. Check your connection and try again.'));
+      };
+      xhr.onabort = () => reject(new Error('Upload cancelled.'));
+
+      xhr.send(formData);
+    });
+
+  const addListing = async (
+    formData: FormData,
+    onProgress?: (fraction: number) => void,
+  ): Promise<Listing | null> => {
+    const { listing } = await sendListing('POST', '/api/listings', formData, onProgress);
     const mapped = mapDbListing(listing, meId);
     setListings((prev) => [mapped, ...prev]);
     return mapped;
   };
 
-  const updateListing = async (id: string, formData: FormData): Promise<Listing | null> => {
-    const res = await fetch(`/api/listings/${id}`, { method: 'PATCH', body: formData }).catch(() => null);
-    if (!res || !res.ok) {
-      let detail = res ? `HTTP ${res.status}` : 'Network error';
-      try { const body = await res?.json(); if (body?.error) detail = body.error; } catch { /* no body */ }
-      throw new Error(detail);
-    }
-    const { listing } = await res.json();
+  const updateListing = async (
+    id: string,
+    formData: FormData,
+    onProgress?: (fraction: number) => void,
+  ): Promise<Listing | null> => {
+    const { listing } = await sendListing('PATCH', `/api/listings/${id}`, formData, onProgress);
     const mapped = mapDbListing(listing, meId);
     setListings((prev) => prev.map((l) => (l.id === id ? mapped : l)));
     return mapped;

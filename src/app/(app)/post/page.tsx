@@ -12,10 +12,11 @@ export default function PostPage() {
     <WebCreate
       store={store}
       onCancel={() => router.push('/feed')}
-      onPublish={async (fd) => {
+      onPublish={async (fd, onProgress) => {
         // Throw on failure so WebCreate stays on the preview; on success it
         // shows its own confirmation (whose button routes back to the feed).
-        const created = await store.addListing(fd);
+        // onProgress drives the fill on WebCreate's publish button.
+        const created = await store.addListing(fd, onProgress);
         if (!created) throw new Error('Publish failed — no listing returned.');
       }}
     />

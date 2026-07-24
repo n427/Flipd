@@ -9,8 +9,8 @@ import { Icon } from './Icon';
 import { LocationPicker } from './LocationPicker';
 import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, Pill, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
-import { filterListings, formatPostedDate, useFlipdStore, type FlipdStore } from '@/lib/store';
-import { timeLeftLabel, parseEventWindow, formatEventWindow } from '@/lib/validation';
+import { classYearLabel, filterListings, formatPostedDate, photoCropStyle, useFlipdStore, type FlipdStore } from '@/lib/store';
+import { timeLeftLabel, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom } from '@/lib/validation';
 import type { ActivityItem, ActivityStatus, Listing, PhotoTone, Profile, RatingSummary, RevealContact } from '@/lib/types';
 
 const TITLE_MAX = 80;
@@ -69,6 +69,16 @@ function WebDropdown({
 }
 
 // ── Header ───────────────────────────────────────────────────────────
+// A plain left-click runs the fast in-app view switch (spa); modifier and
+// middle clicks fall through to the browser so the href opens in a new tab.
+function spaClick(spa: () => void) {
+  return (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+    e.preventDefault();
+    spa();
+  };
+}
+
 export function WebAppHeader({
   onLogo, query, setQuery, onPost, onProfile, onBell, onRequests, pendingCount, unreadCount, meName, meAvatarUrl,
 }: {
@@ -78,9 +88,9 @@ export function WebAppHeader({
 }) {
   return (
     <header style={{ padding: '14px 32px', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', gap: 28, position: 'sticky', top: 0, zIndex: 30 }}>
-      <button onClick={onLogo} style={{ background: 'none', border: 0, padding: 0, display: 'flex', alignItems: 'center', gap: 10 }} aria-label="Go to feed">
+      <a href="/feed" onClick={spaClick(onLogo)} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }} aria-label="Go to feed">
         <Wordmark size={24} />
-      </button>
+      </a>
       <div style={{ flex: 1, maxWidth: 520, position: 'relative' }}>
         <Icon name="search" size={15} color="var(--muted)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
         <input
@@ -97,23 +107,23 @@ export function WebAppHeader({
           </button>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>
-        <button onClick={onRequests} style={{ background: 'none', border: 0, padding: '6px 8px', position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginLeft: 'auto' }}>
+        <a href="/requests" onClick={spaClick(onRequests)} style={{ textDecoration: 'none', background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}>
           Requests
           {pendingCount > 0 && (
             <span style={{ minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{pendingCount}</span>
           )}
-        </button>
-        <button onClick={onBell} aria-label="Notifications" style={{ background: 'none', border: 0, padding: 8, position: 'relative' }}>
+        </a>
+        <button onClick={onBell} aria-label="Notifications" style={{ background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
           <Icon name="bell" size={18} color="var(--ink)" />
           {unreadCount > 0 && (
-            <span style={{ position: 'absolute', top: 2, right: 2, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>{unreadCount}</span>
+            <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>{unreadCount}</span>
           )}
         </button>
         <Button kind="primary" size="sm" icon="plus" onClick={onPost}>Post a listing</Button>
-        <button onClick={onProfile} aria-label="Your profile" style={{ background: 'none', border: 0, padding: 0 }}>
+        <a href="/profile" onClick={spaClick(onProfile)} aria-label="Your profile" style={{ display: 'inline-flex', padding: 0 }}>
           <Avatar name={meName} src={meAvatarUrl} size={30} tone="ink" />
-        </button>
+        </a>
       </div>
     </header>
   );
@@ -241,8 +251,8 @@ export function RequestTimeline({ status }: { status: ActivityStatus }) {
 
 // ── Activity row (shared by notifications + profile) ────────────────
 function ActivityRow({
-  a, onApprove, onDecline, onRate, last, compact,
-}: { a: ActivityItem; onApprove?: (id: string) => void; onDecline?: (id: string) => void; onRate?: (a: ActivityItem) => void; last?: boolean; compact?: boolean }) {
+  a, onApprove, onDecline, onRate, last, compact, dismissable,
+}: { a: ActivityItem; onApprove?: (id: string) => void; onDecline?: (id: string) => void; onRate?: (a: ActivityItem) => void; last?: boolean; compact?: boolean; dismissable?: boolean }) {
   const statusFg = ({
     APPROVED: 'var(--ink)',
     COMPLETED: 'var(--ink)',
@@ -251,7 +261,7 @@ function ActivityRow({
     PENDING: 'var(--accent)',
   } as Record<string, string>)[a.status] || 'var(--muted)';
   return (
-    <div style={compact ? { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 18px', borderBottom: last ? 0 : '1px solid var(--rule)' } : { display: 'flex', alignItems: 'flex-start', gap: 14, padding: '18px 20px', border: '1px solid var(--rule)', borderRadius: 14, marginBottom: 10, background: '#fff' }}>
+    <div style={compact ? { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 18px', borderBottom: last ? 0 : '1px solid var(--rule)', minHeight: dismissable ? 76 : undefined } : { display: 'flex', alignItems: 'flex-start', gap: 14, padding: '18px 20px', border: '1px solid var(--rule)', borderRadius: 14, marginBottom: 10, background: '#fff' }}>
       <Avatar name={a.who} size={36} tone={a.dir === 'in' ? 'ink' : 'cream'} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.4 }}>
@@ -296,7 +306,9 @@ function ActivityRow({
         )}
       </div>
       {!(a.dir === 'in' && a.status === 'PENDING') && (
-        <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.07em', color: statusFg, whiteSpace: 'nowrap', alignSelf: 'center' }}>{a.status}</span>
+        // In the notifications panel a dismiss × is pinned top-right, so drop the
+        // status label to the bottom of the row to clear it instead of overlapping.
+        <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.07em', color: statusFg, whiteSpace: 'nowrap', alignSelf: dismissable ? 'flex-end' : 'center' }}>{a.status}</span>
       )}
     </div>
   );
@@ -344,7 +356,7 @@ export function WebNotifications({
                 {a.unread && (
                   <span style={{ position: 'absolute', left: 7, top: 22, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />
                 )}
-                <ActivityRow a={a} compact onApprove={onApprove} onDecline={onDecline} last={i === visible.length - 1} />
+                <ActivityRow a={a} compact dismissable onApprove={onApprove} onDecline={onDecline} last={i === visible.length - 1} />
                 <button
                   onClick={(e) => { e.stopPropagation(); onDismiss(a.id); }}
                   aria-label="Dismiss notification"
@@ -514,7 +526,7 @@ export function WebListingDetail({
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLightbox(idx); } }}
       style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)', borderRadius: radius, ...(opts.span2 ? { gridRow: 'span 2' } : {}) }}
     >
-      <ImageWithFallback src={photos[idx]} alt="" imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[idx] || '50% 50%' }} fallbackLabel={listing.photoLabel} fallbackTone="cream" />
+      <ImageWithFallback src={photos[idx]} alt="" imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', ...photoCropStyle(listing.photo_focus?.[idx], listing.photo_zoom?.[idx]) }} fallbackLabel={listing.photoLabel} fallbackTone="cream" />
       {opts.pill && (
         <span style={{ position: 'absolute', left: 14, bottom: 14, background: 'rgba(255,255,255,0.92)', borderRadius: 8, padding: '5px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12, color: 'var(--ink)' }}>
           1 / {n}
@@ -750,7 +762,7 @@ export function WebListingDetail({
             style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 16, overflow: 'hidden', cursor: n > 0 ? 'pointer' : 'default', background: 'var(--surface)' }}
           >
             {n > 0 ? (
-              <ImageWithFallback src={photos[0]} alt="" imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: listing.photo_focus?.[0] || '50% 50%' }} fallbackLabel={listing.photoLabel} fallbackTone="cream" />
+              <ImageWithFallback src={photos[0]} alt="" imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', ...photoCropStyle(listing.photo_focus?.[0], listing.photo_zoom?.[0]) }} fallbackLabel={listing.photoLabel} fallbackTone="cream" />
             ) : (
               <Placeholder label={listing.photoLabel} tone="cream" height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
             )}
@@ -947,10 +959,12 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
 // ── Create listing (web, multi-step) ────────────────────────────────
 export function WebCreate({
   onPublish, onCancel, store, initial, submitLabel = 'Publish listing', heading = 'What are you passing on?',
-}: { onPublish: (formData: FormData) => void | Promise<void>; onCancel: () => void; store: FlipdStore; initial?: Listing; submitLabel?: string; heading?: string }) {
+}: { onPublish: (formData: FormData, onProgress?: (fraction: number) => void) => void | Promise<void>; onCancel: () => void; store: FlipdStore; initial?: Listing; submitLabel?: string; heading?: string }) {
   const [attempted, setAttempted] = React.useState(false);
   const [phase, setPhase] = React.useState<'form' | 'preview' | 'success'>('form');
   const [submitting, setSubmitting] = React.useState(false);
+  // 0–0.9 tracks real byte upload; held at 0.9 while the server works; 1 on done.
+  const [uploadProgress, setUploadProgress] = React.useState(0);
   const [categories, setCategories] = React.useState<string[]>(initial?.categories && initial.categories.length ? [...initial.categories] : initial?.category ? [initial.category] : []);
   const isPopup = categories.includes('event');
   const [eventDate, setEventDate] = React.useState(initial?.eventStart ? initial.eventStart.slice(0, 10) : '');
@@ -971,10 +985,17 @@ export function WebCreate({
   const [description, setDescription] = React.useState(initial?.description ?? '');
   const [aiLoading, setAiLoading] = React.useState(false);
   const [aiError, setAiError] = React.useState('');
-  const [photos, setPhotos] = React.useState<{ file?: File; url: string }[]>(
+  // `aspect` = naturalWidth/naturalHeight, filled in once the image loads. Used
+  // only to hint when a photo is far from square (screenshots, video frames).
+  const [photos, setPhotos] = React.useState<{ file?: File; url: string; aspect?: number }[]>(
     () => (initial?.photo_urls ?? []).map((url) => ({ url })),
   );
   const [photoFocus, setPhotoFocus] = React.useState<string[]>(initial?.photo_focus ?? []);
+  const [photoZoom, setPhotoZoom] = React.useState<string[]>(initial?.photo_zoom ?? []);
+  // Live mirror of photos so async probe callbacks can find a photo's current
+  // index even after other uploads have shifted positions.
+  const photosRef = React.useRef(photos);
+  photosRef.current = photos;
   const availableMethods = (['instagram', 'phone', 'email'] as const)
     .filter((k) => store.me?.[`contact_${k}` as const]);
   const [contactMethods, setContactMethods] = React.useState<string[]>(
@@ -995,6 +1016,30 @@ export function WebCreate({
     const mapped = incoming.map((file) => ({ file, url: URL.createObjectURL(file) }));
     setPhotos((prev) => [...prev, ...mapped]);
     setPhotoFocus((prev) => [...prev, ...mapped.map(() => '50% 50%')]);
+    setPhotoZoom((prev) => [...prev, ...mapped.map(() => '1')]);
+    // Measure each photo's aspect off-DOM, then (a) store it for the zoom hint
+    // and (b) auto-zoom non-square photos to fill the frame so baked-in
+    // letterbox bars are cropped out by default. Matched back by url.
+    mapped.forEach(({ url }) => {
+      const probe = new Image();
+      probe.onload = () => {
+        const aspect = probe.naturalWidth / probe.naturalHeight;
+        setPhotos((prev) => prev.map((p) => (p.url === url ? { ...p, aspect } : p)));
+        const auto = fillZoom(aspect);
+        if (auto > 1) {
+          setPhotoZoom((prev) => {
+            const idx = photosRef.current.findIndex((p) => p.url === url);
+            if (idx < 0) return prev;
+            const next = [...prev];
+            while (next.length <= idx) next.push('1');
+            // Don't override a zoom the seller has already touched on this photo.
+            if (next[idx] === '1') next[idx] = String(auto);
+            return next;
+          });
+        }
+      };
+      probe.src = url;
+    });
     setCropIndex(photos.length);
   };
 
@@ -1011,6 +1056,7 @@ export function WebCreate({
       return next;
     });
     setPhotoFocus((prev) => { const next = [...prev]; next.splice(index, 1); return next; });
+    setPhotoZoom((prev) => { const next = [...prev]; next.splice(index, 1); return next; });
     setCropIndex((c) => Math.max(0, c >= index ? c - 1 : c));
   };
 
@@ -1018,6 +1064,7 @@ export function WebCreate({
     if (from === to) return;
     setPhotos((prev) => moveItem(prev, from, to));
     setPhotoFocus((prev) => moveItem(prev, from, to));
+    setPhotoZoom((prev) => moveItem(prev, from, to));
     setCropIndex(to);
   };
 
@@ -1076,6 +1123,10 @@ export function WebCreate({
     e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
+  // Nudge to zoom when the selected photo is far enough from the crop frame's
+  // shape that cover-fitting leaves bars / crops heavily. See shouldHintZoom.
+  const showAspectHint = shouldHintZoom(photos[cropIndex]?.aspect, Number(photoZoom[cropIndex]) || 1);
+
   const missing = [
     categories.length === 0 && 'a category',
     photos.length === 0 && 'a photo',
@@ -1114,25 +1165,52 @@ export function WebCreate({
     fd.append('photo_manifest', JSON.stringify(manifest));
     photos.forEach((p) => { if (p.file) fd.append('photos', p.file, p.file.name); });
     photoFocus.forEach((f) => fd.append('photo_focus', f));
+    photoZoom.forEach((z) => fd.append('photo_zoom', z));
     return fd;
   };
 
   // Edits skip the preview/success gate; new listings preview, then confirm.
   const onSubmitClick = () => {
     if (missing.length > 0) { setAttempted(true); return; }
-    if (initial) { onPublish(buildFormData()); return; }
+    if (initial) { void confirmSave(); return; }
     setPhase('preview');
+  };
+
+  // Edit save. No preview/success phase (the edit page navigates away on
+  // success), so this only drives the button's busy + progress state; the
+  // same 0→90% real / hold-till-response model as confirmPublish.
+  const confirmSave = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setUploadProgress(0);
+    try {
+      await onPublish(buildFormData(), (fraction) => setUploadProgress(fraction * 0.9));
+      setUploadProgress(1);
+      // onPublish (edit page) navigates away on success; leave the button in
+      // its done state through the unmount rather than flashing back to idle.
+    } catch {
+      // The edit page surfaces the error; just release the button.
+      setSubmitting(false);
+      setUploadProgress(0);
+    }
   };
 
   const confirmPublish = async () => {
     setSubmitting(true);
+    setUploadProgress(0);
     try {
-      await onPublish(buildFormData());
+      // Bytes leaving the browser are only part of the wait — the server still
+      // has to push each photo to storage and insert the row, which it can't
+      // report on. So real progress drives the bar to 90% and the last 10% is
+      // held until the response lands.
+      await onPublish(buildFormData(), (fraction) => setUploadProgress(fraction * 0.9));
+      setUploadProgress(1);
       setPhase('success');
     } catch {
       setPhase('preview');
     } finally {
       setSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -1156,9 +1234,16 @@ export function WebCreate({
     photoLabel: 'your photo',
     photo_urls: photos.map((p) => p.url),
     photo_focus: photoFocus,
+    photo_zoom: photoZoom,
     description,
-    seller: { id: store.me?.id ?? '', name: store.me?.display_name ?? 'You', unit: store.me?.school_unit ?? '', year: '' },
+    seller: { id: store.me?.id ?? '', name: store.me?.display_name ?? 'You', unit: store.me?.school_unit ?? '', year: classYearLabel(store.me?.class_year ?? null), avatarUrl: store.me?.avatar_url ?? undefined },
     postedLabel: 'just now',
+    eventPill: isPopup
+      ? (() => {
+          const w = parseEventWindow(eventDate, eventStartTime, eventEndTime);
+          return w ? formatEventWindow(w.start, w.end) : undefined;
+        })()
+      : undefined,
   };
 
   if (phase === 'success') {
@@ -1188,13 +1273,35 @@ export function WebCreate({
         <p style={{ fontFamily: 'var(--sans)', fontSize: 14, color: 'var(--muted)', margin: '0 0 20px' }}>
           This is exactly how buyers will see it.
         </p>
-        <div style={{ border: '1px solid var(--rule)', borderRadius: 16, overflow: 'hidden' }}>
+
+        <label className="field-label" style={{ display: 'block', marginTop: 12 }}>In the feed</label>
+        <div style={{ width: 210, margin: '16px 0' }}>
+          <ListingCard listing={previewListing} />
+        </div>
+        <p style={{ fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--muted)', margin: '0 0 44px' }}>
+          Long titles, locations, and prices get shortened to one line here.
+        </p>
+
+        <label className="field-label" style={{ display: 'block' }}>The listing page</label>
+        <div style={{ border: '1px solid var(--rule)', borderRadius: 16, overflow: 'hidden', marginTop: 4 }}>
           <WebListingDetail store={store} listing={previewListing} preview onBack={() => {}} onReveal={() => {}} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
           <Button kind="ghost" onClick={() => setPhase('form')}>Back</Button>
-          <Button kind="primary" size="lg" disabled={submitting} onClick={confirmPublish}>
-            {submitting ? 'Publishing…' : 'Publish listing'}
+          <Button
+            kind="primary"
+            size="lg"
+            disabled={submitting}
+            onClick={confirmPublish}
+            // Once the bar parks at 90% the percentage can't move, so it
+            // switches to a pulse — otherwise a full-looking bar reads as stuck.
+            progress={submitting ? (uploadProgress >= 0.9 ? 'indeterminate' : uploadProgress) : undefined}
+          >
+            {!submitting
+              ? 'Publish listing'
+              : uploadProgress >= 0.9
+                ? 'Almost there…'
+                : `Uploading photos… ${Math.round((uploadProgress / 0.9) * 100)}%`}
           </Button>
         </div>
       </div>
@@ -1233,7 +1340,16 @@ export function WebCreate({
                 src={photos[cropIndex].url}
                 alt={`Editing photo ${cropIndex + 1} — drag to reposition`}
                 draggable={false}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: photoFocus[cropIndex] || '50% 50%', display: 'block', pointerEvents: 'none' }}
+                // Existing (edit-mode) photos have no measured aspect yet — fill
+                // it in on load so the hint works for them too.
+                onLoad={(e) => {
+                  const el = e.currentTarget;
+                  if (!el.naturalHeight) return;
+                  const a = el.naturalWidth / el.naturalHeight;
+                  setPhotos((prev) => prev.map((p, i) =>
+                    i === cropIndex && p.aspect === undefined ? { ...p, aspect: a } : p));
+                }}
+                style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none', ...photoCropStyle(photoFocus[cropIndex], photoZoom[cropIndex]) }}
               />
             </div>
           ) : (
@@ -1255,6 +1371,48 @@ export function WebCreate({
             </button>
           )}
 
+          {photos[cropIndex] && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+              <label htmlFor="photo-zoom" style={{ fontFamily: 'var(--sans)', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', flexShrink: 0 }}>
+                Zoom
+              </label>
+              <input
+                id="photo-zoom"
+                type="range"
+                min="1"
+                max="2.5"
+                step="0.05"
+                value={Number(photoZoom[cropIndex]) || 1}
+                onChange={(e) => setPhotoZoom((prev) => {
+                  const next = [...prev];
+                  // Pad: a photo added before zoom existed has no entry yet.
+                  while (next.length < photos.length) next.push('1');
+                  next[cropIndex] = e.target.value;
+                  return next;
+                })}
+                style={{ flex: 1, accentColor: 'var(--accent)', cursor: 'pointer' }}
+              />
+              {(Number(photoZoom[cropIndex]) || 1) > 1 && (
+                <button
+                  onClick={() => setPhotoZoom((prev) => {
+                    const next = [...prev];
+                    while (next.length < photos.length) next.push('1');
+                    next[cropIndex] = '1';
+                    return next;
+                  })}
+                  style={{ background: 'none', border: 0, padding: 0, fontFamily: 'var(--sans)', fontSize: 12.5, fontWeight: 500, color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3, flexShrink: 0 }}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          )}
+          <p style={{ fontFamily: 'var(--sans)', fontSize: 12, lineHeight: 1.5, margin: '6px 0 0', color: showAspectHint ? 'var(--accent)' : 'var(--muted)' }}>
+            {showAspectHint
+              ? "This photo isn't square — drag Zoom to fill the frame and crop the bars."
+              : 'Drag to reposition. Wide photos are zoomed to fill automatically — adjust with the slider.'}
+          </p>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 10 }}>
             {Array.from({ length: photos.length > 4 ? 8 : 4 }).map((_, i) => (
               photos[i] ? (
@@ -1273,7 +1431,7 @@ export function WebCreate({
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCropIndex(i); } }}
                   style={{ position: 'relative', aspectRatio: '1.4', borderRadius: 10, overflow: 'hidden', cursor: 'grab', opacity: dragIndex === i ? 0.4 : 1, outline: cropIndex === i ? '2px solid var(--ink)' : 'none', outlineOffset: -2 }}
                 >
-                  <img src={photos[i].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: photoFocus[i] || '50% 50%' }} />
+                  <img src={photos[i].url} alt="" style={{ width: '100%', height: '100%', ...photoCropStyle(photoFocus[i], photoZoom[i]) }} />
                   <button
                     onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
                     aria-label="Remove photo"
@@ -1286,9 +1444,11 @@ export function WebCreate({
                 <button
                   key={i}
                   onClick={() => fileInputRef.current?.click()}
-                  style={{ aspectRatio: '1.4', borderRadius: 10, border: '1.5px dashed var(--rule-strong)', background: i === 0 ? 'var(--surface)' : 'none', cursor: 'pointer' }}
+                  style={{ aspectRatio: '1.4', borderRadius: 10, border: '1.5px dashed var(--rule-strong)', background: i === 0 ? 'var(--surface)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   aria-label="Add photo"
-                />
+                >
+                  <Icon name="plus" size={16} color="var(--muted)" />
+                </button>
               )
             ))}
           </div>
@@ -1420,7 +1580,24 @@ export function WebCreate({
 
       <hr className="rule" style={{ margin: '36px 0 20px' }} />
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button kind="primary" size="lg" onClick={onSubmitClick}>{initial ? submitLabel : 'Preview listing'}</Button>
+        <Button
+          kind="primary"
+          size="lg"
+          onClick={onSubmitClick}
+          disabled={submitting}
+          // Progress only applies to the edit-save flow. For a new listing this
+          // button just opens the preview — the real upload (and its bar) lives
+          // on the Publish button there.
+          progress={initial && submitting ? (uploadProgress >= 0.9 ? 'indeterminate' : uploadProgress) : undefined}
+        >
+          {!initial
+            ? 'Preview listing'
+            : !submitting
+              ? submitLabel
+              : uploadProgress >= 0.9
+                ? 'Almost there…'
+                : `Saving… ${Math.round((uploadProgress / 0.9) * 100)}%`}
+        </Button>
       </div>
       {attempted && missing.length > 0 && (
         <div style={{ fontSize: 12.5, marginTop: 10, textAlign: 'right', color: 'var(--accent)' }}>
@@ -1726,7 +1903,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         onPost={() => setView('create')}
         onProfile={() => setView('profile')}
         onBell={() => setNotifOpen(true)}
-        onRequests={() => setView('profile')}
+        onRequests={() => { if (typeof window !== 'undefined') window.location.href = '/requests'; }}
         unreadCount={store.unreadCount}
         pendingCount={store.pendingCount}
         meName={store.me?.display_name ?? 'Me'}

@@ -51,6 +51,7 @@ export interface Listing {
   description?: string;
   photo_urls?: string[];
   photo_focus?: string[];
+  photo_zoom?: string[];
   archived?: boolean;
   spokenFor?: boolean;
   created_at?: string;
