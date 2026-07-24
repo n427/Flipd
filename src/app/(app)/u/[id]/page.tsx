@@ -18,7 +18,8 @@ type PublicProfile = {
   is_demo: boolean;
   created_at: string;
 };
-type Review = { score: number; text: string | null; created_at: string; rater: string };
+// Ratings are anonymous — the rater is deliberately not carried here.
+type Review = { score: number; text: string | null; created_at: string };
 
 export default function PublicProfilePage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -138,8 +139,7 @@ export default function PublicProfilePage({ params }: { params: { id: string } }
               <div key={i} style={{ border: '1px solid var(--rule)', borderRadius: 14, padding: '16px 18px', background: '#fff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <Stars score={rev.score} size={14} />
-                  <span style={{ fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{rev.rater}</span>
-                  <span className="t-meta" style={{ fontSize: 12 }}>· {formatPostedDate(rev.created_at)}</span>
+                  <span className="t-meta" style={{ fontSize: 12 }}>{formatPostedDate(rev.created_at)}</span>
                 </div>
                 {rev.text && (
                   <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.5 }}>{rev.text}</div>

@@ -26,7 +26,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const { data: ratings } = await admin
     .from('ratings')
-    .select('score, text, created_at, rater:profiles!ratings_rater_id_fkey(display_name)')
+    // Ratings are anonymous — never select the rater's profile.
+    .select('score, text, created_at')
     .eq('ratee_id', params.id)
     .order('created_at', { ascending: false });
 
@@ -44,7 +45,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         score: r.score,
         text: r.text,
         created_at: r.created_at,
-        rater: (r.rater as unknown as { display_name: string | null } | null)?.display_name ?? 'A Trojan',
       })),
     },
   });
