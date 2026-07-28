@@ -1,3 +1,5 @@
+import * as FileSystem from 'expo-file-system';
+import { decode } from 'base64-arraybuffer';
 import { supabase } from './supabase';
 
 export type FeedSeller = {
@@ -99,4 +101,24 @@ export async function fetchListing(id: string): Promise<ListingDetail | null> {
     photo_urls: row.photo_urls ?? [],
     seller: (s as FeedSeller) ?? null,
   };
+}
+
+// Upload local image URIs (from expo-image-picker) to listing-photos/{userId}/.
+// RN reliable path: read file as base64 -> ArrayBuffer -> upload. Returns the
+// public URLs in order. Storage RLS (migration 021) enforces the {uid}/ folder,
+// so userId must be the caller's own auth uid.
+export async function uploadListingPhotos(localUris: string[], userId: string): Promise<string[]> {
+  const urls: string[] = [];
+  for (let i = 0; i < localUris.length; i++) {
+    const uri = localUris[i];
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+    const path = `${userId}/${i}-${Date.now()}.jpg`;
+    const { error } = await supabase.storage
+      .from('listing-photos')
+      .upload(path, decode(base64), { contentType: 'image/jpeg', upsert: false });
+    if (error) throw error;
+    const { data } = supabase.storage.from('listing-photos').getPublicUrl(path);
+    urls.push(data.publicUrl);
+  }
+  return urls;
 }
