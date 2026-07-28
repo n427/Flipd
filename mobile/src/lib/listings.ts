@@ -122,3 +122,41 @@ export async function uploadListingPhotos(localUris: string[], userId: string): 
   }
   return urls;
 }
+
+export type NewListing = {
+  seller_id: string;
+  title: string;
+  price: number;
+  description: string | null;
+  category: string;
+  location: string | null;
+  place_name: string | null;
+  lat: number | null;
+  lng: number | null;
+  negotiable: boolean;
+  photo_urls: string[];
+};
+
+// Direct insert (RLS listings_insert_own requires seller_id = auth.uid()).
+// Returns the new listing id.
+export async function createListing(input: NewListing): Promise<string> {
+  const { data, error } = await supabase
+    .from('listings')
+    .insert({
+      seller_id: input.seller_id,
+      title: input.title,
+      price: input.price,
+      description: input.description,
+      category: input.category,
+      location: input.location,
+      place_name: input.place_name,
+      lat: input.lat,
+      lng: input.lng,
+      negotiable: input.negotiable,
+      photo_urls: input.photo_urls,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
