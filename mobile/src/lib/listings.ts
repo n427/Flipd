@@ -160,3 +160,37 @@ export async function createListing(input: NewListing): Promise<string> {
   if (error) throw error;
   return data.id as string;
 }
+
+export type MyProfile = {
+  id: string;
+  display_name: string | null;
+  school_unit: string | null;
+  class_year: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+};
+
+export async function fetchMyProfile(userId: string): Promise<MyProfile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, display_name, school_unit, class_year, bio, avatar_url')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as MyProfile) ?? null;
+}
+
+export async function fetchMyListings(userId: string): Promise<FeedListing[]> {
+  const { data, error } = await supabase
+    .from('listings')
+    .select('id, title, price, location, photo_urls, seller_id')
+    .eq('seller_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as Omit<FeedListing, 'seller'>[]).map((l) => ({
+    ...l,
+    price: l.price ?? 0,
+    photo_urls: l.photo_urls ?? [],
+    seller: null,
+  }));
+}
