@@ -53,3 +53,50 @@ export async function fetchFeed(): Promise<FeedListing[]> {
     seller: sellerMap.get(l.seller_id) ?? null,
   }));
 }
+
+export type ListingDetail = {
+  id: string;
+  title: string;
+  price: number;
+  negotiable: boolean;
+  description: string | null;
+  category: string | null;
+  location: string | null;
+  photo_urls: string[];
+  lat: number | null;
+  lng: number | null;
+  place_name: string | null;
+  event_start: string | null;
+  event_end: string | null;
+  seller_id: string;
+  seller: FeedSeller | null;
+};
+
+// Single listing for the detail screen. Same RLS-safe pattern as fetchFeed:
+// seller info from public_profiles, never the base profiles table.
+export async function fetchListing(id: string): Promise<ListingDetail | null> {
+  const { data: row, error } = await supabase
+    .from('listings')
+    .select(
+      'id, title, price, negotiable, description, category, location, photo_urls, lat, lng, place_name, event_start, event_end, seller_id',
+    )
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) return null;
+
+  const { data: s, error: se } = await supabase
+    .from('public_profiles')
+    .select('id, display_name, school_unit, class_year, avatar_url')
+    .eq('id', row.seller_id)
+    .maybeSingle();
+  if (se) throw se;
+
+  return {
+    ...(row as Omit<ListingDetail, 'seller'>),
+    price: row.price ?? 0,
+    negotiable: row.negotiable ?? false,
+    photo_urls: row.photo_urls ?? [],
+    seller: (s as FeedSeller) ?? null,
+  };
+}
