@@ -20,18 +20,18 @@ export default function SignIn() {
     setError('');
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      // Mirror the web app's working call. emailRedirectTo selects the same
-      // email template context that reliably delivers on the web.
-      options: { shouldCreateUser: true, emailRedirectTo: 'https://flipdcampus.com/auth/callback' },
+      options: { shouldCreateUser: true },
     });
     setBusy(false);
     if (error) {
       const rl =
         error.status === 429 ||
         (error as { code?: string }).code === 'over_email_send_rate_limit';
+      // Surface Supabase's real message on rate-limit (it names the wait,
+      // e.g. "after 10 seconds") so it's clear this is a cooldown, not a bug.
       setError(
         rl
-          ? 'Too many emails just now — wait a minute, or tap “I already have a code.”'
+          ? `${error.message} If you already got a code, tap “I already have a code.”`
           : 'Couldn’t send the code. Try again in a moment.',
       );
       return;
