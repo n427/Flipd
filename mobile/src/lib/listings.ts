@@ -111,7 +111,7 @@ export async function uploadListingPhotos(localUris: string[], userId: string): 
   const urls: string[] = [];
   for (let i = 0; i < localUris.length; i++) {
     const uri = localUris[i];
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
     const path = `${userId}/${i}-${Date.now()}.jpg`;
     const { error } = await supabase.storage
       .from('listing-photos')
