@@ -14,12 +14,28 @@ const METHODS = [
 ] as const;
 type MethodId = (typeof METHODS)[number]['id'];
 
+// Signup attribution. `id` is what lands in the database and must match the
+// CHECK constraint in migration 022 and HEARD_FROM in src/app/api/me/route.ts;
+// `label` is display copy and can change freely. `detailPrompt` opts a channel
+// into the follow-up text box — omit it for channels where a free-text answer
+// would be meaningless ("Instagram").
+const CHANNELS: readonly { id: string; label: string; detailPrompt?: string }[] = [
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'friend', label: 'Friend / word of mouth', detailPrompt: 'Who told you about Flipd? (optional)' },
+  { id: 'flyer', label: 'Flyer or poster' },
+  { id: 'class_club', label: 'Class or club', detailPrompt: 'Which one? (optional)' },
+  { id: 'other', label: 'Other', detailPrompt: "How'd you find us? (optional)" },
+];
+const CHANNEL_LABELS = CHANNELS.map((c) => c.label);
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = React.useState<1 | 2>(1);
   const [name, setName] = React.useState('');
   const [year, setYear] = React.useState('');
   const [unit, setUnit] = React.useState('');
+  const [heardLabel, setHeardLabel] = React.useState('');
+  const [heardDetail, setHeardDetail] = React.useState('');
   const [photo, setPhoto] = React.useState<{ file: File; url: string } | null>(null);
   const [contacts, setContacts] = React.useState<{ instagram: string; phone: string; email: string }>({ instagram: '', phone: '', email: '' });
   const [verifiedEmail, setVerifiedEmail] = React.useState('');
@@ -43,6 +59,15 @@ export default function OnboardingPage() {
       .catch(() => {});
   }, [router]);
 
+  const heardChannel = CHANNELS.find((c) => c.label === heardLabel);
+
+  // Switching to a channel with no detail box would otherwise submit an
+  // orphaned answer ("Sarah" filed under Instagram), so drop it on change.
+  const pickChannel = (label: string) => {
+    setHeardLabel(label);
+    if (!CHANNELS.find((c) => c.label === label)?.detailPrompt) setHeardDetail('');
+  };
+
   const finish = async (e: React.FormEvent) => {
     e.preventDefault();
     const filled = (['instagram', 'phone', 'email'] as const).filter((k) => contacts[k].trim());
@@ -63,6 +88,8 @@ export default function OnboardingPage() {
           display_name: name,
           class_year: year,
           school_unit: unit,
+          heard_from: heardChannel?.id,
+          heard_from_detail: heardDetail.trim() || null,
           contact_method: primaryMethod({ instagram: contacts.instagram.trim() || null, phone: contacts.phone.trim() || null, email: contacts.email.trim() || null }),
           contact_instagram: contacts.instagram.trim() || null,
           contact_phone: contacts.phone.trim() || null,
@@ -84,6 +111,7 @@ export default function OnboardingPage() {
     e.preventDefault();
     if (!name.trim()) { setError('Your name is required.'); return; }
     if (!year) { setError('Pick your class year.'); return; }
+    if (!heardChannel) { setError('Let us know how you heard about Flipd.'); return; }
     setError('');
     setStep(2);
   };
@@ -121,6 +149,15 @@ export default function OnboardingPage() {
             <input className="field" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
             <Select label="Class year" placeholder="Class year" options={YEARS} value={year} onChange={setYear} />
             <Select label="School or major" placeholder="School / major (optional)" options={UNITS} value={unit} onChange={setUnit} />
+            <Select label="How you heard about Flipd" placeholder="How'd you hear about Flipd?" options={CHANNEL_LABELS} value={heardLabel} onChange={pickChannel} />
+            {heardChannel?.detailPrompt && (
+              <input
+                className="field"
+                value={heardDetail}
+                onChange={(e) => setHeardDetail(e.target.value)}
+                placeholder={heardChannel.detailPrompt}
+              />
+            )}
             {error && <div style={{ fontSize: 13, color: 'var(--accent)' }}>{error}</div>}
             <button type="submit" className="btn btn-primary" style={{ padding: '13px 22px' }}>Continue</button>
           </form>
