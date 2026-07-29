@@ -1,39 +1,33 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
 import { SessionProvider, useSession } from '@/lib/session';
 
-// Redirects based on auth state: signed-out users are sent to the (auth)
-// group; signed-in users to the (tabs) group.
-function Gate() {
+// Watches auth state and redirects when the current group disagrees with the
+// session: signed-in users leave (auth) -> tabs; signed-out users leave (tabs)
+// -> sign-in. The index route ('/') handles the very first landing; this keeps
+// things in sync after sign-in / sign-out from any screen.
+function AuthWatcher() {
   const { session, loading } = useSession();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
-    const inAuth = segments[0] === '(auth)';
-    if (!session && !inAuth) {
-      router.replace('/(auth)/sign-in');
-    } else if (session && inAuth) {
+    const group = segments[0]; // '(auth)' | '(tabs)' | undefined (index)
+    if (session && group === '(auth)') {
       router.replace('/(tabs)/feed');
+    } else if (!session && group === '(tabs)') {
+      router.replace('/(auth)/sign-in');
     }
   }, [session, loading, segments, router]);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
   return <Stack screenOptions={{ headerShown: false }} />;
 }
 
 export default function RootLayout() {
   return (
     <SessionProvider>
-      <Gate />
+      <AuthWatcher />
     </SessionProvider>
   );
 }
