@@ -1,6 +1,7 @@
 import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { T, F } from '@/lib/theme';
 
 // Small product-showcase cards, mirroring the marketing hero.
@@ -41,71 +42,80 @@ export default function SignIn() {
   const router = useRouter();
 
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg, paddingHorizontal: 24, justifyContent: 'center' }}>
-      {/* Eyebrow */}
-      <Text
-        style={{
-          fontFamily: F.bold,
-          fontSize: 14,
-          color: T.cardinal,
-          textAlign: 'center',
-          letterSpacing: 0.2,
-          marginBottom: 12,
-        }}
-      >
-        The marketplace for USC.
-      </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top', 'bottom']}>
+      <View style={{ flex: 1, paddingHorizontal: 24 }}>
+        {/* Logo top-left */}
+        <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -1, marginTop: 8 }}>
+          flipd<Text style={{ color: T.cardinal }}>.</Text>
+        </Text>
 
-      {/* Headline */}
-      <Text
-        style={{
-          fontFamily: F.black,
-          fontSize: 46,
-          lineHeight: 46,
-          color: T.ink,
-          textAlign: 'center',
-          letterSpacing: -1.8,
-        }}
-      >
-        Buy from people who show up.
-      </Text>
+        {/* Centered hero */}
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+          <Text
+            style={{
+              fontFamily: F.bold,
+              fontSize: 14,
+              color: T.cardinal,
+              textAlign: 'center',
+              marginBottom: 12,
+            }}
+          >
+            The marketplace for USC.
+          </Text>
+          <Text
+            style={{
+              fontFamily: F.black,
+              fontSize: 44,
+              lineHeight: 44,
+              color: T.ink,
+              textAlign: 'center',
+              letterSpacing: -1.8,
+            }}
+          >
+            Buy from people who show up.
+          </Text>
+          <Text
+            style={{
+              fontFamily: F.regular,
+              fontSize: 15,
+              lineHeight: 21,
+              color: T.muted,
+              textAlign: 'center',
+              marginTop: 16,
+            }}
+          >
+            Every buyer and seller verified with @usc.edu. No scams, no strangers, no ghosting.
+          </Text>
 
-      {/* Subtitle */}
-      <Text
-        style={{
-          fontFamily: F.regular,
-          fontSize: 15,
-          lineHeight: 21,
-          color: T.muted,
-          textAlign: 'center',
-          marginTop: 16,
-        }}
-      >
-        Every buyer and seller verified with @usc.edu. No scams, no strangers, no ghosting.
-      </Text>
+          {/* Overlapped product showcase */}
+          <View style={{ height: 200, marginTop: 34, alignItems: 'center', justifyContent: 'center' }}>
+            <MiniCard item={SHOWCASE[0]} style={{ position: 'absolute', left: 6, top: 34, transform: [{ rotate: '-6deg' }] }} />
+            <MiniCard item={SHOWCASE[2]} style={{ position: 'absolute', right: 6, top: 34, transform: [{ rotate: '6deg' }] }} />
+            <MiniCard item={SHOWCASE[1]} style={{ zIndex: 2 }} />
+          </View>
+        </View>
 
-      {/* CTA */}
-      <Pressable
-        onPress={() => router.push('/(auth)/email')}
-        style={{
-          backgroundColor: T.cardinal,
-          borderRadius: 14,
-          paddingVertical: 17,
-          alignItems: 'center',
-          marginTop: 28,
-          alignSelf: 'center',
-          paddingHorizontal: 48,
-        }}
-      >
-        <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>Get started</Text>
-      </Pressable>
-
-      {/* Floating product showcase */}
-      <View style={{ height: 210, marginTop: 40, alignItems: 'center', justifyContent: 'center' }}>
-        <MiniCard item={SHOWCASE[0]} style={{ position: 'absolute', left: 2, top: 40, transform: [{ rotate: '-6deg' }] }} />
-        <MiniCard item={SHOWCASE[2]} style={{ position: 'absolute', right: 2, top: 40, transform: [{ rotate: '6deg' }] }} />
-        <MiniCard item={SHOWCASE[1]} style={{ zIndex: 2 }} />
+        {/* CTA below the pictures */}
+        <View style={{ paddingBottom: 8 }}>
+          <Pressable
+            onPress={() => router.push('/(auth)/email')}
+            style={{
+              backgroundColor: T.cardinal,
+              borderRadius: 14,
+              paddingVertical: 17,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>Get started</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/(auth)/email')}
+            style={{ marginTop: 16, alignItems: 'center' }}
+          >
+            <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>I already have a code</Text>
+          </Pressable>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
