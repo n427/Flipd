@@ -20,7 +20,9 @@ export default function SignIn() {
     setError('');
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: { shouldCreateUser: true },
+      // Mirror the web app's working call. emailRedirectTo selects the same
+      // email template context that reliably delivers on the web.
+      options: { shouldCreateUser: true, emailRedirectTo: 'https://flipdcampus.com/auth/callback' },
     });
     setBusy(false);
     if (error) {
