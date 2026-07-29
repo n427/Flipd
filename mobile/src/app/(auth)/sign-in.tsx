@@ -95,25 +95,42 @@ export default function SignIn() {
           </View>
         </View>
 
-        {/* CTA below the pictures */}
+        {/* CTAs below the pictures */}
         <View style={{ paddingBottom: 8 }}>
           <Pressable
             onPress={() => router.push('/(auth)/email')}
             style={{
               backgroundColor: T.cardinal,
-              borderRadius: 14,
-              paddingVertical: 17,
+              borderRadius: 16,
+              paddingVertical: 18,
               alignItems: 'center',
             }}
           >
-            <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>Get started</Text>
+            <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 17 }}>Get started</Text>
           </Pressable>
           <Pressable
             onPress={() => router.push('/(auth)/email')}
-            style={{ marginTop: 16, alignItems: 'center' }}
+            style={{
+              backgroundColor: T.fieldbg,
+              borderRadius: 16,
+              paddingVertical: 18,
+              alignItems: 'center',
+              marginTop: 12,
+            }}
           >
-            <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>I already have a code</Text>
+            <Text style={{ fontFamily: F.bold, color: T.ink, fontSize: 17 }}>I already have a code</Text>
           </Pressable>
+          <Text
+            style={{
+              fontFamily: F.regular,
+              fontSize: 13,
+              color: T.muted,
+              textAlign: 'center',
+              marginTop: 16,
+            }}
+          >
+            USC-only. No passwords, no phone numbers.
+          </Text>
         </View>
       </View>
     </SafeAreaView>
