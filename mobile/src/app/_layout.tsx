@@ -1,6 +1,17 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
+import { View } from 'react-native';
+import {
+  useFonts,
+  Figtree_400Regular,
+  Figtree_500Medium,
+  Figtree_600SemiBold,
+  Figtree_700Bold,
+  Figtree_800ExtraBold,
+  Figtree_900Black,
+} from '@expo-google-fonts/figtree';
 import { SessionProvider, useSession } from '@/lib/session';
+import { T } from '@/lib/theme';
 
 // Watches auth state and redirects when the current group disagrees with the
 // session: signed-in users leave (auth) -> tabs; signed-out users leave (tabs)
@@ -25,6 +36,21 @@ function AuthWatcher() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Figtree_400Regular,
+    Figtree_500Medium,
+    Figtree_600SemiBold,
+    Figtree_700Bold,
+    Figtree_800ExtraBold,
+    Figtree_900Black,
+  });
+
+  // Hold on a cardinal splash until Figtree is ready — avoids a flash of the
+  // system font on the first screen someone sees.
+  if (!fontsLoaded) {
+    return <View style={{ flex: 1, backgroundColor: T.cardinal }} />;
+  }
+
   return (
     <SessionProvider>
       <AuthWatcher />

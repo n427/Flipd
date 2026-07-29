@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform } from
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { isUscEmail } from '@/lib/usc';
-import { T } from '@/lib/theme';
+import { T, F } from '@/lib/theme';
 
 export default function SignIn() {
   const router = useRouter();
@@ -27,8 +27,6 @@ export default function SignIn() {
       const rl =
         error.status === 429 ||
         (error as { code?: string }).code === 'over_email_send_rate_limit';
-      // Surface Supabase's real message on rate-limit (it names the wait,
-      // e.g. "after 10 seconds") so it's clear this is a cooldown, not a bug.
       setError(
         rl
           ? `${error.message} If you already got a code, tap “I already have a code.”`
@@ -44,20 +42,50 @@ export default function SignIn() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: T.bg }}
     >
-      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28, gap: 0 }}>
-        {/* Brand hero */}
-        <Text style={{ fontSize: 52, fontWeight: '900', color: T.ink, letterSpacing: -1.5 }}>
-          flipd<Text style={{ color: T.cardinal }}>.</Text>
+      {/* Cardinal hero — the brand moment */}
+      <View
+        style={{
+          backgroundColor: T.cardinal,
+          paddingTop: 88,
+          paddingBottom: 56,
+          paddingHorizontal: 28,
+          borderBottomLeftRadius: 32,
+          borderBottomRightRadius: 32,
+        }}
+      >
+        <Text style={{ fontFamily: F.black, fontSize: 34, color: '#fff', letterSpacing: -1 }}>
+          flipd<Text style={{ color: T.gold }}>.</Text>
         </Text>
-        <Text style={{ fontSize: 17, color: T.ink, marginTop: 10, fontWeight: '600' }}>
-          The USC marketplace.
+        <Text
+          style={{
+            fontFamily: F.extrabold,
+            fontSize: 40,
+            lineHeight: 44,
+            color: '#fff',
+            letterSpacing: -1.2,
+            marginTop: 28,
+          }}
+        >
+          Buy from{'\n'}people who{'\n'}show up.
         </Text>
-        <Text style={{ fontSize: 15, color: T.muted, marginTop: 4, marginBottom: 32, lineHeight: 21 }}>
-          Buy and sell with people who show up. Verified with your @usc.edu — no scams, no strangers.
+        <Text
+          style={{
+            fontFamily: F.medium,
+            fontSize: 15.5,
+            lineHeight: 22,
+            color: 'rgba(255,255,255,0.85)',
+            marginTop: 18,
+          }}
+        >
+          Every buyer and seller verified with @usc.edu. No scams, no strangers, no ghosting.
         </Text>
+      </View>
 
-        {/* Email */}
-        <Text style={{ fontSize: 13, fontWeight: '700', color: T.ink, marginBottom: 8 }}>USC email</Text>
+      {/* Form */}
+      <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 34 }}>
+        <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.ink, marginBottom: 8 }}>
+          USC email
+        </Text>
         <TextInput
           value={email}
           onChangeText={(t) => {
@@ -72,19 +100,23 @@ export default function SignIn() {
           returnKeyType="go"
           onSubmitEditing={submit}
           style={{
-            backgroundColor: T.surface,
+            backgroundColor: T.fieldbg,
             borderWidth: 1,
-            borderColor: error ? T.danger : T.rule,
+            borderColor: error ? T.danger : T.fieldbg,
             borderRadius: 14,
             paddingHorizontal: 16,
-            paddingVertical: 15,
+            paddingVertical: 16,
             fontSize: 16,
+            fontFamily: F.medium,
             color: T.ink,
           }}
         />
-        {error ? <Text style={{ color: T.danger, marginTop: 8, fontSize: 13.5 }}>{error}</Text> : null}
+        {error ? (
+          <Text style={{ fontFamily: F.medium, color: T.danger, marginTop: 8, fontSize: 13.5 }}>
+            {error}
+          </Text>
+        ) : null}
 
-        {/* CTA */}
         <Pressable
           onPress={submit}
           disabled={busy}
@@ -93,11 +125,11 @@ export default function SignIn() {
             borderRadius: 14,
             paddingVertical: 17,
             alignItems: 'center',
-            marginTop: 18,
+            marginTop: 16,
             opacity: busy ? 0.7 : 1,
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
+          <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>
             {busy ? 'Sending…' : 'Send my code'}
           </Text>
         </Pressable>
@@ -106,9 +138,9 @@ export default function SignIn() {
           onPress={() =>
             router.push({ pathname: '/(auth)/verify', params: { email: email.trim().toLowerCase() } })
           }
-          style={{ marginTop: 18, alignItems: 'center' }}
+          style={{ marginTop: 20, alignItems: 'center' }}
         >
-          <Text style={{ color: T.muted, fontSize: 14.5 }}>
+          <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>
             I already have a code
           </Text>
         </Pressable>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, Pressable } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { T } from '@/lib/theme';
+import { T, F } from '@/lib/theme';
 
 export default function Verify() {
   const { email } = useLocalSearchParams<{ email: string }>();
@@ -32,11 +32,11 @@ export default function Verify() {
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28, backgroundColor: T.bg }}>
-      <Text style={{ fontSize: 30, fontWeight: '900', color: T.ink, letterSpacing: -0.5 }}>
+      <Text style={{ fontFamily: F.extrabold, fontSize: 30, color: T.ink, letterSpacing: -0.8 }}>
         Check your email
       </Text>
-      <Text style={{ color: T.muted, fontSize: 15, marginTop: 8, marginBottom: 28, lineHeight: 21 }}>
-        We sent a code to{'\n'}<Text style={{ color: T.ink, fontWeight: '700' }}>{String(email)}</Text>
+      <Text style={{ fontFamily: F.regular, color: T.muted, fontSize: 15, marginTop: 8, marginBottom: 28, lineHeight: 21 }}>
+        We sent a code to{'\n'}<Text style={{ fontFamily: F.bold, color: T.ink }}>{String(email)}</Text>
       </Text>
       <TextInput
         value={code}
@@ -45,25 +45,25 @@ export default function Verify() {
           if (error) setError('');
         }}
         placeholder="000000"
-        placeholderTextColor={T.rule}
+        placeholderTextColor="#C9C6C0"
         keyboardType="number-pad"
         returnKeyType="go"
         onSubmitEditing={submit}
         style={{
-          backgroundColor: T.surface,
+          backgroundColor: T.fieldbg,
           borderWidth: 1,
-          borderColor: error ? T.danger : T.rule,
+          borderColor: error ? T.danger : T.fieldbg,
           borderRadius: 14,
           paddingHorizontal: 16,
           paddingVertical: 16,
-          fontSize: 26,
-          fontWeight: '700',
-          letterSpacing: 8,
+          fontSize: 28,
+          fontFamily: F.bold,
+          letterSpacing: 10,
           textAlign: 'center',
           color: T.ink,
         }}
       />
-      {error ? <Text style={{ color: T.danger, marginTop: 8, fontSize: 13.5 }}>{error}</Text> : null}
+      {error ? <Text style={{ fontFamily: F.medium, color: T.danger, marginTop: 8, fontSize: 13.5 }}>{error}</Text> : null}
       <Pressable
         onPress={submit}
         disabled={busy}
@@ -76,7 +76,7 @@ export default function Verify() {
           opacity: busy ? 0.7 : 1,
         }}
       >
-        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>{busy ? 'Verifying…' : 'Verify'}</Text>
+        <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>{busy ? 'Verifying…' : 'Verify'}</Text>
       </Pressable>
     </View>
   );
