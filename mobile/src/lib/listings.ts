@@ -17,6 +17,7 @@ export type FeedListing = {
   location: string | null;
   photo_urls: string[];
   seller_id: string;
+  category: string | null;
   seller: FeedSeller | null;
 };
 
@@ -30,7 +31,7 @@ export function priceLabel(price: number): string {
 export async function fetchFeed(): Promise<FeedListing[]> {
   const { data: rows, error } = await supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, seller_id')
+    .select('id, title, price, location, photo_urls, seller_id, category')
     .eq('archived', false)
     .order('created_at', { ascending: false })
     .limit(50);
@@ -183,7 +184,7 @@ export async function fetchMyProfile(userId: string): Promise<MyProfile | null> 
 export async function fetchMyListings(userId: string): Promise<FeedListing[]> {
   const { data, error } = await supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, seller_id')
+    .select('id, title, price, location, photo_urls, seller_id, category')
     .eq('seller_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
