@@ -224,6 +224,8 @@ export type RevealRequest = {
   counterpart: RevealCounterpart | null;
   // Present only when approved/completed — the contact you're owed.
   contact?: SharedContact;
+  // Sellers: an unseen incoming request. Buyers: an unseen resolution.
+  unread?: boolean;
 };
 
 // Reveal requests where the user is buyer or seller. Goes through the token-
@@ -244,6 +246,31 @@ export async function fetchRequests(
   }
   const json = (await res.json()) as { incoming: RevealRequest[]; outgoing: RevealRequest[] };
   return { incoming: json.incoming ?? [], outgoing: json.outgoing ?? [] };
+}
+
+// Mark all the user's reveals seen (clears the unread badge). Best-effort.
+export async function markRevealsSeen(): Promise<void> {
+  try {
+    const token = await requireToken();
+    await fetch(`${API_BASE}/api/reveals/seen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ mark: 'seen' }),
+    });
+  } catch {
+    // ignore — a failed mark-seen just leaves the badge until next load
+  }
+}
+
+// Count of reveals needing the user's attention, for the tab badge. Returns 0
+// on any failure (a badge should never break navigation).
+export async function fetchUnreadCount(): Promise<number> {
+  try {
+    const { incoming, outgoing } = await fetchRequests('');
+    return [...incoming, ...outgoing].filter((r) => r.unread).length;
+  } catch {
+    return 0;
+  }
 }
 
 // Another user's PUBLIC profile (safe columns only, via public_profiles) +

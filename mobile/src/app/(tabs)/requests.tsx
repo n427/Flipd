@@ -3,7 +3,8 @@ import { View, Text, SectionList, Pressable, ActivityIndicator, RefreshControl, 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
-import { fetchRequests, respondReveal, RevealRequest, SharedContact } from '@/lib/listings';
+import { fetchRequests, respondReveal, markRevealsSeen, RevealRequest, SharedContact } from '@/lib/listings';
+import { useUnread } from '@/lib/unread';
 import { T, F } from '@/lib/theme';
 
 // Status → label + colors (badge).
@@ -138,6 +139,7 @@ function Row({
 export default function Requests() {
   const router = useRouter();
   const { user } = useSession();
+  const { refresh: refreshBadge } = useUnread();
   const [incoming, setIncoming] = useState<RevealRequest[]>([]);
   const [outgoing, setOutgoing] = useState<RevealRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,8 +163,11 @@ export default function Requests() {
     (async () => {
       await load();
       setLoading(false);
+      // Viewing the list counts as seeing everything — clear the badge.
+      await markRevealsSeen();
+      refreshBadge();
     })();
-  }, [load]);
+  }, [load, refreshBadge]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -178,12 +183,13 @@ export default function Requests() {
       try {
         await respondReveal(id, action, markSold);
         await load();
+        refreshBadge();
         if (action === 'approve') {
           Alert.alert(
             markSold ? 'Approved & marked sold' : 'Approved',
             markSold
-              ? 'Contact shared by email. The listing is now archived and other pending requests were declined.'
-              : 'Your contact info was shared with each other by email.',
+              ? 'You each got the other’s contact. The listing is now archived and other pending requests were declined.'
+              : 'You each got the other’s contact — it’s shown on this request.',
           );
         }
       } catch (e) {
@@ -192,7 +198,7 @@ export default function Requests() {
         setBusyId(null);
       }
     },
-    [load],
+    [load, refreshBadge],
   );
 
   // Approve taps ask whether this closes the sale, since that also archives the

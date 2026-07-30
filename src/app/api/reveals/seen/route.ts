@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
-import { getSessionUser } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/supabase/authAny';
 
 // Mark notifications seen or dismissed for the caller's role on each row.
 // Body: { mark: 'seen' | 'dismiss', ids?: string[] } — no ids means all.
 export async function POST(req: NextRequest) {
-  const user = await getSessionUser();
+  // Web cookie session OR mobile Bearer token.
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { mark, ids } = await req.json().catch(() => ({}));

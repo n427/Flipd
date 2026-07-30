@@ -11,6 +11,7 @@ import {
   Figtree_900Black,
 } from '@expo-google-fonts/figtree';
 import { SessionProvider, useSession } from '@/lib/session';
+import { UnreadProvider } from '@/lib/unread';
 import { T } from '@/lib/theme';
 
 // Watches auth state and redirects when the current group disagrees with the
@@ -53,7 +54,9 @@ export default function RootLayout() {
 
   return (
     <SessionProvider>
-      <AuthWatcher />
+      <UnreadProvider>
+        <AuthWatcher />
+      </UnreadProvider>
     </SessionProvider>
   );
 }

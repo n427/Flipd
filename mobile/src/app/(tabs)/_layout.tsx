@@ -1,7 +1,38 @@
-import { View } from 'react-native';
+import { View, Text } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { T } from '@/lib/theme';
+import { T, F } from '@/lib/theme';
+import { useUnread } from '@/lib/unread';
+
+// Bell icon with an unread-count badge for the Requests tab.
+function RequestsIcon({ color, size }: { color: string; size: number }) {
+  const { count } = useUnread();
+  return (
+    <View>
+      <Ionicons name="notifications" color={color} size={size} />
+      {count > 0 ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: -4,
+            right: -7,
+            minWidth: 17,
+            height: 17,
+            borderRadius: 9,
+            backgroundColor: T.cardinal,
+            paddingHorizontal: 4,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontFamily: F.bold, fontSize: 10.5, color: '#fff' }}>
+            {count > 9 ? '9+' : count}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   return (
@@ -21,7 +52,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="requests"
-        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="notifications" color={color} size={size} /> }}
+        options={{ tabBarIcon: ({ color, size }) => <RequestsIcon color={color} size={size} /> }}
       />
       {/* Post — prominent raised center button */}
       <Tabs.Screen
