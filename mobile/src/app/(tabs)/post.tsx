@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
-import { createListing, uploadListingPhotos } from '@/lib/listings';
+import { createListing, uploadListingPhotos, generateDescription } from '@/lib/listings';
 import { CATEGORIES, CAMPUS_SPOTS } from '@/lib/catalog';
 import { T, F } from '@/lib/theme';
 
@@ -24,6 +24,24 @@ export default function Post() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+
+  const fillWithAI = async () => {
+    if (!title.trim() || !category) {
+      setError('Add a title and category first, then Fill with AI.');
+      return;
+    }
+    setAiBusy(true);
+    setError('');
+    try {
+      const text = await generateDescription(title.trim(), category);
+      setDescription(text.trim());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'AI is unavailable right now.');
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   const addFromLibrary = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -156,7 +174,19 @@ export default function Post() {
         style={field}
       />
 
-      <Text style={label}>Description</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <Text style={[label, { marginBottom: 0 }]}>Description</Text>
+        <Pressable
+          onPress={fillWithAI}
+          disabled={aiBusy}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, opacity: aiBusy ? 0.6 : 1 }}
+        >
+          <Ionicons name="sparkles" size={14} color={T.cardinal} />
+          <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.cardinal }}>
+            {aiBusy ? 'Writing…' : 'Fill with AI'}
+          </Text>
+        </Pressable>
+      </View>
       <TextInput
         value={description}
         onChangeText={setDescription}

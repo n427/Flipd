@@ -250,3 +250,24 @@ export async function fetchUserListings(userId: string): Promise<FeedListing[]> 
     seller: null,
   }));
 }
+
+// Generate a listing description via the web API (server-side Anthropic key).
+// Sends the user's Supabase access token so the route can authenticate the
+// mobile client (see web src/lib/supabase/authAny.ts).
+const API_BASE = 'https://www.flipdcampus.com';
+export async function generateDescription(title: string, category: string): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Not signed in.');
+  const res = await fetch(`${API_BASE}/api/generate-description`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ title, category }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+  const body = await res.json();
+  return body.description as string;
+}
