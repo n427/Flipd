@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
-import { getSessionUser } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/supabase/authAny';
 
 const REASONS = ['scam', 'prohibited', 'harassment', 'other'];
 
 // Report capture only — no moderation surface reads these yet.
 export async function POST(req: NextRequest) {
-  const user = await getSessionUser();
+  // Web cookie session OR mobile Bearer token.
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { listing_id, user_id, reason, note } = await req.json().catch(() => ({}));

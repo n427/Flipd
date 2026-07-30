@@ -3,7 +3,7 @@ import { View, Text, TextInput, FlatList, ScrollView, Pressable, ActivityIndicat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { fetchFeed, FeedListing } from '@/lib/listings';
+import { fetchFeed, fetchBlockedIds, FeedListing } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
 import { CATEGORIES } from '@/lib/catalog';
 import { T, F } from '@/lib/theme';
@@ -22,7 +22,8 @@ export default function Feed() {
   const load = useCallback(async () => {
     try {
       setError(false);
-      setListings(await fetchFeed());
+      const blockedIds = await fetchBlockedIds();
+      setListings(await fetchFeed(blockedIds));
     } catch {
       setError(true);
     }

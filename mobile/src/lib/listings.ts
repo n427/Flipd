@@ -28,7 +28,7 @@ export function priceLabel(price: number): string {
 // RLS-safe feed fetch: two queries merged client-side. Seller info comes
 // from public_profiles (the base profiles table is not readable for others
 // under RLS, so a listings->profiles embedded join returns null).
-export async function fetchFeed(): Promise<FeedListing[]> {
+export async function fetchFeed(blockedIds: string[] = []): Promise<FeedListing[]> {
   const { data: rows, error } = await supabase
     .from('listings')
     .select('id, title, price, location, photo_urls, seller_id, category')
@@ -36,7 +36,8 @@ export async function fetchFeed(): Promise<FeedListing[]> {
     .order('created_at', { ascending: false })
     .limit(50);
   if (error) throw error;
-  const listings = (rows ?? []) as Omit<FeedListing, 'seller'>[];
+  const block = new Set(blockedIds);
+  const listings = ((rows ?? []) as Omit<FeedListing, 'seller'>[]).filter((l) => !block.has(l.seller_id));
 
   const sellerIds = [...new Set(listings.map((l) => l.seller_id))];
   const sellerMap = new Map<string, FeedSeller>();
@@ -286,6 +287,71 @@ export async function fetchRatings(userId: string): Promise<RatingSummary> {
     return (await res.json()) as RatingSummary;
   } catch {
     return { average: null, count: 0, reviews: [] };
+  }
+}
+
+export type ReportReason = 'scam' | 'prohibited' | 'harassment' | 'other';
+
+// Block a user — mutual block hides them from feed/search and prevents reveals
+// in either direction. Idempotent (upsert server-side).
+export async function blockUser(userId: string): Promise<void> {
+  const token = await requireToken();
+  const res = await fetch(`${API_BASE}/api/blocks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+  const token = await requireToken();
+  const res = await fetch(`${API_BASE}/api/blocks`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+}
+
+// IDs the user has blocked, so surfaces can filter them out. Empty on failure.
+export async function fetchBlockedIds(): Promise<string[]> {
+  try {
+    const token = await requireToken();
+    const res = await fetch(`${API_BASE}/api/blocks`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return [];
+    return ((await res.json()).ids as string[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+// Report a user or listing. Capture only — routed to moderation later.
+export async function reportUser(
+  target: { userId?: string; listingId?: string },
+  reason: ReportReason,
+  note: string,
+): Promise<void> {
+  const token = await requireToken();
+  const res = await fetch(`${API_BASE}/api/reports`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      user_id: target.userId,
+      listing_id: target.listingId,
+      reason,
+      note: note.trim() || undefined,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
   }
 }
 

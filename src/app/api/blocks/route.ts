@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
-import { getSessionUser } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/supabase/authAny';
 
-export async function GET() {
-  const user = await getSessionUser();
+export async function GET(req: NextRequest) {
+  // Web cookie session OR mobile Bearer token.
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const { data, error } = await admin
     .from('blocks')
@@ -14,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getSessionUser();
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const { user_id } = await req.json().catch(() => ({}));
   if (!user_id || user_id === user.id) {
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const user = await getSessionUser();
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const { user_id } = await req.json().catch(() => ({}));
   if (!user_id) return NextResponse.json({ error: 'user_id required' }, { status: 400 });
