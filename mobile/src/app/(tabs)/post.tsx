@@ -7,7 +7,10 @@ import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
 import { createListing, uploadListingPhotos, generateDescription } from '@/lib/listings';
 import { CATEGORIES, CAMPUS_SPOTS } from '@/lib/catalog';
+import { searchPlaces, placeDetails, PlaceHit } from '@/lib/places';
 import { T, F } from '@/lib/theme';
+
+const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 const MAX_PHOTOS = 8;
 
@@ -72,6 +75,28 @@ export default function Post() {
   const pickChip = (s: { name: string; lat: number; lng: number }) => {
     setLocName(s.name);
     setCoords({ lat: s.lat, lng: s.lng });
+    setHits([]);
+  };
+
+  // Place search
+  const [hits, setHits] = useState<PlaceHit[]>([]);
+  const onLocChange = async (t: string) => {
+    setLocName(t);
+    setCoords(null);
+    if (t.trim().length < 3) {
+      setHits([]);
+      return;
+    }
+    setHits(await searchPlaces(t));
+  };
+  const pickPlace = async (h: PlaceHit) => {
+    setHits([]);
+    setLocName(h.label);
+    const d = await placeDetails(h.placeId);
+    if (d) {
+      setLocName(d.name);
+      setCoords({ lat: d.lat, lng: d.lng });
+    }
   };
 
   const submit = async () => {
@@ -218,14 +243,36 @@ export default function Post() {
       <Text style={label}>Where you’ll meet</Text>
       <TextInput
         value={locName}
-        onChangeText={(t) => {
-          setLocName(t);
-          setCoords(null);
-        }}
-        placeholder="Type a spot, or pick one below"
+        onChangeText={onLocChange}
+        placeholder="Search a place, or pick a campus spot"
         placeholderTextColor={T.muted}
-        style={field}
+        style={[field, hits.length ? { marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 } : null]}
       />
+      {/* Place suggestions */}
+      {hits.length > 0 ? (
+        <View style={{ backgroundColor: '#fff', borderWidth: 1, borderTopWidth: 0, borderColor: T.rule, borderBottomLeftRadius: 14, borderBottomRightRadius: 14, marginBottom: 12, overflow: 'hidden' }}>
+          {hits.map((h) => (
+            <Pressable
+              key={h.placeId}
+              onPress={() => pickPlace(h)}
+              style={{ paddingVertical: 12, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: T.rule, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <Ionicons name="location-outline" size={16} color={T.muted} />
+              <Text numberOfLines={1} style={{ fontFamily: F.medium, fontSize: 14, color: T.ink, flex: 1 }}>{h.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      {/* Static map preview once coords are picked */}
+      {coords && MAPS_KEY ? (
+        <Image
+          source={{
+            uri: `https://maps.googleapis.com/maps/api/staticmap?center=${coords.lat},${coords.lng}&zoom=16&size=600x200&scale=2&markers=color:red%7C${coords.lat},${coords.lng}&key=${MAPS_KEY}`,
+          }}
+          style={{ width: '100%', height: 130, borderRadius: 12, marginBottom: 12 }}
+          contentFit="cover"
+        />
+      ) : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
         {CAMPUS_SPOTS.map((s) => (
           <Pressable key={s.name} onPress={() => pickChip(s)} style={chip(locName === s.name)}>
