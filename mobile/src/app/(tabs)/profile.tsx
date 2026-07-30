@@ -52,15 +52,23 @@ export default function Profile() {
               {unitYear ? <Text style={{ fontFamily: F.regular, color: T.muted }}>{unitYear}</Text> : null}
             </View>
           </View>
-          {profile?.bio ? <Text style={{ color: '#333' }}>{profile.bio}</Text> : null}
-          {state === 'error' ? <Text style={{ color: '#c00' }}>Couldn&apos;t load your profile.</Text> : null}
-          <Pressable
-            onPress={() => supabase.auth.signOut()}
-            style={{ alignSelf: 'flex-start', backgroundColor: T.fieldbg, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20, marginTop: 4 }}
-          >
-            <Text style={{ fontFamily: F.bold, color: T.ink }}>Sign out</Text>
-          </Pressable>
-          <Text style={{ fontFamily: F.bold, fontSize: 15, marginTop: 12, color: T.ink }}>My Listings</Text>
+          {profile?.bio ? <Text style={{ fontFamily: F.regular, fontSize: 14, color: '#333', marginTop: 2 }}>{profile.bio}</Text> : null}
+          {state === 'error' ? <Text style={{ fontFamily: F.medium, color: T.danger }}>Couldn&apos;t load your profile.</Text> : null}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+            <Pressable
+              onPress={() => router.push('/(tabs)/edit-profile')}
+              style={{ backgroundColor: T.cardinal, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20 }}
+            >
+              <Text style={{ fontFamily: F.bold, color: '#fff' }}>Edit profile</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => supabase.auth.signOut()}
+              style={{ backgroundColor: T.fieldbg, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20 }}
+            >
+              <Text style={{ fontFamily: F.bold, color: T.ink }}>Sign out</Text>
+            </Pressable>
+          </View>
+          <Text style={{ fontFamily: F.bold, fontSize: 15, marginTop: 16, color: T.ink }}>My Listings</Text>
         </View>
       }
       ListEmptyComponent={

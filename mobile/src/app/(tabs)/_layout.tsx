@@ -56,6 +56,7 @@ export default function TabsLayout() {
       {/* Hidden routes — not tabs */}
       <Tabs.Screen name="listing/[id]" options={{ href: null }} />
       <Tabs.Screen name="u/[id]" options={{ href: null }} />
+      <Tabs.Screen name="edit-profile" options={{ href: null }} />
     </Tabs>
   );
 }

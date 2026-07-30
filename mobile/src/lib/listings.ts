@@ -271,3 +271,12 @@ export async function generateDescription(title: string, category: string): Prom
   const body = await res.json();
   return body.description as string;
 }
+
+// Update the signed-in user's own profile (RLS profiles_update_own allows it).
+export async function updateMyProfile(
+  userId: string,
+  patch: { display_name?: string | null; bio?: string | null; school_unit?: string | null; class_year?: string | null },
+): Promise<void> {
+  const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+  if (error) throw error;
+}
