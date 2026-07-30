@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
-import { getSessionUser } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/supabase/authAny';
 
 // GET /api/ratings?user=<id> — aggregate + recent reviews for a profile.
 export async function GET(req: NextRequest) {
-  const user = await getSessionUser();
+  // Web cookie session OR mobile Bearer token.
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const rateeId = new URL(req.url).searchParams.get('user') || user.id;
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
 
 // POST — leave one rating for the other party of a Completed transaction.
 export async function POST(req: NextRequest) {
-  const user = await getSessionUser();
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { request_id, score, text } = await req.json().catch(() => ({}));

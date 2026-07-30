@@ -226,6 +226,8 @@ export type RevealRequest = {
   contact?: SharedContact;
   // Sellers: an unseen incoming request. Buyers: an unseen resolution.
   unread?: boolean;
+  // Completed and the viewer hasn't left their rating yet.
+  can_rate?: boolean;
 };
 
 // Reveal requests where the user is buyer or seller. Goes through the token-
@@ -246,6 +248,45 @@ export async function fetchRequests(
   }
   const json = (await res.json()) as { incoming: RevealRequest[]; outgoing: RevealRequest[] };
   return { incoming: json.incoming ?? [], outgoing: json.outgoing ?? [] };
+}
+
+// Leave a rating (1-5 + optional text) for the other party of a completed
+// transaction. Anonymous. 409 if already rated.
+export async function submitRating(
+  requestId: string,
+  score: number,
+  text: string,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const token = await requireToken();
+  const res = await fetch(`${API_BASE}/api/ratings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ request_id: requestId, score, text: text.trim() || undefined }),
+  });
+  if (res.ok) return { ok: true };
+  const body = await res.json().catch(() => ({}));
+  return { ok: false, status: res.status, error: body.error || `Request failed (${res.status})` };
+}
+
+export type RatingSummary = {
+  average: number | null;
+  count: number;
+  reviews: { score: number; text: string | null; created_at: string }[];
+};
+
+// Aggregate rating + recent anonymous reviews for a profile. Returns an empty
+// summary on failure so a profile still renders without ratings.
+export async function fetchRatings(userId: string): Promise<RatingSummary> {
+  try {
+    const token = await requireToken();
+    const res = await fetch(`${API_BASE}/api/ratings?user=${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return { average: null, count: 0, reviews: [] };
+    return (await res.json()) as RatingSummary;
+  } catch {
+    return { average: null, count: 0, reviews: [] };
+  }
 }
 
 // Mark all the user's reveals seen (clears the unread badge). Best-effort.
