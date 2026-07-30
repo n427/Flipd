@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, FlatList, ScrollView, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { fetchFeed, FeedListing } from '@/lib/listings';
@@ -50,8 +51,11 @@ export default function Feed() {
   }, [listings, cat, query]);
 
   const header = (
-    <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
-      {/* Search */}
+    <View style={{ paddingHorizontal: 12 }}>
+      {/* Brand + search */}
+      <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -1, marginBottom: 12 }}>
+        flipd<Text style={{ color: T.cardinal }}>.</Text>
+      </Text>
       <View
         style={{
           flexDirection: 'row',
@@ -78,16 +82,6 @@ export default function Feed() {
           </Pressable>
         ) : null}
       </View>
-
-      {/* Title + count */}
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 18 }}>
-        <Text style={{ fontFamily: F.black, fontSize: 24, color: T.ink, letterSpacing: -0.8 }}>
-          Fresh finds near campus
-        </Text>
-      </View>
-      <Text style={{ fontFamily: F.medium, fontSize: 13, color: T.muted, marginTop: 4 }}>
-        {visible.length} {visible.length === 1 ? 'listing' : 'listings'}
-      </Text>
 
       {/* Category chips */}
       <ScrollView
@@ -127,24 +121,26 @@ export default function Feed() {
   }
 
   return (
-    <FlatList
-      data={visible}
-      keyExtractor={(l) => l.id}
-      numColumns={2}
-      style={{ backgroundColor: T.bg }}
-      contentContainerStyle={{ paddingHorizontal: 6, paddingBottom: 16 }}
-      ListHeaderComponent={header}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      ListEmptyComponent={
-        <View style={{ alignItems: 'center', justifyContent: 'center', padding: 48 }}>
-          <Text style={{ fontFamily: F.medium, color: T.muted }}>
-            {error ? 'Couldn’t load — pull to retry.' : query || cat !== 'all' ? 'Nothing matches that.' : 'No listings yet.'}
-          </Text>
-        </View>
-      }
-      renderItem={({ item }) => (
-        <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}`)} />
-      )}
-    />
+    <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <FlatList
+        data={visible}
+        keyExtractor={(l) => l.id}
+        numColumns={2}
+        style={{ backgroundColor: T.bg }}
+        contentContainerStyle={{ paddingHorizontal: 6, paddingBottom: 16 }}
+        ListHeaderComponent={header}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListEmptyComponent={
+          <View style={{ alignItems: 'center', justifyContent: 'center', padding: 48 }}>
+            <Text style={{ fontFamily: F.medium, color: T.muted }}>
+              {error ? 'Couldn’t load — pull to retry.' : query || cat !== 'all' ? 'Nothing matches that.' : 'No listings yet.'}
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}`)} />
+        )}
+      />
+    </SafeAreaView>
   );
 }
