@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { FeedListing, priceLabel } from '@/lib/listings';
+import { T, F } from '@/lib/theme';
 
 export function ListingCard({ listing, onPress }: { listing: FeedListing; onPress: () => void }) {
   const [failed, setFailed] = useState(false);
@@ -27,18 +28,18 @@ export function ListingCard({ listing, onPress }: { listing: FeedListing; onPres
           />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#b8b4ad', fontSize: 12 }}>No photo</Text>
+            <Text style={{ fontFamily: F.medium, color: '#b8b4ad', fontSize: 12 }}>No photo</Text>
           </View>
         )}
       </View>
-      <Text numberOfLines={1} style={{ fontWeight: '700', fontSize: 14.5, marginTop: 8 }}>
+      <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 14.5, marginTop: 8, color: T.ink }}>
         {listing.title}
       </Text>
-      <Text numberOfLines={1} style={{ color: '#666', fontSize: 12.5, marginTop: 2 }}>
+      <Text numberOfLines={1} style={{ fontFamily: F.regular, color: T.muted, fontSize: 12.5, marginTop: 2 }}>
         {sellerLine}
       </Text>
       <Text
-        style={{ fontWeight: '700', fontSize: 15, marginTop: 2, color: listing.price > 0 ? '#111' : '#990000' }}
+        style={{ fontFamily: F.bold, fontSize: 15, marginTop: 2, color: listing.price > 0 ? T.ink : T.cardinal }}
       >
         {priceLabel(listing.price)}
       </Text>

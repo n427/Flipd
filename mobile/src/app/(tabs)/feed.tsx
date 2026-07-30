@@ -3,6 +3,7 @@ import { View, Text, FlatList, ActivityIndicator, RefreshControl } from 'react-n
 import { useRouter } from 'expo-router';
 import { fetchFeed, FeedListing } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
+import { T, F } from '@/lib/theme';
 
 export default function Feed() {
   const router = useRouter();
@@ -44,7 +45,7 @@ export default function Feed() {
   if (error) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <Text style={{ color: '#666', textAlign: 'center' }}>Couldn&apos;t load — pull to retry.</Text>
+        <Text style={{ fontFamily: F.medium, color: T.muted, textAlign: 'center' }}>Couldn&apos;t load — pull to retry.</Text>
       </View>
     );
   }
@@ -53,11 +54,12 @@ export default function Feed() {
       data={listings}
       keyExtractor={(l) => l.id}
       numColumns={2}
+      style={{ backgroundColor: T.bg }}
       contentContainerStyle={{ padding: 6 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListEmptyComponent={
         <View style={{ alignItems: 'center', justifyContent: 'center', padding: 48 }}>
-          <Text style={{ color: '#666' }}>No listings yet</Text>
+          <Text style={{ fontFamily: F.medium, color: T.muted }}>No listings yet</Text>
         </View>
       }
       renderItem={({ item }) => (

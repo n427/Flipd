@@ -6,6 +6,7 @@ import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { fetchMyProfile, fetchMyListings, MyProfile, FeedListing } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
+import { T, F } from '@/lib/theme';
 
 export default function Profile() {
   const router = useRouter();
@@ -47,25 +48,25 @@ export default function Profile() {
               <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#eee' }} />
             )}
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 18, fontWeight: '800' }}>{profile?.display_name ?? user?.email ?? 'You'}</Text>
-              {unitYear ? <Text style={{ color: '#666' }}>{unitYear}</Text> : null}
+              <Text style={{ fontFamily: F.extrabold, fontSize: 18, color: T.ink }}>{profile?.display_name ?? user?.email ?? 'You'}</Text>
+              {unitYear ? <Text style={{ fontFamily: F.regular, color: T.muted }}>{unitYear}</Text> : null}
             </View>
           </View>
           {profile?.bio ? <Text style={{ color: '#333' }}>{profile.bio}</Text> : null}
           {state === 'error' ? <Text style={{ color: '#c00' }}>Couldn&apos;t load your profile.</Text> : null}
           <Pressable
             onPress={() => supabase.auth.signOut()}
-            style={{ alignSelf: 'flex-start', backgroundColor: '#111', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20, marginTop: 4 }}
+            style={{ alignSelf: 'flex-start', backgroundColor: T.fieldbg, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20, marginTop: 4 }}
           >
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Sign out</Text>
+            <Text style={{ fontFamily: F.bold, color: T.ink }}>Sign out</Text>
           </Pressable>
-          <Text style={{ fontWeight: '700', fontSize: 15, marginTop: 12 }}>My Listings</Text>
+          <Text style={{ fontFamily: F.bold, fontSize: 15, marginTop: 12, color: T.ink }}>My Listings</Text>
         </View>
       }
       ListEmptyComponent={
         state === 'ready' ? (
           <View style={{ padding: 24 }}>
-            <Text style={{ color: '#666' }}>You haven&apos;t posted anything yet.</Text>
+            <Text style={{ fontFamily: F.medium, color: T.muted }}>You haven&apos;t posted anything yet.</Text>
           </View>
         ) : null
       }

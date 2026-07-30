@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, Switch, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
 import { createListing, uploadListingPhotos } from '@/lib/listings';
 import { CATEGORIES, CAMPUS_SPOTS } from '@/lib/catalog';
+import { T, F } from '@/lib/theme';
 
 const MAX_PHOTOS = 8;
 
@@ -97,107 +99,163 @@ export default function Post() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+    <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} style={{ backgroundColor: T.bg }}>
+      <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 18 }}>
+        New listing
+      </Text>
+
       {/* Photos */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      <Text style={label}>Photos</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
         {photos.map((uri, i) => (
-          <View key={uri} style={{ width: 72, height: 72 }}>
-            <Image source={{ uri }} style={{ width: 72, height: 72, borderRadius: 8 }} contentFit="cover" />
+          <View key={uri} style={{ width: 76, height: 76 }}>
+            <Image source={{ uri }} style={{ width: 76, height: 76, borderRadius: 12 }} contentFit="cover" />
             <Pressable
               onPress={() => removePhoto(i)}
-              style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#000', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}
+              style={{
+                position: 'absolute',
+                top: -6,
+                right: -6,
+                backgroundColor: T.ink,
+                borderRadius: 11,
+                width: 22,
+                height: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <Text style={{ color: '#fff', fontSize: 12 }}>×</Text>
+              <Ionicons name="close" size={14} color="#fff" />
             </Pressable>
           </View>
         ))}
         {photos.length < MAX_PHOTOS && (
           <>
-            <Pressable onPress={addFromLibrary} style={box}>
-              <Text style={{ color: '#666', fontSize: 11 }}>Library</Text>
+            <Pressable onPress={addFromLibrary} style={photoBox}>
+              <Ionicons name="images-outline" size={20} color={T.muted} />
+              <Text style={photoBoxLabel}>Library</Text>
             </Pressable>
-            <Pressable onPress={addFromCamera} style={box}>
-              <Text style={{ color: '#666', fontSize: 11 }}>Camera</Text>
+            <Pressable onPress={addFromCamera} style={photoBox}>
+              <Ionicons name="camera-outline" size={20} color={T.muted} />
+              <Text style={photoBoxLabel}>Camera</Text>
             </Pressable>
           </>
         )}
       </View>
 
-      <TextInput value={title} onChangeText={setTitle} placeholder="Title" style={field} />
+      {/* Title / price / description */}
+      <Text style={label}>Title</Text>
+      <TextInput value={title} onChangeText={setTitle} placeholder="What are you selling?" placeholderTextColor={T.muted} style={field} />
+
+      <Text style={label}>Price</Text>
       <TextInput
         value={price}
         onChangeText={(t) => setPrice(t.replace(/\D/g, ''))}
-        placeholder="Price (blank = Free)"
+        placeholder="Leave blank for Free"
+        placeholderTextColor={T.muted}
         keyboardType="number-pad"
         style={field}
       />
+
+      <Text style={label}>Description</Text>
       <TextInput
         value={description}
         onChangeText={setDescription}
-        placeholder="Description"
+        placeholder="Details, condition, pickup notes…"
+        placeholderTextColor={T.muted}
         multiline
-        style={[field, { height: 90, textAlignVertical: 'top' }]}
+        style={[field, { height: 96, textAlignVertical: 'top', paddingTop: 14 }]}
       />
 
       {/* Category */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      <Text style={label}>Category</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
         {CATEGORIES.map((cat) => (
           <Pressable key={cat.id} onPress={() => setCategory(cat.id)} style={chip(category === cat.id)}>
-            <Text style={{ color: category === cat.id ? '#fff' : '#333', fontWeight: '600', fontSize: 13 }}>{cat.label}</Text>
+            <Text style={{ fontFamily: F.semibold, color: category === cat.id ? '#fff' : T.ink, fontSize: 13.5 }}>
+              {cat.label}
+            </Text>
           </Pressable>
         ))}
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Switch value={negotiable} onValueChange={setNegotiable} />
-        <Text>Open to offers</Text>
+      {/* Negotiable */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <Switch value={negotiable} onValueChange={setNegotiable} trackColor={{ true: T.cardinal }} />
+        <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.ink }}>Open to offers</Text>
       </View>
 
       {/* Location */}
+      <Text style={label}>Where you’ll meet</Text>
       <TextInput
         value={locName}
         onChangeText={(t) => {
           setLocName(t);
           setCoords(null);
         }}
-        placeholder="Where you'll meet"
+        placeholder="Type a spot, or pick one below"
+        placeholderTextColor={T.muted}
         style={field}
       />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
         {CAMPUS_SPOTS.map((s) => (
           <Pressable key={s.name} onPress={() => pickChip(s)} style={chip(locName === s.name)}>
-            <Text style={{ color: locName === s.name ? '#fff' : '#333', fontWeight: '600', fontSize: 13 }}>{s.name}</Text>
+            <Text style={{ fontFamily: F.semibold, color: locName === s.name ? '#fff' : T.ink, fontSize: 13.5 }}>
+              {s.name}
+            </Text>
           </Pressable>
         ))}
       </View>
 
-      {error ? <Text style={{ color: '#c00' }}>{error}</Text> : null}
+      {error ? <Text style={{ fontFamily: F.medium, color: T.danger, marginTop: 8 }}>{error}</Text> : null}
+
       <Pressable
         onPress={submit}
         disabled={submitting}
-        style={{ backgroundColor: '#111', borderRadius: 10, padding: 16, alignItems: 'center', opacity: submitting ? 0.6 : 1 }}
+        style={{
+          backgroundColor: T.cardinal,
+          borderRadius: 14,
+          paddingVertical: 17,
+          alignItems: 'center',
+          marginTop: 20,
+          opacity: submitting ? 0.7 : 1,
+        }}
       >
-        <Text style={{ color: '#fff', fontWeight: '700' }}>{submitting ? 'Posting…' : 'Post listing'}</Text>
+        <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>
+          {submitting ? 'Posting…' : 'Post listing'}
+        </Text>
       </Pressable>
     </ScrollView>
   );
 }
 
-const field = { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, fontSize: 15 } as const;
-const box = {
-  width: 72,
-  height: 72,
-  borderRadius: 8,
+const label = { fontFamily: F.bold, fontSize: 13, color: T.ink, marginBottom: 8 } as const;
+const field = {
+  backgroundColor: T.fieldbg,
   borderWidth: 1,
-  borderColor: '#ddd',
+  borderColor: T.fieldbg,
+  borderRadius: 14,
+  paddingHorizontal: 16,
+  paddingVertical: 14,
+  fontSize: 15,
+  fontFamily: F.medium,
+  color: T.ink,
+  marginBottom: 20,
+} as const;
+const photoBox = {
+  width: 76,
+  height: 76,
+  borderRadius: 12,
+  backgroundColor: T.fieldbg,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
+  gap: 3,
 };
+const photoBoxLabel = { fontFamily: F.medium, color: T.muted, fontSize: 11 } as const;
 const chip = (active: boolean) => ({
-  paddingVertical: 8,
-  paddingHorizontal: 14,
+  paddingVertical: 9,
+  paddingHorizontal: 15,
   borderRadius: 999,
   borderWidth: 1,
-  borderColor: active ? '#111' : '#ddd',
-  backgroundColor: active ? '#111' : '#fff',
+  borderColor: active ? T.cardinal : T.rule,
+  backgroundColor: active ? T.cardinal : '#fff',
 });

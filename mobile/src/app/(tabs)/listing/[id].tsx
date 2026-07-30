@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator } from 'r
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { fetchListing, ListingDetail, priceLabel } from '@/lib/listings';
+import { T, F } from '@/lib/theme';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
 
 const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -43,8 +44,8 @@ export default function ListingDetailScreen() {
       <PhotoCarousel photos={listing.photo_urls} />
 
       <View style={{ padding: 16, gap: 8 }}>
-        <Text style={{ fontSize: 22, fontWeight: '800' }}>{listing.title}</Text>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: listing.price > 0 ? '#111' : '#990000' }}>
+        <Text style={{ fontFamily: F.extrabold, fontSize: 22, color: T.ink }}>{listing.title}</Text>
+        <Text style={{ fontFamily: F.bold, fontSize: 18, color: listing.price > 0 ? T.ink : T.cardinal }}>
           {priceLabel(listing.price)}
           {listing.negotiable ? '  ·  Negotiable' : ''}
         </Text>
@@ -71,7 +72,7 @@ export default function ListingDetailScreen() {
               />
             </Pressable>
             <Pressable onPress={() => Linking.openURL(mapsUrl)}>
-              <Text style={{ color: '#111', fontWeight: '600' }}>Open in Google Maps</Text>
+              <Text style={{ fontFamily: F.semibold, color: T.ink }}>Open in Google Maps</Text>
             </Pressable>
           </View>
         ) : (
@@ -92,14 +93,14 @@ export default function ListingDetailScreen() {
             ) : (
               <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#eee' }} />
             )}
-            <Text style={{ fontWeight: '600' }}>{sellerLine || 'A Trojan'}</Text>
+            <Text style={{ fontFamily: F.semibold, color: T.ink }}>{sellerLine || 'A Trojan'}</Text>
           </View>
         ) : null}
 
         {/* Reveal — display only for now */}
         <View style={{ marginTop: 20, gap: 6 }}>
           <Pressable disabled style={{ backgroundColor: '#ccc', borderRadius: 10, padding: 16, alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Reveal Contact</Text>
+            <Text style={{ fontFamily: F.bold, color: '#fff' }}>Reveal Contact</Text>
           </Pressable>
           <Text style={{ color: '#999', fontSize: 12, textAlign: 'center' }}>
             Requesting contact from the app is coming soon.
