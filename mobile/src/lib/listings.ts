@@ -194,3 +194,30 @@ export async function fetchMyListings(userId: string): Promise<FeedListing[]> {
     seller: null,
   }));
 }
+
+export type RevealRequest = {
+  id: string;
+  buyer_id: string;
+  seller_id: string;
+  status: string;
+  offer: number | null;
+  created_at: string;
+  listing_id: string;
+  listing_title: string | null;
+};
+
+// Reveal requests where the user is buyer or seller (RLS reveals_select_party).
+// Returns { incoming: I'm the seller, outgoing: I'm the buyer }.
+export async function fetchRequests(userId: string): Promise<{ incoming: RevealRequest[]; outgoing: RevealRequest[] }> {
+  const { data, error } = await supabase
+    .from('reveal_requests')
+    .select('id, buyer_id, seller_id, status, offer, created_at, listing_id, listing_title')
+    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const rows = (data ?? []) as RevealRequest[];
+  return {
+    incoming: rows.filter((r) => r.seller_id === userId),
+    outgoing: rows.filter((r) => r.buyer_id === userId),
+  };
+}
