@@ -12,7 +12,7 @@ export default function Verify() {
 
   const submit = async () => {
     if (!/^\d{6,8}$/.test(code.trim())) {
-      setError('Enter the 6-digit code from your email.');
+      setError('Enter the full code from your email (6–8 digits).');
       return;
     }
     setBusy(true);
@@ -37,6 +37,7 @@ export default function Verify() {
       </Text>
       <Text style={{ fontFamily: F.regular, color: T.muted, fontSize: 15, marginTop: 8, marginBottom: 28, lineHeight: 21 }}>
         We sent a code to{'\n'}<Text style={{ fontFamily: F.bold, color: T.ink }}>{String(email)}</Text>
+        {'\n'}Enter the whole code — it may be 6 to 8 digits.
       </Text>
       <TextInput
         value={code}
@@ -44,7 +45,7 @@ export default function Verify() {
           setCode(t.replace(/\D/g, '').slice(0, 8));
           if (error) setError('');
         }}
-        placeholder="000000"
+        placeholder="Enter code"
         placeholderTextColor="#C9C6C0"
         keyboardType="number-pad"
         returnKeyType="go"
@@ -56,9 +57,9 @@ export default function Verify() {
           borderRadius: 14,
           paddingHorizontal: 16,
           paddingVertical: 16,
-          fontSize: 28,
+          fontSize: 26,
           fontFamily: F.bold,
-          letterSpacing: 10,
+          letterSpacing: 6,
           textAlign: 'center',
           color: T.ink,
         }}
