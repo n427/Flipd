@@ -54,7 +54,8 @@ export default function TabsLayout() {
         options={{ tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} /> }}
       />
       {/* Hidden routes — not tabs */}
-      <Tabs.Screen name="listing/[id]" options={{ href: null }} />
+      <Tabs.Screen name="listing/[id]/index" options={{ href: null }} />
+      <Tabs.Screen name="listing/[id]/edit" options={{ href: null }} />
       <Tabs.Screen name="u/[id]" options={{ href: null }} />
       <Tabs.Screen name="edit-profile" options={{ href: null }} />
     </Tabs>

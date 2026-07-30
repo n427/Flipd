@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { fetchListing, ListingDetail, priceLabel } from '@/lib/listings';
+import { useSession } from '@/lib/session';
+import { fetchListing, deleteListing, setListingArchived, ListingDetail, priceLabel } from '@/lib/listings';
 import { T, F } from '@/lib/theme';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
 
@@ -12,24 +13,64 @@ const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useSession();
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error' | 'notfound'>('loading');
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const l = await fetchListing(String(id));
+      if (!l) {
+        setState('notfound');
+        return;
+      }
+      setListing(l);
+      setState('ready');
+    } catch {
+      setState('error');
+    }
+  }, [id]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const l = await fetchListing(String(id));
-        if (!l) {
-          setState('notfound');
-          return;
-        }
-        setListing(l);
-        setState('ready');
-      } catch {
-        setState('error');
-      }
-    })();
-  }, [id]);
+    load();
+  }, [load]);
+
+  const isOwner = !!user && !!listing && user.id === listing.seller_id;
+
+  const onToggleSold = async () => {
+    if (!listing) return;
+    setBusy(true);
+    try {
+      await setListingArchived(listing.id, !listing.archived);
+      await load();
+    } catch (e) {
+      Alert.alert('Could not update', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onDelete = () => {
+    if (!listing) return;
+    Alert.alert('Delete listing?', 'This permanently removes it and its photos.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setBusy(true);
+          try {
+            await deleteListing(listing.id);
+            router.back();
+          } catch (e) {
+            setBusy(false);
+            Alert.alert('Could not delete', e instanceof Error ? e.message : 'Try again.');
+          }
+        },
+      },
+    ]);
+  };
 
   if (state === 'loading') return <View style={c.center}><ActivityIndicator color={T.cardinal} /></View>;
   if (state === 'error') return <View style={c.center}><Text style={{ fontFamily: F.medium, color: T.muted }}>Couldn&apos;t load this listing.</Text></View>;
@@ -134,16 +175,55 @@ export default function ListingDetailScreen() {
           </>
         ) : null}
 
-        {/* Reveal — display only for now */}
-        <Pressable
-          disabled
-          style={{ backgroundColor: T.rule, borderRadius: 14, paddingVertical: 17, alignItems: 'center', marginTop: 24 }}
-        >
-          <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>Reveal Contact</Text>
-        </Pressable>
-        <Text style={{ fontFamily: F.regular, color: T.muted, fontSize: 12.5, textAlign: 'center', marginTop: 8 }}>
-          Requesting contact from the app is coming soon.
-        </Text>
+        {isOwner ? (
+          <View style={{ marginTop: 24, gap: 10 }}>
+            {listing.archived ? (
+              <View style={{ backgroundColor: T.fieldbg, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
+                <Text style={{ fontFamily: F.bold, color: T.muted, fontSize: 13 }}>
+                  Sold — hidden from the feed
+                </Text>
+              </View>
+            ) : null}
+            <Pressable
+              onPress={() => router.push(`/(tabs)/listing/${listing.id}/edit`)}
+              disabled={busy}
+              style={{ backgroundColor: T.cardinal, borderRadius: 14, paddingVertical: 16, alignItems: 'center', opacity: busy ? 0.6 : 1 }}
+            >
+              <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>Edit listing</Text>
+            </Pressable>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable
+                onPress={onToggleSold}
+                disabled={busy}
+                style={{ flex: 1, backgroundColor: T.fieldbg, borderRadius: 14, paddingVertical: 15, alignItems: 'center', opacity: busy ? 0.6 : 1 }}
+              >
+                <Text style={{ fontFamily: F.bold, color: T.ink, fontSize: 15 }}>
+                  {listing.archived ? 'Relist' : 'Mark sold'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={onDelete}
+                disabled={busy}
+                style={{ flex: 1, borderRadius: 14, borderWidth: 1, borderColor: T.danger, paddingVertical: 15, alignItems: 'center', opacity: busy ? 0.6 : 1 }}
+              >
+                <Text style={{ fontFamily: F.bold, color: T.danger, fontSize: 15 }}>Delete</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <>
+            {/* Reveal — display only for now */}
+            <Pressable
+              disabled
+              style={{ backgroundColor: T.rule, borderRadius: 14, paddingVertical: 17, alignItems: 'center', marginTop: 24 }}
+            >
+              <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>Reveal Contact</Text>
+            </Pressable>
+            <Text style={{ fontFamily: F.regular, color: T.muted, fontSize: 12.5, textAlign: 'center', marginTop: 8 }}>
+              Requesting contact from the app is coming soon.
+            </Text>
+          </>
+        )}
       </View>
     </ScrollView>
   );

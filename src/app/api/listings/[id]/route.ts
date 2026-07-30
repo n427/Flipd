@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin as supabase } from '@/lib/supabase/admin';
-import { getSessionUser } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/supabase/authAny';
 import { parseCoords } from '@/lib/validation';
 
 const SELLER_JOIN = '*, seller:profiles!listings_seller_id_fkey(id, display_name, handle, school_unit, class_year, is_demo, avatar_url)';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const user = await getSessionUser();
+  // Web cookie session OR mobile Bearer token.
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { data, error } = await supabase
@@ -29,7 +30,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const user = await getSessionUser();
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { data: existing } = await supabase
@@ -136,10 +137,10 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const user = await getSessionUser();
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { data: existing } = await supabase

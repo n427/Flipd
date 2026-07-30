@@ -71,6 +71,7 @@ export type ListingDetail = {
   place_name: string | null;
   event_start: string | null;
   event_end: string | null;
+  archived: boolean;
   seller_id: string;
   seller: FeedSeller | null;
 };
@@ -81,7 +82,7 @@ export async function fetchListing(id: string): Promise<ListingDetail | null> {
   const { data: row, error } = await supabase
     .from('listings')
     .select(
-      'id, title, price, negotiable, description, category, location, photo_urls, lat, lng, place_name, event_start, event_end, seller_id',
+      'id, title, price, negotiable, description, category, location, photo_urls, lat, lng, place_name, event_start, event_end, archived, seller_id',
     )
     .eq('id', id)
     .maybeSingle();
@@ -100,6 +101,7 @@ export async function fetchListing(id: string): Promise<ListingDetail | null> {
     price: row.price ?? 0,
     negotiable: row.negotiable ?? false,
     photo_urls: row.photo_urls ?? [],
+    archived: row.archived ?? false,
     seller: (s as FeedSeller) ?? null,
   };
 }
@@ -330,4 +332,100 @@ export async function uploadAvatar(localUri: string): Promise<string> {
     throw new Error(body.error || `Upload failed (${res.status})`);
   }
   return (await res.json()).avatar_url as string;
+}
+
+// Bearer token for the token-authed web listing routes.
+async function requireToken(): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Not signed in.');
+  return token;
+}
+
+// Permanently delete a listing you own. The server also cleans up its photos
+// and softly declines any pending requests on it.
+export async function deleteListing(id: string): Promise<void> {
+  const token = await requireToken();
+  const res = await fetch(`${API_BASE}/api/listings/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Delete failed (${res.status})`);
+  }
+}
+
+// Mark sold (archived=true) or relist (archived=false). Archived listings drop
+// out of the feed but stay visible to you.
+export async function setListingArchived(id: string, archived: boolean): Promise<void> {
+  const token = await requireToken();
+  const res = await fetch(`${API_BASE}/api/listings/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ archived }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Update failed (${res.status})`);
+  }
+}
+
+export type EditListing = {
+  title: string;
+  price: number;
+  description: string | null;
+  category: string;
+  negotiable: boolean;
+  location: string | null;
+  place_name: string | null;
+  lat: number | null;
+  lng: number | null;
+  // Final photo order: existing photo URLs (kept) interleaved with local file
+  // URIs (new). New URIs are detected as anything not starting with http.
+  photos: string[];
+};
+
+// Full edit via the multipart PATCH. Builds the photo_manifest the route
+// expects: kept URLs pass through as-is, new local URIs become '__new__'
+// markers with the file appended to `photos` in order.
+export async function updateListing(id: string, input: EditListing): Promise<void> {
+  const token = await requireToken();
+  const form = new FormData();
+  form.append('title', input.title);
+  form.append('price', String(input.price));
+  form.append('description', input.description ?? '');
+  form.append('category', input.category);
+  form.append('categories', JSON.stringify([input.category]));
+  form.append('negotiable', String(input.negotiable));
+  form.append('location', input.location ?? '');
+  form.append('place_name', input.place_name ?? '');
+  if (input.lat != null) form.append('lat', String(input.lat));
+  if (input.lng != null) form.append('lng', String(input.lng));
+
+  const manifest: string[] = [];
+  for (const p of input.photos) {
+    if (p.startsWith('http')) {
+      manifest.push(p);
+    } else {
+      manifest.push('__new__');
+      const ext = (p.split('.').pop() || 'jpg').toLowerCase();
+      form.append('photos', {
+        uri: p,
+        name: `photo.${ext}`,
+        type: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+      } as unknown as Blob);
+    }
+  }
+  form.append('photo_manifest', JSON.stringify(manifest));
+
+  const res = await fetch(`${API_BASE}/api/listings/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Update failed (${res.status})`);
+  }
 }
