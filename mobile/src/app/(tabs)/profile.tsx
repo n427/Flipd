@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { fetchMyProfile, fetchMyListings, MyProfile, FeedListing } from '@/lib/listings';
@@ -15,19 +15,25 @@ export default function Profile() {
   const [listings, setListings] = useState<FeedListing[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!user) return;
-    (async () => {
-      try {
-        const [p, l] = await Promise.all([fetchMyProfile(user.id), fetchMyListings(user.id)]);
-        setProfile(p);
-        setListings(l);
-        setState('ready');
-      } catch {
-        setState('error');
-      }
-    })();
+    try {
+      const [p, l] = await Promise.all([fetchMyProfile(user.id), fetchMyListings(user.id)]);
+      setProfile(p);
+      setListings(l);
+      setState('ready');
+    } catch {
+      setState('error');
+    }
   }, [user]);
+
+  // Reload on every focus so an edited profile or a posted/deleted listing
+  // reflects on return. Only the first load shows the spinner (initial state).
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   if (state === 'loading') return <View style={c.center}><ActivityIndicator /></View>;
 

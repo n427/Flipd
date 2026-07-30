@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, FlatList, ScrollView, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { fetchFeed, FeedListing } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
 import { CATEGORIES } from '@/lib/catalog';
@@ -34,6 +34,19 @@ export default function Feed() {
       setLoading(false);
     })();
   }, [load]);
+
+  // Silently refresh on every focus after the first, so a listing posted or
+  // deleted elsewhere shows up on return without a full-screen spinner.
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return;
+      }
+      load();
+    }, [load]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
