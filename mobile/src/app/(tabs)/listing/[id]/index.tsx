@@ -1,14 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
-import { fetchListing, deleteListing, setListingArchived, ListingDetail, priceLabel } from '@/lib/listings';
+import {
+  fetchListing,
+  deleteListing,
+  setListingArchived,
+  fetchMyContactMethods,
+  createReveal,
+  MyContactMethods,
+  ListingDetail,
+  priceLabel,
+} from '@/lib/listings';
 import { T, F } from '@/lib/theme';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
 
 const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+const METHOD_META: Record<keyof MyContactMethods, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  instagram: { label: 'Instagram', icon: 'logo-instagram' },
+  phone: { label: 'Phone', icon: 'call-outline' },
+  email: { label: 'Email', icon: 'mail-outline' },
+};
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -70,6 +85,56 @@ export default function ListingDetailScreen() {
         },
       },
     ]);
+  };
+
+  // --- Buyer reveal flow ---
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [myMethods, setMyMethods] = useState<MyContactMethods | null>(null);
+  const [picked, setPicked] = useState<Set<keyof MyContactMethods>>(new Set());
+  const [offer, setOffer] = useState('');
+  const [sending, setSending] = useState(false);
+  const [requested, setRequested] = useState(false);
+
+  const openSheet = async () => {
+    if (!user) return;
+    setSheetOpen(true);
+    if (myMethods === null) {
+      const m = await fetchMyContactMethods(user.id);
+      setMyMethods(m);
+      // Preselect everything the buyer has — sharing all is the common intent.
+      setPicked(new Set(Object.keys(m) as (keyof MyContactMethods)[]));
+    }
+  };
+
+  const toggle = (k: keyof MyContactMethods) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+
+  const sendReveal = async () => {
+    if (!listing) return;
+    setSending(true);
+    const parsedOffer = parseInt(offer, 10);
+    const res = await createReveal(
+      listing.id,
+      Array.from(picked),
+      Number.isFinite(parsedOffer) && parsedOffer > 0 ? parsedOffer : null,
+    );
+    setSending(false);
+    if (res.ok) {
+      setSheetOpen(false);
+      setRequested(true);
+      Alert.alert('Request sent', 'The seller will get an email. If they approve, you’ll each get the other’s contact.');
+    } else if (res.status === 409) {
+      setSheetOpen(false);
+      setRequested(true);
+      Alert.alert('Already requested', 'You’ve already asked for this seller’s contact.');
+    } else {
+      Alert.alert('Could not send', res.error);
+    }
   };
 
   if (state === 'loading') return <View style={c.center}><ActivityIndicator color={T.cardinal} /></View>;
@@ -212,19 +277,147 @@ export default function ListingDetailScreen() {
           </View>
         ) : (
           <>
-            {/* Reveal — display only for now */}
             <Pressable
-              disabled
-              style={{ backgroundColor: T.rule, borderRadius: 14, paddingVertical: 17, alignItems: 'center', marginTop: 24 }}
+              onPress={requested ? undefined : openSheet}
+              disabled={requested}
+              style={{
+                backgroundColor: requested ? T.fieldbg : T.cardinal,
+                borderRadius: 14,
+                paddingVertical: 17,
+                alignItems: 'center',
+                marginTop: 24,
+              }}
             >
-              <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>Reveal Contact</Text>
+              <Text style={{ fontFamily: F.bold, color: requested ? T.muted : '#fff', fontSize: 16 }}>
+                {requested ? 'Request sent' : 'Reveal Contact'}
+              </Text>
             </Pressable>
             <Text style={{ fontFamily: F.regular, color: T.muted, fontSize: 12.5, textAlign: 'center', marginTop: 8 }}>
-              Requesting contact from the app is coming soon.
+              You each share contact only if the seller approves.
             </Text>
           </>
         )}
       </View>
+
+      {/* Reveal request sheet */}
+      <Modal visible={sheetOpen} animationType="slide" transparent onRequestClose={() => setSheetOpen(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 36 }}>
+            <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, letterSpacing: -0.4 }}>
+              Request contact
+            </Text>
+            <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6, lineHeight: 20 }}>
+              Choose which of your contact methods to share back. The seller only sees them if they approve.
+            </Text>
+
+            {myMethods === null ? (
+              <ActivityIndicator color={T.cardinal} style={{ marginVertical: 28 }} />
+            ) : Object.keys(myMethods).length === 0 ? (
+              <View style={{ marginTop: 20 }}>
+                <Text style={{ fontFamily: F.medium, fontSize: 14.5, color: T.ink, lineHeight: 21 }}>
+                  Add a contact method first so the seller can reach you back.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setSheetOpen(false);
+                    router.push('/(tabs)/edit-profile');
+                  }}
+                  style={{ backgroundColor: T.cardinal, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 18 }}
+                >
+                  <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 15 }}>Add contact info</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <View style={{ gap: 10, marginTop: 18 }}>
+                  {(Object.keys(myMethods) as (keyof MyContactMethods)[]).map((k) => {
+                    const on = picked.has(k);
+                    const meta = METHOD_META[k];
+                    return (
+                      <Pressable
+                        key={k}
+                        onPress={() => toggle(k)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 12,
+                          borderWidth: 1.5,
+                          borderColor: on ? T.cardinal : T.rule,
+                          backgroundColor: on ? '#FDF2F2' : '#fff',
+                          borderRadius: 14,
+                          paddingVertical: 13,
+                          paddingHorizontal: 15,
+                        }}
+                      >
+                        <Ionicons name={meta.icon} size={20} color={on ? T.cardinal : T.muted} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.ink }}>{meta.label}</Text>
+                          <Text numberOfLines={1} style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginTop: 1 }}>
+                            {myMethods[k]}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name={on ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={22}
+                          color={on ? T.cardinal : T.rule}
+                        />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {listing.negotiable ? (
+                  <View style={{ marginTop: 16 }}>
+                    <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.ink, marginBottom: 8 }}>Your offer (optional)</Text>
+                    <TextInput
+                      value={offer}
+                      onChangeText={(t) => setOffer(t.replace(/\D/g, ''))}
+                      placeholder={`Asking ${priceLabel(listing.price)}`}
+                      placeholderTextColor={T.muted}
+                      keyboardType="number-pad"
+                      style={{
+                        backgroundColor: T.fieldbg,
+                        borderRadius: 14,
+                        paddingHorizontal: 16,
+                        paddingVertical: 14,
+                        fontFamily: F.medium,
+                        fontSize: 15,
+                        color: T.ink,
+                      }}
+                    />
+                  </View>
+                ) : null}
+
+                <Pressable
+                  onPress={sendReveal}
+                  disabled={sending || picked.size === 0}
+                  style={{
+                    backgroundColor: T.cardinal,
+                    borderRadius: 14,
+                    paddingVertical: 16,
+                    alignItems: 'center',
+                    marginTop: 20,
+                    opacity: sending || picked.size === 0 ? 0.5 : 1,
+                  }}
+                >
+                  <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>
+                    {sending ? 'Sending…' : 'Send request'}
+                  </Text>
+                </Pressable>
+                {picked.size === 0 ? (
+                  <Text style={{ fontFamily: F.regular, fontSize: 12.5, color: T.muted, textAlign: 'center', marginTop: 8 }}>
+                    Pick at least one method to share.
+                  </Text>
+                ) : null}
+              </>
+            )}
+
+            <Pressable onPress={() => setSheetOpen(false)} style={{ marginTop: 14, alignItems: 'center' }}>
+              <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

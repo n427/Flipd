@@ -22,6 +22,9 @@ export default function EditProfile() {
   const [year, setYear] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [instagram, setInstagram] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -33,6 +36,9 @@ export default function EditProfile() {
         setUnit(p.school_unit ?? null);
         setYear(p.class_year ?? null);
         setAvatar(p.avatar_url ?? null);
+        setInstagram(p.contact_instagram ?? '');
+        setPhone(p.contact_phone ?? '');
+        setEmail(p.contact_email ?? '');
       }
       setLoading(false);
     })();
@@ -78,6 +84,9 @@ export default function EditProfile() {
         bio: bio.trim() || null,
         school_unit: unit,
         class_year: year,
+        contact_instagram: instagram.trim() || null,
+        contact_phone: phone.trim() || null,
+        contact_email: email.trim() || null,
       });
       router.back();
     } catch (e) {
@@ -173,6 +182,38 @@ export default function EditProfile() {
           </Pressable>
         ))}
       </View>
+
+      <Text style={label}>Contact methods</Text>
+      <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginBottom: 12, marginTop: -2, lineHeight: 19 }}>
+        Only shared with the other person when a request is approved — you pick which each time.
+      </Text>
+      <TextInput
+        value={instagram}
+        onChangeText={setInstagram}
+        placeholder="Instagram username"
+        placeholderTextColor={T.muted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={field}
+      />
+      <TextInput
+        value={phone}
+        onChangeText={setPhone}
+        placeholder="Phone number"
+        placeholderTextColor={T.muted}
+        keyboardType="phone-pad"
+        style={field}
+      />
+      <TextInput
+        value={email}
+        onChangeText={setEmail}
+        placeholder="Contact email"
+        placeholderTextColor={T.muted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        style={field}
+      />
 
       {error ? <Text style={{ fontFamily: F.medium, color: T.danger, marginBottom: 8 }}>{error}</Text> : null}
 

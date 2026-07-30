@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
-import { getSessionUser } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/supabase/authAny';
 import { effectiveRevealStatus, resolveSharedContact, type RevealStatus } from '@/lib/validation';
 import { newRequestEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
 
@@ -93,8 +93,9 @@ function toDto(row: RevealRow, viewerId: string, ratedRequestIds: Set<string> = 
   return dto;
 }
 
-export async function GET() {
-  const user = await getSessionUser();
+export async function GET(req: NextRequest) {
+  // Web cookie session OR mobile Bearer token.
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   // Persist read-time expiry so the unique "live request" index frees up.
@@ -125,7 +126,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getSessionUser();
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const { listing_id, offer, buyer_contact } = await req.json().catch(() => ({}));
   if (!listing_id) return NextResponse.json({ error: 'listing_id required' }, { status: 400 });

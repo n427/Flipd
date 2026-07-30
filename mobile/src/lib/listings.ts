@@ -171,12 +171,15 @@ export type MyProfile = {
   class_year: string | null;
   bio: string | null;
   avatar_url: string | null;
+  contact_instagram: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
 };
 
 export async function fetchMyProfile(userId: string): Promise<MyProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, school_unit, class_year, bio, avatar_url')
+    .select('id, display_name, school_unit, class_year, bio, avatar_url, contact_instagram, contact_phone, contact_email')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -277,7 +280,15 @@ export async function generateDescription(title: string, category: string): Prom
 // Update the signed-in user's own profile (RLS profiles_update_own allows it).
 export async function updateMyProfile(
   userId: string,
-  patch: { display_name?: string | null; bio?: string | null; school_unit?: string | null; class_year?: string | null },
+  patch: {
+    display_name?: string | null;
+    bio?: string | null;
+    school_unit?: string | null;
+    class_year?: string | null;
+    contact_instagram?: string | null;
+    contact_phone?: string | null;
+    contact_email?: string | null;
+  },
 ): Promise<void> {
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
   if (error) throw error;
@@ -332,6 +343,43 @@ export async function uploadAvatar(localUri: string): Promise<string> {
     throw new Error(body.error || `Upload failed (${res.status})`);
   }
   return (await res.json()).avatar_url as string;
+}
+
+// The buyer's own stored contact methods, so the reveal sheet can offer only
+// the ones they've actually filled in. Reading your own profile row is allowed
+// by RLS. Keys match what the reveal API expects in buyer_contact.
+export type MyContactMethods = { instagram?: string; phone?: string; email?: string };
+export async function fetchMyContactMethods(userId: string): Promise<MyContactMethods> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('contact_instagram, contact_phone, contact_email')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  const out: MyContactMethods = {};
+  if (data?.contact_instagram) out.instagram = data.contact_instagram;
+  if (data?.contact_phone) out.phone = data.contact_phone;
+  if (data?.contact_email) out.email = data.contact_email;
+  return out;
+}
+
+// Buyer requests the seller's contact. methods = which of the buyer's OWN
+// contact methods to share back (mutual reveal). offer is optional. Returns the
+// server's error code so the UI can special-case 'already requested'.
+export async function createReveal(
+  listingId: string,
+  methods: string[],
+  offer: number | null,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const token = await requireToken();
+  const res = await fetch(`${API_BASE}/api/reveals`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ listing_id: listingId, buyer_contact: methods, offer }),
+  });
+  if (res.ok) return { ok: true };
+  const body = await res.json().catch(() => ({}));
+  return { ok: false, status: res.status, error: body.error || `Request failed (${res.status})` };
 }
 
 // Bearer token for the token-authed web listing routes.
