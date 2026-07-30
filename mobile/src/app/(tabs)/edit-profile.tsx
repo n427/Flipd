@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
-import { fetchMyProfile, updateMyProfile } from '@/lib/listings';
+import { fetchMyProfile, updateMyProfile, uploadAvatar } from '@/lib/listings';
 import { T, F } from '@/lib/theme';
 
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
@@ -18,6 +20,8 @@ export default function EditProfile() {
   const [bio, setBio] = useState('');
   const [unit, setUnit] = useState<string | null>(null);
   const [year, setYear] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -28,10 +32,37 @@ export default function EditProfile() {
         setBio(p.bio ?? '');
         setUnit(p.school_unit ?? null);
         setYear(p.class_year ?? null);
+        setAvatar(p.avatar_url ?? null);
       }
       setLoading(false);
     })();
   }, [user]);
+
+  // Pick + upload a profile photo. Uploads immediately (separate from Save) so
+  // the new URL is persisted even if the user backs out without saving fields.
+  const pickAvatar = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Photo access needed', 'Allow photo access to set a profile picture.');
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (res.canceled || !res.assets[0]) return;
+    setUploadingAvatar(true);
+    try {
+      const url = await uploadAvatar(res.assets[0].uri);
+      setAvatar(url);
+    } catch (e) {
+      Alert.alert('Upload failed', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const save = async () => {
     if (!user) return;
@@ -68,6 +99,49 @@ export default function EditProfile() {
       <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 20 }}>
         Edit profile
       </Text>
+
+      <View style={{ alignItems: 'center', marginBottom: 24 }}>
+        <Pressable onPress={pickAvatar} disabled={uploadingAvatar}>
+          {avatar ? (
+            <Image source={{ uri: avatar }} style={{ width: 96, height: 96, borderRadius: 48 }} contentFit="cover" />
+          ) : (
+            <View
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: 48,
+                backgroundColor: T.fieldbg,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.muted }}>Add photo</Text>
+            </View>
+          )}
+          {uploadingAvatar ? (
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderRadius: 48,
+                backgroundColor: 'rgba(0,0,0,0.35)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ActivityIndicator color="#fff" />
+            </View>
+          ) : null}
+        </Pressable>
+        <Pressable onPress={pickAvatar} disabled={uploadingAvatar} style={{ marginTop: 8 }}>
+          <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.cardinal }}>
+            {avatar ? 'Change photo' : 'Add a photo'}
+          </Text>
+        </Pressable>
+      </View>
 
       <Text style={label}>Name</Text>
       <TextInput value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor={T.muted} style={field} />

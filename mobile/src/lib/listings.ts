@@ -284,17 +284,50 @@ export async function updateMyProfile(
 // Seller responds to a reveal request (approve/decline/complete) via the
 // token-authed web API. Reveal writes go through the server so the mutual-
 // reveal rules + emails run (RLS blocks direct client writes by design).
-export async function respondReveal(id: string, action: 'approve' | 'decline' | 'complete'): Promise<void> {
+// When markSold is passed with an approve, the server also archives the
+// listing and auto-declines its other pending requests.
+export async function respondReveal(
+  id: string,
+  action: 'approve' | 'decline' | 'complete',
+  markSold = false,
+): Promise<void> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error('Not signed in.');
   const res = await fetch(`${API_BASE}/api/reveals/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ action }),
+    body: JSON.stringify({ action, mark_sold: markSold }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Request failed (${res.status})`);
   }
+}
+
+// Upload a profile photo. Goes through the web API (service-role writes the
+// avatars bucket + profiles.avatar_url), so no client storage RLS is needed.
+// Returns the new public avatar URL. Do NOT set Content-Type — RN fills the
+// multipart boundary itself.
+export async function uploadAvatar(localUri: string): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Not signed in.');
+  const ext = (localUri.split('.').pop() || 'jpg').toLowerCase();
+  const form = new FormData();
+  form.append('photo', {
+    uri: localUri,
+    name: `avatar.${ext}`,
+    type: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+  } as unknown as Blob);
+  const res = await fetch(`${API_BASE}/api/me/avatar`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Upload failed (${res.status})`);
+  }
+  return (await res.json()).avatar_url as string;
 }

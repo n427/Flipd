@@ -135,13 +135,18 @@ export default function Requests() {
   // Seller approves or declines an incoming reveal. Approving shares contact
   // both ways (the server emails both parties). Reload so the badge updates.
   const respond = useCallback(
-    async (id: string, action: 'approve' | 'decline') => {
+    async (id: string, action: 'approve' | 'decline', markSold = false) => {
       setBusyId(id);
       try {
-        await respondReveal(id, action);
+        await respondReveal(id, action, markSold);
         await load();
         if (action === 'approve') {
-          Alert.alert('Approved', 'Your contact info was shared with each other by email.');
+          Alert.alert(
+            markSold ? 'Approved & marked sold' : 'Approved',
+            markSold
+              ? 'Contact shared by email. The listing is now archived and other pending requests were declined.'
+              : 'Your contact info was shared with each other by email.',
+          );
         }
       } catch (e) {
         Alert.alert('Could not update', e instanceof Error ? e.message : 'Try again.');
@@ -150,6 +155,19 @@ export default function Requests() {
       }
     },
     [load],
+  );
+
+  // Approve taps ask whether this closes the sale, since that also archives the
+  // listing and declines everyone else waiting on it.
+  const onApprove = useCallback(
+    (id: string) => {
+      Alert.alert('Approve this request?', 'Share contact info with this buyer.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Approve only', onPress: () => respond(id, 'approve', false) },
+        { text: 'Approve & mark sold', style: 'destructive', onPress: () => respond(id, 'approve', true) },
+      ]);
+    },
+    [respond],
   );
 
   if (loading) {
@@ -194,7 +212,11 @@ export default function Requests() {
         <Row
           item={item}
           onPress={() => router.push(`/(tabs)/listing/${item.listing_id}`)}
-          onRespond={section.incoming ? (action) => respond(item.id, action) : undefined}
+          onRespond={
+            section.incoming
+              ? (action) => (action === 'approve' ? onApprove(item.id) : respond(item.id, 'decline'))
+              : undefined
+          }
           busy={busyId === item.id}
         />
       )}
