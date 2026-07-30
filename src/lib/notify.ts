@@ -49,6 +49,53 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
   }
 }
 
+// Push via Expo's push service. Best-effort: no tokens (or the table not yet
+// migrated) means a quiet no-op — never blocks the request. Expo dedupes and
+// routes to APNs/FCM for us, so we just POST the messages.
+export async function sendPush(
+  userId: string,
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
+): Promise<void> {
+  let tokens: string[] = [];
+  try {
+    const { data: rows, error } = await admin
+      .from('push_tokens')
+      .select('token')
+      .eq('user_id', userId);
+    if (error) return; // table missing or unreadable — skip silently
+    tokens = (rows ?? []).map((r) => r.token as string);
+  } catch {
+    return;
+  }
+  if (tokens.length === 0) return;
+
+  const messages = tokens.map((to) => ({ to, title, body, sound: 'default', data: data ?? {} }));
+  try {
+    const res = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages),
+    });
+    if (!res.ok) {
+      console.error('[notify] push failed', res.status, await res.text());
+      return;
+    }
+    // Prune tokens Expo reports as unregistered so they stop being retried.
+    const json = (await res.json().catch(() => null)) as { data?: { status: string; details?: { error?: string } }[] } | null;
+    const dead: string[] = [];
+    json?.data?.forEach((r, i) => {
+      if (r.status === 'error' && r.details?.error === 'DeviceNotRegistered') dead.push(tokens[i]);
+    });
+    if (dead.length) {
+      await admin.from('push_tokens').delete().in('token', dead);
+    }
+  } catch (err) {
+    console.error('[notify] push error', err);
+  }
+}
+
 const wrap = (body: string) =>
   `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#111;max-width:480px">
     <p style="font-weight:800;font-size:18px;margin:0 0 16px">flipd<span style="color:#990000">.</span></p>

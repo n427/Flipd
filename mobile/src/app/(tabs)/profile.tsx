@@ -5,6 +5,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { fetchMyProfile, fetchMyListings, MyProfile, FeedListing } from '@/lib/listings';
+import { unregisterPush } from '@/lib/push';
 import { ListingCard } from '@/components/ListingCard';
 import { T, F } from '@/lib/theme';
 
@@ -68,7 +69,10 @@ export default function Profile() {
               <Text style={{ fontFamily: F.bold, color: '#fff' }}>Edit profile</Text>
             </Pressable>
             <Pressable
-              onPress={() => supabase.auth.signOut()}
+              onPress={async () => {
+                await unregisterPush();
+                await supabase.auth.signOut();
+              }}
               style={{ backgroundColor: T.fieldbg, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20 }}
             >
               <Text style={{ fontFamily: F.bold, color: T.ink }}>Sign out</Text>

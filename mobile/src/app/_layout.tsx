@@ -1,6 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { View } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import {
   useFonts,
   Figtree_400Regular,
@@ -13,6 +14,16 @@ import {
 import { SessionProvider, useSession } from '@/lib/session';
 import { UnreadProvider } from '@/lib/unread';
 import { T } from '@/lib/theme';
+
+// Show a banner even when the app is foregrounded.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 // Watches auth state and redirects when the current group disagrees with the
 // session: signed-in users leave (auth) -> tabs; signed-out users leave (tabs)
@@ -32,6 +43,17 @@ function AuthWatcher() {
       router.replace('/(auth)/sign-in');
     }
   }, [session, loading, segments, router]);
+
+  // Tapping a reveal push (new request / approval) opens the Requests tab.
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((res) => {
+      const type = res.notification.request.content.data?.type;
+      if (type === 'new_request' || type === 'approval') {
+        router.push('/(tabs)/requests');
+      }
+    });
+    return () => sub.remove();
+  }, [router]);
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }

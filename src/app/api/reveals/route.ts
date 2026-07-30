@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { effectiveRevealStatus, resolveSharedContact, type RevealStatus } from '@/lib/validation';
-import { newRequestEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
+import { newRequestEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail } from '@/lib/notify';
 
 type RevealRow = {
   id: string;
@@ -192,16 +192,20 @@ export async function POST(req: NextRequest) {
     admin.from('profiles').select('notify_prefs').eq('id', listing.seller_id).single(),
     admin.from('profiles').select('display_name').eq('id', user.id).single(),
   ]);
+  const buyerName = buyerNameProfile?.display_name ?? 'A Trojan';
+  const listingTitle = row.listing?.title ?? 'your listing';
   if (wantsEmail(sellerProfile?.notify_prefs, 'new_request')) {
     const to = await verifiedEmailFor(listing.seller_id);
     if (to) {
-      const { subject, html } = newRequestEmail(
-        buyerNameProfile?.display_name ?? 'A Trojan',
-        row.listing?.title ?? 'your listing',
-      );
+      const { subject, html } = newRequestEmail(buyerName, listingTitle);
       void sendEmail(to, subject, html);
     }
   }
+  // Push: same event, straight to the seller's device.
+  void sendPush(listing.seller_id, 'New contact request', `${buyerName} wants your contact for “${listingTitle}”.`, {
+    type: 'new_request',
+    reveal_id: row.id,
+  });
 
   return NextResponse.json(
     { reveal: toDto(row, user.id) },

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState } from 'react-native';
 import { useSession } from './session';
 import { fetchUnreadCount } from './listings';
+import { registerForPush } from './push';
 
 type Ctx = { count: number; refresh: () => void };
 const UnreadContext = createContext<Ctx>({ count: 0, refresh: () => {} });
@@ -35,6 +36,12 @@ export function UnreadProvider({ children }: { children: React.ReactNode }) {
       sub.remove();
     };
   }, [refresh]);
+
+  // Register this device for push once we have a user (no-op in Expo Go / when
+  // EAS isn't configured — see push.ts).
+  useEffect(() => {
+    if (user) registerForPush(user.id);
+  }, [user]);
 
   return <UnreadContext.Provider value={{ count, refresh }}>{children}</UnreadContext.Provider>;
 }
