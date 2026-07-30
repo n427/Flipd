@@ -201,31 +201,49 @@ export async function fetchMyListings(userId: string): Promise<FeedListing[]> {
   }));
 }
 
+// The other party on a reveal (buyer sees seller, seller sees buyer).
+export type RevealCounterpart = {
+  id: string;
+  display_name: string | null;
+  school_unit: string | null;
+  class_year: string | null;
+  avatar_url: string | null;
+};
+
+// Contact methods shared once a request is approved/completed. Only the methods
+// each side actually offered are present.
+export type SharedContact = { instagram?: string; phone?: string; email?: string };
+
 export type RevealRequest = {
   id: string;
-  buyer_id: string;
-  seller_id: string;
   status: string;
   offer: number | null;
   created_at: string;
   listing_id: string;
   listing_title: string | null;
+  counterpart: RevealCounterpart | null;
+  // Present only when approved/completed — the contact you're owed.
+  contact?: SharedContact;
 };
 
-// Reveal requests where the user is buyer or seller (RLS reveals_select_party).
+// Reveal requests where the user is buyer or seller. Goes through the token-
+// authed web API (GET /api/reveals) rather than a direct query, because the API
+// resolves the shared contact server-side once approved — RLS won't let the
+// client join the other party's private contact columns.
 // Returns { incoming: I'm the seller, outgoing: I'm the buyer }.
-export async function fetchRequests(userId: string): Promise<{ incoming: RevealRequest[]; outgoing: RevealRequest[] }> {
-  const { data, error } = await supabase
-    .from('reveal_requests')
-    .select('id, buyer_id, seller_id, status, offer, created_at, listing_id, listing_title')
-    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  const rows = (data ?? []) as RevealRequest[];
-  return {
-    incoming: rows.filter((r) => r.seller_id === userId),
-    outgoing: rows.filter((r) => r.buyer_id === userId),
-  };
+export async function fetchRequests(
+  _userId: string,
+): Promise<{ incoming: RevealRequest[]; outgoing: RevealRequest[] }> {
+  const token = await requireToken();
+  const res = await fetch(`${API_BASE}/api/reveals`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+  const json = (await res.json()) as { incoming: RevealRequest[]; outgoing: RevealRequest[] };
+  return { incoming: json.incoming ?? [], outgoing: json.outgoing ?? [] };
 }
 
 // Another user's PUBLIC profile (safe columns only, via public_profiles) +

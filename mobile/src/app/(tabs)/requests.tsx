@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, SectionList, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, SectionList, Pressable, ActivityIndicator, RefreshControl, Alert, Linking } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
-import { fetchRequests, respondReveal, RevealRequest } from '@/lib/listings';
+import { fetchRequests, respondReveal, RevealRequest, SharedContact } from '@/lib/listings';
 import { T, F } from '@/lib/theme';
 
 // Status → label + colors (badge).
@@ -19,6 +20,36 @@ function Badge({ status }: { status: string }) {
   return (
     <View style={{ backgroundColor: s.bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
       <Text style={{ fontFamily: F.semibold, fontSize: 12, color: s.fg }}>{s.label}</Text>
+    </View>
+  );
+}
+
+// The other party's shared contact, shown once approved. Each row deep-links
+// to the right app (Instagram / dialer / mail) when tapped.
+function ContactBlock({ contact }: { contact: SharedContact }) {
+  const rows: { icon: keyof typeof Ionicons.glyphMap; value: string; href: string }[] = [];
+  if (contact.instagram) {
+    const handle = contact.instagram.replace(/^@/, '');
+    rows.push({ icon: 'logo-instagram', value: `@${handle}`, href: `https://instagram.com/${handle}` });
+  }
+  if (contact.phone) rows.push({ icon: 'call-outline', value: contact.phone, href: `tel:${contact.phone}` });
+  if (contact.email) rows.push({ icon: 'mail-outline', value: contact.email, href: `mailto:${contact.email}` });
+  if (rows.length === 0) return null;
+  return (
+    <View style={{ borderTopWidth: 1, borderTopColor: T.rule, paddingHorizontal: 16, paddingVertical: 12, gap: 10 }}>
+      <Text style={{ fontFamily: F.bold, fontSize: 11, color: T.muted, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+        Contact
+      </Text>
+      {rows.map((r) => (
+        <Pressable
+          key={r.href}
+          onPress={() => Linking.openURL(r.href)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+        >
+          <Ionicons name={r.icon} size={17} color={T.cardinal} />
+          <Text style={{ fontFamily: F.semibold, fontSize: 14.5, color: T.cardinal }}>{r.value}</Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -61,7 +92,12 @@ function Row({
           <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>
             {item.listing_title || 'A listing'}
           </Text>
-          {item.offer != null ? (
+          {item.counterpart?.display_name ? (
+            <Text numberOfLines={1} style={{ fontFamily: F.medium, fontSize: 13, color: T.muted, marginTop: 2 }}>
+              {item.counterpart.display_name}
+              {item.offer != null ? `  ·  Offer $${item.offer}` : ''}
+            </Text>
+          ) : item.offer != null ? (
             <Text style={{ fontFamily: F.medium, fontSize: 13, color: T.muted, marginTop: 2 }}>
               Offer: ${item.offer}
             </Text>
@@ -69,6 +105,8 @@ function Row({
         </View>
         <Badge status={item.status} />
       </Pressable>
+
+      {item.contact ? <ContactBlock contact={item.contact} /> : null}
 
       {canRespond ? (
         <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: T.rule }}>
