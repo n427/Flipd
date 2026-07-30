@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
-import { getSessionUser } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/supabase/authAny';
 import { effectiveRevealStatus, resolveSharedContact, type RevealStatus } from '@/lib/validation';
 import { sharedContactEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
 
@@ -8,7 +8,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const user = await getSessionUser();
+  // Web cookie session OR mobile Bearer token.
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { action, mark_sold } = await req.json().catch(() => ({}));

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, SectionList, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, SectionList, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
-import { fetchRequests, RevealRequest } from '@/lib/listings';
+import { fetchRequests, respondReveal, RevealRequest } from '@/lib/listings';
 import { T, F } from '@/lib/theme';
 
 // Status → label + colors (badge).
@@ -23,35 +23,77 @@ function Badge({ status }: { status: string }) {
   );
 }
 
-function Row({ item, onPress }: { item: RevealRequest; onPress: () => void }) {
+function Row({
+  item,
+  onPress,
+  onRespond,
+  busy,
+}: {
+  item: RevealRequest;
+  onPress: () => void;
+  // Present only on incoming rows the current user can act on.
+  onRespond?: (action: 'approve' | 'decline') => void;
+  busy?: boolean;
+}) {
+  const canRespond = !!onRespond && item.status === 'pending';
   return (
-    <Pressable
-      onPress={onPress}
+    <View
       style={{
         backgroundColor: '#fff',
         borderRadius: 14,
         borderWidth: 1,
         borderColor: T.rule,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
         marginBottom: 10,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
+        overflow: 'hidden',
       }}
     >
-      <View style={{ flex: 1 }}>
-        <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>
-          {item.listing_title || 'A listing'}
-        </Text>
-        {item.offer != null ? (
-          <Text style={{ fontFamily: F.medium, fontSize: 13, color: T.muted, marginTop: 2 }}>
-            Offer: ${item.offer}
+      <Pressable
+        onPress={onPress}
+        style={{
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>
+            {item.listing_title || 'A listing'}
           </Text>
-        ) : null}
-      </View>
-      <Badge status={item.status} />
-    </Pressable>
+          {item.offer != null ? (
+            <Text style={{ fontFamily: F.medium, fontSize: 13, color: T.muted, marginTop: 2 }}>
+              Offer: ${item.offer}
+            </Text>
+          ) : null}
+        </View>
+        <Badge status={item.status} />
+      </Pressable>
+
+      {canRespond ? (
+        <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: T.rule }}>
+          <Pressable
+            onPress={() => onRespond!('decline')}
+            disabled={busy}
+            style={{ flex: 1, paddingVertical: 13, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+          >
+            <Text style={{ fontFamily: F.bold, fontSize: 14, color: T.muted }}>Decline</Text>
+          </Pressable>
+          <View style={{ width: 1, backgroundColor: T.rule }} />
+          <Pressable
+            onPress={() => onRespond!('approve')}
+            disabled={busy}
+            style={{ flex: 1, paddingVertical: 13, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+          >
+            {busy ? (
+              <ActivityIndicator size="small" color={T.cardinal} />
+            ) : (
+              <Text style={{ fontFamily: F.bold, fontSize: 14, color: T.cardinal }}>Approve</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -63,6 +105,7 @@ export default function Requests() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -89,6 +132,26 @@ export default function Requests() {
     setRefreshing(false);
   }, [load]);
 
+  // Seller approves or declines an incoming reveal. Approving shares contact
+  // both ways (the server emails both parties). Reload so the badge updates.
+  const respond = useCallback(
+    async (id: string, action: 'approve' | 'decline') => {
+      setBusyId(id);
+      try {
+        await respondReveal(id, action);
+        await load();
+        if (action === 'approve') {
+          Alert.alert('Approved', 'Your contact info was shared with each other by email.');
+        }
+      } catch (e) {
+        Alert.alert('Could not update', e instanceof Error ? e.message : 'Try again.');
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [load],
+  );
+
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
@@ -98,8 +161,8 @@ export default function Requests() {
   }
 
   const sections = [
-    { title: 'People who want your contact', data: incoming },
-    { title: 'Requests you sent', data: outgoing },
+    { title: 'People who want your contact', data: incoming, incoming: true },
+    { title: 'Requests you sent', data: outgoing, incoming: false },
   ].filter((s) => s.data.length > 0);
 
   if (!sections.length) {
@@ -127,8 +190,13 @@ export default function Requests() {
           {section.title}
         </Text>
       )}
-      renderItem={({ item }) => (
-        <Row item={item} onPress={() => router.push(`/(tabs)/listing/${item.listing_id}`)} />
+      renderItem={({ item, section }) => (
+        <Row
+          item={item}
+          onPress={() => router.push(`/(tabs)/listing/${item.listing_id}`)}
+          onRespond={section.incoming ? (action) => respond(item.id, action) : undefined}
+          busy={busyId === item.id}
+        />
       )}
     />
   );

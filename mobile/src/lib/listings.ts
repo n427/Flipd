@@ -280,3 +280,21 @@ export async function updateMyProfile(
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
   if (error) throw error;
 }
+
+// Seller responds to a reveal request (approve/decline/complete) via the
+// token-authed web API. Reveal writes go through the server so the mutual-
+// reveal rules + emails run (RLS blocks direct client writes by design).
+export async function respondReveal(id: string, action: 'approve' | 'decline' | 'complete'): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Not signed in.');
+  const res = await fetch(`${API_BASE}/api/reveals/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ action }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+}
