@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { fetchListing, ListingDetail, priceLabel } from '@/lib/listings';
 import { T, F } from '@/lib/theme';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
@@ -11,6 +11,7 @@ const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error' | 'notfound'>('loading');
 
@@ -100,7 +101,8 @@ export default function ListingDetailScreen() {
         {listing.seller ? (
           <>
             <Text style={sectionLabel}>Seller</Text>
-            <View
+            <Pressable
+              onPress={() => router.push(`/(tabs)/u/${listing.seller_id}`)}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -127,8 +129,8 @@ export default function ListingDetailScreen() {
                   {[listing.seller.school_unit, listing.seller.class_year].filter(Boolean).join(' · ') || 'USC'}
                 </Text>
               </View>
-              <Ionicons name="shield-checkmark" size={18} color={T.cardinal} />
-            </View>
+              <Ionicons name="chevron-forward" size={18} color={T.muted} />
+            </Pressable>
           </>
         ) : null}
 

@@ -222,3 +222,31 @@ export async function fetchRequests(userId: string): Promise<{ incoming: RevealR
     outgoing: rows.filter((r) => r.buyer_id === userId),
   };
 }
+
+// Another user's PUBLIC profile (safe columns only, via public_profiles) +
+// their active listings. Used by the tappable seller profile screen.
+export async function fetchPublicProfile(userId: string): Promise<FeedSeller | null> {
+  const { data, error } = await supabase
+    .from('public_profiles')
+    .select('id, display_name, school_unit, class_year, avatar_url')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as FeedSeller) ?? null;
+}
+
+export async function fetchUserListings(userId: string): Promise<FeedListing[]> {
+  const { data, error } = await supabase
+    .from('listings')
+    .select('id, title, price, location, photo_urls, seller_id, category')
+    .eq('seller_id', userId)
+    .eq('archived', false)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as Omit<FeedListing, 'seller'>[]).map((l) => ({
+    ...l,
+    price: l.price ?? 0,
+    photo_urls: l.photo_urls ?? [],
+    seller: null,
+  }));
+}
