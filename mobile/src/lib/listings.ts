@@ -28,18 +28,51 @@ export function priceLabel(price: number): string {
 // RLS-safe feed fetch: two queries merged client-side. Seller info comes
 // from public_profiles (the base profiles table is not readable for others
 // under RLS, so a listings->profiles embedded join returns null).
-export async function fetchFeed(blockedIds: string[] = []): Promise<FeedListing[]> {
-  const { data: rows, error } = await supabase
+export type FeedSort = 'recent' | 'price_low' | 'price_high';
+export type FeedQuery = {
+  query?: string;
+  category?: string | null; // null/'all' → all categories
+  sort?: FeedSort;
+  blockedIds?: string[];
+  limit?: number;
+  offset?: number;
+};
+
+const PAGE = 20;
+
+// Query-backed feed: search (title/description), category, sort, and paging are
+// all pushed to the DB. Returns hasMore so the UI can lazy-load the next page.
+export async function fetchFeed(opts: FeedQuery = {}): Promise<{ listings: FeedListing[]; hasMore: boolean }> {
+  const limit = opts.limit ?? PAGE;
+  const offset = opts.offset ?? 0;
+
+  let q = supabase
     .from('listings')
     .select('id, title, price, location, photo_urls, seller_id, category')
-    .eq('archived', false)
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw error;
-  const block = new Set(blockedIds);
-  const listings = ((rows ?? []) as Omit<FeedListing, 'seller'>[]).filter((l) => !block.has(l.seller_id));
+    .eq('archived', false);
 
-  const sellerIds = [...new Set(listings.map((l) => l.seller_id))];
+  if (opts.category && opts.category !== 'all') q = q.eq('category', opts.category);
+  if (opts.query && opts.query.trim()) {
+    const term = `%${opts.query.trim().replace(/[%_]/g, '')}%`;
+    q = q.or(`title.ilike.${term},description.ilike.${term}`);
+  }
+  // Exclude blocked sellers server-side so paging counts stay correct.
+  if (opts.blockedIds && opts.blockedIds.length) {
+    q = q.not('seller_id', 'in', `(${opts.blockedIds.join(',')})`);
+  }
+
+  if (opts.sort === 'price_low') q = q.order('price', { ascending: true, nullsFirst: true });
+  else if (opts.sort === 'price_high') q = q.order('price', { ascending: false, nullsFirst: false });
+  else q = q.order('created_at', { ascending: false });
+
+  // Fetch one extra row to detect a next page without a count query.
+  const { data: rows, error } = await q.range(offset, offset + limit);
+  if (error) throw error;
+  const all = (rows ?? []) as Omit<FeedListing, 'seller'>[];
+  const hasMore = all.length > limit;
+  const page = hasMore ? all.slice(0, limit) : all;
+
+  const sellerIds = [...new Set(page.map((l) => l.seller_id))];
   const sellerMap = new Map<string, FeedSeller>();
   if (sellerIds.length) {
     const { data: sellers, error: se } = await supabase
@@ -50,12 +83,15 @@ export async function fetchFeed(blockedIds: string[] = []): Promise<FeedListing[
     for (const s of (sellers ?? []) as FeedSeller[]) sellerMap.set(s.id, s);
   }
 
-  return listings.map((l) => ({
-    ...l,
-    price: l.price ?? 0,
-    photo_urls: l.photo_urls ?? [],
-    seller: sellerMap.get(l.seller_id) ?? null,
-  }));
+  return {
+    listings: page.map((l) => ({
+      ...l,
+      price: l.price ?? 0,
+      photo_urls: l.photo_urls ?? [],
+      seller: sellerMap.get(l.seller_id) ?? null,
+    })),
+    hasMore,
+  };
 }
 
 export type ListingDetail = {
