@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,8 @@ import {
   setListingArchived,
   fetchMyContactMethods,
   createReveal,
+  fetchSavedIds,
+  toggleSaved,
   MyContactMethods,
   ListingDetail,
   priceLabel,
@@ -32,6 +34,27 @@ export default function ListingDetailScreen() {
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error' | 'notfound'>('loading');
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Hydrate the heart state once (cheap; own-row read).
+  useEffect(() => {
+    if (!user) return;
+    fetchSavedIds(user.id)
+      .then((ids) => setSaved(ids.includes(String(id))))
+      .catch(() => {});
+  }, [user, id]);
+
+  const onToggleSave = async () => {
+    if (!user) return;
+    const prev = saved;
+    setSaved(!prev); // optimistic
+    try {
+      const now = await toggleSaved(user.id, String(id), prev);
+      setSaved(now);
+    } catch {
+      setSaved(prev); // revert on failure
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -166,10 +189,17 @@ export default function ListingDetailScreen() {
       <PhotoCarousel photos={listing.photo_urls} />
 
       <View style={{ padding: 20 }}>
-        {/* Title + price */}
-        <Text style={{ fontFamily: F.extrabold, fontSize: 24, color: T.ink, letterSpacing: -0.6, lineHeight: 29 }}>
-          {listing.title}
-        </Text>
+        {/* Title + save */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+          <Text style={{ flex: 1, fontFamily: F.extrabold, fontSize: 24, color: T.ink, letterSpacing: -0.6, lineHeight: 29 }}>
+            {listing.title}
+          </Text>
+          {!isOwner ? (
+            <Pressable onPress={onToggleSave} hitSlop={8} style={{ paddingTop: 2 }}>
+              <Ionicons name={saved ? 'heart' : 'heart-outline'} size={26} color={saved ? T.cardinal : T.muted} />
+            </Pressable>
+          ) : null}
+        </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
           <Text style={{ fontFamily: F.black, fontSize: 22, color: listing.price > 0 ? T.ink : T.cardinal }}>
             {priceLabel(listing.price)}

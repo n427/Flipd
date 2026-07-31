@@ -245,6 +245,81 @@ export async function fetchMyListings(userId: string): Promise<FeedListing[]> {
   }));
 }
 
+// --- Saved listings (favorites) — direct-to-Supabase, own-row RLS ---
+
+// IDs the user has saved, for hydrating heart state on cards/detail.
+export async function fetchSavedIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('saved_listings')
+    .select('listing_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.listing_id as string);
+}
+
+// Toggle a save. Returns the new saved state so callers can update optimistically.
+export async function toggleSaved(userId: string, listingId: string, saved: boolean): Promise<boolean> {
+  if (saved) {
+    const { error } = await supabase
+      .from('saved_listings')
+      .delete()
+      .eq('user_id', userId)
+      .eq('listing_id', listingId);
+    if (error) throw error;
+    return false;
+  }
+  const { error } = await supabase
+    .from('saved_listings')
+    .insert({ user_id: userId, listing_id: listingId });
+  // Ignore a duplicate-save race (already saved elsewhere).
+  if (error && error.code !== '23505') throw error;
+  return true;
+}
+
+// The user's saved listings, newest-saved first, as feed cards. Archived/removed
+// listings are dropped. Two-step (saves → listings by id) rather than an
+// embedded join, so it doesn't depend on PostgREST's FK-relationship cache.
+export async function fetchSavedListings(userId: string): Promise<FeedListing[]> {
+  const { data: saves, error } = await supabase
+    .from('saved_listings')
+    .select('listing_id, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const orderedIds = (saves ?? []).map((s) => s.listing_id as string);
+  if (orderedIds.length === 0) return [];
+
+  const { data: rows, error: le } = await supabase
+    .from('listings')
+    .select('id, title, price, location, photo_urls, seller_id, category')
+    .in('id', orderedIds)
+    .eq('archived', false);
+  if (le) throw le;
+  const byId = new Map((rows ?? []).map((l) => [l.id as string, l as Omit<FeedListing, 'seller'>]));
+
+  const sellerIds = [...new Set((rows ?? []).map((l) => l.seller_id as string))];
+  const sellerMap = new Map<string, FeedSeller>();
+  if (sellerIds.length) {
+    const { data: sellers, error: se } = await supabase
+      .from('public_profiles')
+      .select('id, display_name, school_unit, class_year, avatar_url')
+      .in('id', sellerIds);
+    if (se) throw se;
+    for (const s of (sellers ?? []) as FeedSeller[]) sellerMap.set(s.id, s);
+  }
+
+  // Preserve saved-order (newest first); skip archived/removed (not in byId).
+  return orderedIds
+    .map((id) => byId.get(id))
+    .filter((l): l is Omit<FeedListing, 'seller'> => !!l)
+    .map((l) => ({
+      ...l,
+      price: l.price ?? 0,
+      photo_urls: l.photo_urls ?? [],
+      seller: sellerMap.get(l.seller_id) ?? null,
+    }));
+}
+
 // The other party on a reveal (buyer sees seller, seller sees buyer).
 export type RevealCounterpart = {
   id: string;

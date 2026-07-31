@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -108,7 +109,28 @@ export default function Profile() {
               <Text style={{ fontFamily: F.bold, color: T.ink }}>{signingOut ? 'Signing out…' : 'Sign out'}</Text>
             </Pressable>
           </View>
-          <Text style={{ fontFamily: F.bold, fontSize: 15, marginTop: 16, color: T.ink }}>My Listings</Text>
+
+          <Pressable
+            onPress={() => router.push('/(tabs)/saved')}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              backgroundColor: '#fff',
+              borderWidth: 1,
+              borderColor: T.rule,
+              borderRadius: 12,
+              paddingVertical: 13,
+              paddingHorizontal: 15,
+              marginTop: 14,
+            }}
+          >
+            <Ionicons name="heart" size={18} color={T.cardinal} />
+            <Text style={{ flex: 1, fontFamily: F.bold, fontSize: 15, color: T.ink }}>Saved</Text>
+            <Ionicons name="chevron-forward" size={18} color={T.muted} />
+          </Pressable>
+
+          <Text style={{ fontFamily: F.bold, fontSize: 15, marginTop: 18, color: T.ink }}>My Listings</Text>
         </View>
       }
       ListEmptyComponent={
