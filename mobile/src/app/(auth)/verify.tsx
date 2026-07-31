@@ -46,7 +46,15 @@ export default function Verify() {
     setNotice('');
     let error;
     try {
-      ({ error } = await supabase.auth.verifyOtp({ email: String(email), token: code.trim(), type: 'email' }));
+      // Build params as an explicit typed object. Passing the literal inline was
+      // arriving at the API without `type` ("Verify requires a verification
+      // type") under the React Compiler on web — this keeps the field intact.
+      const params: { email: string; token: string; type: 'email' } = {
+        email: String(email),
+        token: code.trim(),
+        type: 'email',
+      };
+      ({ error } = await supabase.auth.verifyOtp(params));
     } catch {
       submitting.current = false;
       setBusy(false);
