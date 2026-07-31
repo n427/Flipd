@@ -120,9 +120,14 @@ export default function EmailScreen() {
 
           {/* Secondary as an outlined full-width button, matching the reference */}
           <Pressable
-            onPress={() =>
-              router.push({ pathname: '/(auth)/verify', params: { email: email.trim().toLowerCase() } })
-            }
+            onPress={() => {
+              // A code is tied to an email, so we need one before the code screen.
+              if (!isUscEmail(email)) {
+                setError('Enter your USC email first.');
+                return;
+              }
+              router.push({ pathname: '/(auth)/verify', params: { email: email.trim().toLowerCase() } });
+            }}
             style={{
               borderRadius: 14,
               borderWidth: 1.5,
