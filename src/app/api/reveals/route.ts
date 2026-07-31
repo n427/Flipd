@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { effectiveRevealStatus, resolveSharedContact, type RevealStatus } from '@/lib/validation';
-import { newRequestEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail } from '@/lib/notify';
+import { newRequestEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail, wantsPush } from '@/lib/notify';
 
 type RevealRow = {
   id: string;
@@ -201,8 +201,9 @@ export async function POST(req: NextRequest) {
       void sendEmail(to, subject, html);
     }
   }
-  // Push: same event, straight to the seller's device.
-  void sendPush(listing.seller_id, 'New contact request', `${buyerName} wants your contact for “${listingTitle}”.`, {
+  // Push: same event, straight to the seller's device (respects the pref).
+  if (wantsPush(sellerProfile?.notify_prefs, 'new_request'))
+    void sendPush(listing.seller_id, 'New contact request', `${buyerName} wants your contact for “${listingTitle}”.`, {
     type: 'new_request',
     reveal_id: row.id,
   });

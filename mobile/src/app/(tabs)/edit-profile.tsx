@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
-import { fetchMyProfile, updateMyProfile, uploadAvatar } from '@/lib/listings';
+import { fetchMyProfile, updateMyProfile, uploadAvatar, NotifyEvent, NotifyPrefs } from '@/lib/listings';
 import { T, F } from '@/lib/theme';
 
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
+const NOTIFY_EVENTS: { id: NotifyEvent; label: string }[] = [
+  { id: 'new_request', label: 'New request on your listing' },
+  { id: 'approval', label: 'Your request was approved' },
+  { id: 'reminder', label: 'Reminder before a request expires' },
+  { id: 'expiry', label: 'Your request expired' },
+];
 
 export default function EditProfile() {
   const router = useRouter();
@@ -25,6 +31,7 @@ export default function EditProfile() {
   const [instagram, setInstagram] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [prefs, setPrefs] = useState<NotifyPrefs>({});
 
   useEffect(() => {
     if (!user) return;
@@ -39,10 +46,17 @@ export default function EditProfile() {
         setInstagram(p.contact_instagram ?? '');
         setPhone(p.contact_phone ?? '');
         setEmail(p.contact_email ?? '');
+        setPrefs(p.notify_prefs ?? {});
       }
       setLoading(false);
     })();
   }, [user]);
+
+  // A single toggle per event controls both channels (email + push). Both
+  // default ON, so "enabled" means neither is explicitly false.
+  const eventOn = (id: NotifyEvent) => prefs[id]?.email !== false && prefs[id]?.push !== false;
+  const setEvent = (id: NotifyEvent, on: boolean) =>
+    setPrefs((prev) => ({ ...prev, [id]: { ...prev[id], email: on, push: on } }));
 
   // Pick + upload a profile photo. Uploads immediately (separate from Save) so
   // the new URL is persisted even if the user backs out without saving fields.
@@ -87,6 +101,7 @@ export default function EditProfile() {
         contact_instagram: instagram.trim() || null,
         contact_phone: phone.trim() || null,
         contact_email: email.trim() || null,
+        notify_prefs: prefs,
       });
       router.back();
     } catch (e) {
@@ -214,6 +229,35 @@ export default function EditProfile() {
         keyboardType="email-address"
         style={field}
       />
+
+      <Text style={label}>Notifications</Text>
+      <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginBottom: 12, marginTop: -2, lineHeight: 19 }}>
+        Push and email for each event. On by default.
+      </Text>
+      <View style={{ marginBottom: 20, borderWidth: 1, borderColor: T.rule, borderRadius: 14, overflow: 'hidden' }}>
+        {NOTIFY_EVENTS.map((ev, i) => (
+          <View
+            key={ev.id}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingVertical: 13,
+              paddingHorizontal: 15,
+              borderTopWidth: i === 0 ? 0 : 1,
+              borderTopColor: T.rule,
+              gap: 12,
+            }}
+          >
+            <Text style={{ fontFamily: F.medium, fontSize: 14.5, color: T.ink, flex: 1 }}>{ev.label}</Text>
+            <Switch
+              value={eventOn(ev.id)}
+              onValueChange={(on) => setEvent(ev.id, on)}
+              trackColor={{ true: T.cardinal }}
+            />
+          </View>
+        ))}
+      </View>
 
       {error ? <Text style={{ fontFamily: F.medium, color: T.danger, marginBottom: 8 }}>{error}</Text> : null}
 

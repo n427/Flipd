@@ -165,6 +165,11 @@ export async function createListing(input: NewListing): Promise<string> {
   return data.id as string;
 }
 
+// Per-event notification prefs. Both channels default ON — a stored `false`
+// turns that channel off for that event. Matches the web/server shape.
+export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry';
+export type NotifyPrefs = Partial<Record<NotifyEvent, { email?: boolean; push?: boolean; sms?: boolean }>>;
+
 export type MyProfile = {
   id: string;
   display_name: string | null;
@@ -175,16 +180,18 @@ export type MyProfile = {
   contact_instagram: string | null;
   contact_phone: string | null;
   contact_email: string | null;
+  notify_prefs: NotifyPrefs;
 };
 
 export async function fetchMyProfile(userId: string): Promise<MyProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, school_unit, class_year, bio, avatar_url, contact_instagram, contact_phone, contact_email')
+    .select('id, display_name, school_unit, class_year, bio, avatar_url, contact_instagram, contact_phone, contact_email, notify_prefs')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
-  return (data as MyProfile) ?? null;
+  if (!data) return null;
+  return { ...(data as MyProfile), notify_prefs: (data.notify_prefs as NotifyPrefs) ?? {} };
 }
 
 export async function fetchMyListings(userId: string): Promise<FeedListing[]> {
@@ -440,6 +447,7 @@ export async function updateMyProfile(
     contact_instagram?: string | null;
     contact_phone?: string | null;
     contact_email?: string | null;
+    notify_prefs?: NotifyPrefs;
   },
 ): Promise<void> {
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);

@@ -6,12 +6,18 @@ import { admin } from './supabase/admin';
 
 export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry';
 
-type NotifyPrefs = Partial<Record<NotifyEvent, { email?: boolean; sms?: boolean }>>;
+type NotifyPrefs = Partial<Record<NotifyEvent, { email?: boolean; sms?: boolean; push?: boolean }>>;
 
 // Email defaults ON for every event; a stored `false` turns it off.
 export function wantsEmail(prefs: unknown, event: NotifyEvent): boolean {
   const p = (prefs ?? {}) as NotifyPrefs;
   return p[event]?.email !== false;
+}
+
+// Push defaults ON for every event; a stored `false` turns it off.
+export function wantsPush(prefs: unknown, event: NotifyEvent): boolean {
+  const p = (prefs ?? {}) as NotifyPrefs;
+  return p[event]?.push !== false;
 }
 
 // The delivery address is the auth account's verified USC email — not the

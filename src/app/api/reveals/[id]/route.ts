@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { effectiveRevealStatus, resolveSharedContact, type RevealStatus } from '@/lib/validation';
-import { sharedContactEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail } from '@/lib/notify';
+import { sharedContactEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail, wantsPush } from '@/lib/notify';
 
 export async function PATCH(
   req: NextRequest,
@@ -85,10 +85,11 @@ export async function PATCH(
     }
 
     // Push: the buyer was waiting on this outcome — tell them it's approved.
-    void sendPush(existing.buyer_id, 'Request approved', `${sellerProfile?.display_name ?? 'The seller'} shared contact for “${listingTitle}”.`, {
-      type: 'approval',
-      reveal_id: existing.id,
-    });
+    if (wantsPush(buyerProfile?.notify_prefs, 'approval'))
+      void sendPush(existing.buyer_id, 'Request approved', `${sellerProfile?.display_name ?? 'The seller'} shared contact for “${listingTitle}”.`, {
+        type: 'approval',
+        reveal_id: existing.id,
+      });
   }
 
   // Approve + mark sold: archive the listing and close its other pending
