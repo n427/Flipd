@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { isUscEmail } from '@/lib/usc';
@@ -40,12 +41,13 @@ export default function EmailScreen() {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: T.bg }}>
-      {/* Top bar: wordmark left, step indicator right, progress bar under */}
+      {/* Top bar: Back + step indicator, progress bar under */}
       <View style={{ paddingHorizontal: 28, paddingTop: 40 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ fontFamily: F.black, fontSize: 22, color: T.ink, letterSpacing: -0.6 }}>
-            Flipd<Text style={{ color: T.cardinal }}>.</Text>
-          </Text>
+          <Pressable onPress={() => router.back()} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Ionicons name="chevron-back" size={20} color={T.ink} />
+            <Text style={{ fontFamily: F.bold, fontSize: 15.5, color: T.ink }}>Back</Text>
+          </Pressable>
           <Text style={{ fontFamily: F.bold, fontSize: 13.5, color: T.muted }}>Step 1 of 2</Text>
         </View>
         {/* Progress bar — step 1 of 2 filled halfway */}
