@@ -167,7 +167,7 @@ export default function Verify() {
       </KeyboardAvoidingView>
 
       {/* Footer */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 28, paddingBottom: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 28, paddingTop: 12, paddingBottom: 28 }}>
         <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted }}>Code expires in 10 minutes</Text>
         <Pressable onPress={() => Linking.openURL('mailto:support@flipdcampus.com')} hitSlop={6}>
           <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.cardinal }}>Need help?</Text>
