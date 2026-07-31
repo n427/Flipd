@@ -17,14 +17,29 @@ export default function Verify() {
     }
     setBusy(true);
     setError('');
-    const { error } = await supabase.auth.verifyOtp({
-      email: String(email),
-      token: code.trim(),
-      type: 'email',
-    });
+    let error;
+    try {
+      ({ error } = await supabase.auth.verifyOtp({
+        email: String(email),
+        token: code.trim(),
+        type: 'email',
+      }));
+    } catch {
+      // Network/transport failure — not a bad code.
+      setBusy(false);
+      setError('Couldn’t reach the server — check your connection and try again.');
+      return;
+    }
     setBusy(false);
     if (error) {
-      setError('That code is invalid or expired — request a new one.');
+      // Distinguish a genuinely bad/expired code from a server error.
+      const msg = error.message?.toLowerCase() ?? '';
+      const badCode = error.status === 401 || error.status === 403 || msg.includes('invalid') || msg.includes('expired') || msg.includes('token');
+      setError(
+        badCode
+          ? 'That code is invalid or expired — request a new one.'
+          : 'Something went wrong — try again in a moment.',
+      );
       return;
     }
     // On success, onAuthStateChange fires and the root gate routes to (tabs).

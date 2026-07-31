@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSession } from '@/lib/session';
@@ -15,6 +15,8 @@ export default function Profile() {
   const [profile, setProfile] = useState<MyProfile | null>(null);
   const [listings, setListings] = useState<FeedListing[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [refreshing, setRefreshing] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -28,6 +30,23 @@ export default function Profile() {
     }
   }, [user]);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  const signOut = useCallback(async () => {
+    setSigningOut(true);
+    try {
+      await unregisterPush();
+      await supabase.auth.signOut();
+    } catch {
+      setSigningOut(false);
+      Alert.alert('Could not sign out', 'Try again.');
+    }
+  }, []);
+
   // Reload on every focus so an edited profile or a posted/deleted listing
   // reflects on return. Only the first load shows the spinner (initial state).
   useFocusEffect(
@@ -36,7 +55,19 @@ export default function Profile() {
     }, [load]),
   );
 
-  if (state === 'loading') return <View style={c.center}><ActivityIndicator /></View>;
+  if (state === 'loading') return <View style={c.center}><ActivityIndicator color={T.cardinal} /></View>;
+
+  // Full error screen with retry when we have nothing to show.
+  if (state === 'error' && !profile) {
+    return (
+      <View style={[c.center, { padding: 24, gap: 14 }]}>
+        <Text style={{ fontFamily: F.medium, color: T.muted, textAlign: 'center' }}>Couldn’t load your profile.</Text>
+        <Pressable onPress={() => { setState('loading'); load(); }} style={{ backgroundColor: T.cardinal, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 }}>
+          <Text style={{ fontFamily: F.bold, color: '#fff' }}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   const unitYear = [profile?.school_unit, profile?.class_year].filter(Boolean).join(' · ');
 
@@ -46,6 +77,7 @@ export default function Profile() {
       keyExtractor={(l) => l.id}
       numColumns={2}
       contentContainerStyle={{ padding: 6 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
         <View style={{ padding: 10, gap: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -69,13 +101,11 @@ export default function Profile() {
               <Text style={{ fontFamily: F.bold, color: '#fff' }}>Edit profile</Text>
             </Pressable>
             <Pressable
-              onPress={async () => {
-                await unregisterPush();
-                await supabase.auth.signOut();
-              }}
-              style={{ backgroundColor: T.fieldbg, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20 }}
+              onPress={signOut}
+              disabled={signingOut}
+              style={{ backgroundColor: T.fieldbg, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20, opacity: signingOut ? 0.6 : 1 }}
             >
-              <Text style={{ fontFamily: F.bold, color: T.ink }}>Sign out</Text>
+              <Text style={{ fontFamily: F.bold, color: T.ink }}>{signingOut ? 'Signing out…' : 'Sign out'}</Text>
             </Pressable>
           </View>
           <Text style={{ fontFamily: F.bold, fontSize: 15, marginTop: 16, color: T.ink }}>My Listings</Text>

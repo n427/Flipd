@@ -294,18 +294,23 @@ export default function Requests() {
   const sendRating = async () => {
     if (!rateFor || score < 1) return;
     setSavingRating(true);
-    const res = await submitRating(rateFor.id, score, reviewText);
-    setSavingRating(false);
-    if (res.ok) {
-      setRateFor(null);
-      await load();
-    } else if (res.status === 409) {
-      // Already rated — close and refresh so the button disappears.
-      setRateFor(null);
-      await load();
-      Alert.alert('Already rated', 'You’ve already rated this transaction.');
-    } else {
-      Alert.alert('Could not submit', res.error);
+    try {
+      const res = await submitRating(rateFor.id, score, reviewText);
+      if (res.ok) {
+        setRateFor(null);
+        await load();
+      } else if (res.status === 409) {
+        // Already rated — close and refresh so the button disappears.
+        setRateFor(null);
+        await load();
+        Alert.alert('Already rated', 'You’ve already rated this transaction.');
+      } else {
+        Alert.alert('Could not submit', res.error);
+      }
+    } catch (e) {
+      Alert.alert('Could not submit', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setSavingRating(false);
     }
   };
 

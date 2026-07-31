@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, Pressable, Alert, Modal, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,25 +59,28 @@ export default function PublicProfile() {
 
   const isSelf = user?.id === id;
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [p, l, r, blockedIds] = await Promise.all([
-          fetchPublicProfile(String(id)),
-          fetchUserListings(String(id)),
-          fetchRatings(String(id)),
-          isSelf ? Promise.resolve([]) : fetchBlockedIds(),
-        ]);
-        setProfile(p);
-        setListings(l);
-        setRatings(r);
-        setBlocked(blockedIds.includes(String(id)));
-        setState('ready');
-      } catch {
-        setState('error');
-      }
-    })();
+  const load = useCallback(async () => {
+    setState('loading');
+    try {
+      const [p, l, r, blockedIds] = await Promise.all([
+        fetchPublicProfile(String(id)),
+        fetchUserListings(String(id)),
+        fetchRatings(String(id)),
+        isSelf ? Promise.resolve([]) : fetchBlockedIds(),
+      ]);
+      setProfile(p);
+      setListings(l);
+      setRatings(r);
+      setBlocked(blockedIds.includes(String(id)));
+      setState('ready');
+    } catch {
+      setState('error');
+    }
   }, [id, isSelf]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Overflow menu: Block/Unblock + Report.
   const openMenu = () => {
@@ -132,6 +135,18 @@ export default function PublicProfile() {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
         <ActivityIndicator color={T.cardinal} />
+      </View>
+    );
+  }
+
+  // Full error screen with retry when the profile failed to load.
+  if (state === 'error' && !profile) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg, padding: 24, gap: 14 }}>
+        <Text style={{ fontFamily: F.medium, color: T.muted, textAlign: 'center' }}>Couldn’t load this profile.</Text>
+        <Pressable onPress={load} style={{ backgroundColor: T.cardinal, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 }}>
+          <Text style={{ fontFamily: F.bold, color: '#fff' }}>Retry</Text>
+        </Pressable>
       </View>
     );
   }

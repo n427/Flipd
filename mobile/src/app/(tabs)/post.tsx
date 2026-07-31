@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, Switch, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
 import { createListing, uploadListingPhotos, generateDescription } from '@/lib/listings';
+import { FormScroll } from '@/components/FormScroll';
 import { CATEGORIES, CAMPUS_SPOTS } from '@/lib/catalog';
 import { searchPlaces, placeDetails, PlaceHit } from '@/lib/places';
 import { T, F } from '@/lib/theme';
@@ -47,28 +48,36 @@ export default function Post() {
   };
 
   const addFromLibrary = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow photo access to add photos.');
-      return;
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Allow photo access to add photos.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsMultipleSelection: true,
+        selectionLimit: MAX_PHOTOS - photos.length,
+      });
+      if (!res.canceled) setPhotos((p) => [...p, ...res.assets.map((a) => a.uri)].slice(0, MAX_PHOTOS));
+    } catch {
+      Alert.alert('Couldn’t open photos', 'Try again.');
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-      allowsMultipleSelection: true,
-      selectionLimit: MAX_PHOTOS - photos.length,
-    });
-    if (!res.canceled) setPhotos((p) => [...p, ...res.assets.map((a) => a.uri)].slice(0, MAX_PHOTOS));
   };
 
   const addFromCamera = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow camera access to take a photo.');
-      return;
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Allow camera access to take a photo.');
+        return;
+      }
+      const res = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      if (!res.canceled) setPhotos((p) => [...p, res.assets[0].uri].slice(0, MAX_PHOTOS));
+    } catch {
+      Alert.alert('Couldn’t open camera', 'Try again.');
     }
-    const res = await ImagePicker.launchCameraAsync({ quality: 0.8 });
-    if (!res.canceled) setPhotos((p) => [...p, res.assets[0].uri].slice(0, MAX_PHOTOS));
   };
 
   const removePhoto = (i: number) => setPhotos((p) => p.filter((_, idx) => idx !== i));
@@ -142,7 +151,7 @@ export default function Post() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} style={{ backgroundColor: T.bg }}>
+    <FormScroll contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
       <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 18 }}>
         New listing
       </Text>
@@ -301,7 +310,7 @@ export default function Post() {
           {submitting ? 'Posting…' : 'Post listing'}
         </Text>
       </Pressable>
-    </ScrollView>
+    </FormScroll>
   );
 }
 

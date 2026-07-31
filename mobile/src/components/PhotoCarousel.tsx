@@ -2,6 +2,22 @@ import { useState } from 'react';
 import { View, Text, FlatList, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 
+// One carousel slide that falls back to a placeholder if the image fails to
+// load (broken URL), instead of showing a blank box.
+function Slide({ uri, size }: { uri: string; size: number }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <View style={{ width: size, height: size, backgroundColor: '#f0efec', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: '#b8b4ad' }}>No photo</Text>
+      </View>
+    );
+  }
+  return (
+    <Image source={{ uri }} style={{ width: size, height: size }} contentFit="cover" onError={() => setFailed(true)} />
+  );
+}
+
 export function PhotoCarousel({ photos }: { photos: string[] }) {
   const { width } = useWindowDimensions();
   const [index, setIndex] = useState(0);
@@ -23,9 +39,7 @@ export function PhotoCarousel({ photos }: { photos: string[] }) {
         showsHorizontalScrollIndicator={false}
         keyExtractor={(uri, i) => `${i}-${uri}`}
         onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
-        renderItem={({ item }) => (
-          <Image source={{ uri: item }} style={{ width, height: width }} contentFit="cover" />
-        )}
+        renderItem={({ item }) => <Slide uri={item} size={width} />}
       />
       {photos.length > 1 && (
         <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 10 }}>

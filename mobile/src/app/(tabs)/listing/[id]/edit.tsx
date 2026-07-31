@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Switch, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, Switch, Alert, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
 import { fetchListing, updateListing, generateDescription } from '@/lib/listings';
+import { FormScroll } from '@/components/FormScroll';
 import { CATEGORIES, CAMPUS_SPOTS } from '@/lib/catalog';
 import { searchPlaces, placeDetails, PlaceHit } from '@/lib/places';
 import { T, F } from '@/lib/theme';
@@ -37,26 +38,26 @@ export default function EditListingScreen() {
 
   useEffect(() => {
     (async () => {
-      const l = await fetchListing(String(id));
-      if (!l) {
+      try {
+        const l = await fetchListing(String(id));
+        if (!l || !user || user.id !== l.seller_id) {
+          setDenied(true);
+          return;
+        }
+        setPhotos(l.photo_urls ?? []);
+        setTitle(l.title);
+        setPrice(l.price > 0 ? String(l.price) : '');
+        setDescription(l.description ?? '');
+        setCategory(l.category);
+        setNegotiable(l.negotiable);
+        setLocName(l.place_name || l.location || '');
+        if (l.lat != null && l.lng != null) setCoords({ lat: l.lat, lng: l.lng });
+      } catch {
+        // Treat a load failure as no-access rather than an eternal spinner.
         setDenied(true);
+      } finally {
         setLoading(false);
-        return;
       }
-      if (!user || user.id !== l.seller_id) {
-        setDenied(true);
-        setLoading(false);
-        return;
-      }
-      setPhotos(l.photo_urls ?? []);
-      setTitle(l.title);
-      setPrice(l.price > 0 ? String(l.price) : '');
-      setDescription(l.description ?? '');
-      setCategory(l.category);
-      setNegotiable(l.negotiable);
-      setLocName(l.place_name || l.location || '');
-      if (l.lat != null && l.lng != null) setCoords({ lat: l.lat, lng: l.lng });
-      setLoading(false);
     })();
   }, [id, user]);
 
@@ -186,7 +187,7 @@ export default function EditListingScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 60, paddingBottom: 40 }} style={{ backgroundColor: T.bg }}>
+    <FormScroll contentContainerStyle={{ padding: 20, paddingTop: 60, paddingBottom: 40 }}>
       <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 18 }}>
         Edit listing
       </Text>
@@ -337,7 +338,7 @@ export default function EditListingScreen() {
       <Pressable onPress={() => router.back()} style={{ marginTop: 14, alignItems: 'center' }}>
         <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
       </Pressable>
-    </ScrollView>
+    </FormScroll>
   );
 }
 

@@ -103,10 +103,15 @@ export default function ListingDetailScreen() {
     if (!user) return;
     setSheetOpen(true);
     if (myMethods === null) {
-      const m = await fetchMyContactMethods(user.id);
-      setMyMethods(m);
-      // Preselect everything the buyer has — sharing all is the common intent.
-      setPicked(new Set(Object.keys(m) as (keyof MyContactMethods)[]));
+      try {
+        const m = await fetchMyContactMethods(user.id);
+        setMyMethods(m);
+        // Preselect everything the buyer has — sharing all is the common intent.
+        setPicked(new Set(Object.keys(m) as (keyof MyContactMethods)[]));
+      } catch {
+        // Fall back to the empty state (add-contact CTA) instead of spinning.
+        setMyMethods({});
+      }
     }
   };
 
@@ -121,23 +126,28 @@ export default function ListingDetailScreen() {
   const sendReveal = async () => {
     if (!listing) return;
     setSending(true);
-    const parsedOffer = parseInt(offer, 10);
-    const res = await createReveal(
-      listing.id,
-      Array.from(picked),
-      Number.isFinite(parsedOffer) && parsedOffer > 0 ? parsedOffer : null,
-    );
-    setSending(false);
-    if (res.ok) {
-      setSheetOpen(false);
-      setRequested(true);
-      Alert.alert('Request sent', 'The seller will get an email. If they approve, you’ll each get the other’s contact.');
-    } else if (res.status === 409) {
-      setSheetOpen(false);
-      setRequested(true);
-      Alert.alert('Already requested', 'You’ve already asked for this seller’s contact.');
-    } else {
-      Alert.alert('Could not send', res.error);
+    try {
+      const parsedOffer = parseInt(offer, 10);
+      const res = await createReveal(
+        listing.id,
+        Array.from(picked),
+        Number.isFinite(parsedOffer) && parsedOffer > 0 ? parsedOffer : null,
+      );
+      if (res.ok) {
+        setSheetOpen(false);
+        setRequested(true);
+        Alert.alert('Request sent', 'The seller will get an email. If they approve, you’ll each get the other’s contact.');
+      } else if (res.status === 409) {
+        setSheetOpen(false);
+        setRequested(true);
+        Alert.alert('Already requested', 'You’ve already asked for this seller’s contact.');
+      } else {
+        Alert.alert('Could not send', res.error);
+      }
+    } catch (e) {
+      Alert.alert('Could not send', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setSending(false);
     }
   };
 

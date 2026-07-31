@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, Switch } from 'react-native';
+import { FormScroll } from '@/components/FormScroll';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -33,9 +34,13 @@ export default function EditProfile() {
   const [email, setEmail] = useState('');
   const [prefs, setPrefs] = useState<NotifyPrefs>({});
 
-  useEffect(() => {
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  const loadProfile = useCallback(async () => {
     if (!user) return;
-    (async () => {
+    setLoading(true);
+    setLoadFailed(false);
+    try {
       const p = await fetchMyProfile(user.id);
       if (p) {
         setName(p.display_name ?? '');
@@ -48,9 +53,16 @@ export default function EditProfile() {
         setEmail(p.contact_email ?? '');
         setPrefs(p.notify_prefs ?? {});
       }
+    } catch {
+      setLoadFailed(true);
+    } finally {
       setLoading(false);
-    })();
+    }
   }, [user]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   // A single toggle per event controls both channels (email + push). Both
   // default ON, so "enabled" means neither is explicitly false.
@@ -118,8 +130,19 @@ export default function EditProfile() {
     );
   }
 
+  if (loadFailed) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg, padding: 24, gap: 14 }}>
+        <Text style={{ fontFamily: F.medium, color: T.muted, textAlign: 'center' }}>Couldn’t load your profile.</Text>
+        <Pressable onPress={loadProfile} style={{ backgroundColor: T.cardinal, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 }}>
+          <Text style={{ fontFamily: F.bold, color: '#fff' }}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={{ backgroundColor: T.bg }} contentContainerStyle={{ padding: 20, paddingTop: 60, paddingBottom: 40 }}>
+    <FormScroll contentContainerStyle={{ padding: 20, paddingTop: 60, paddingBottom: 40 }}>
       <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 20 }}>
         Edit profile
       </Text>
@@ -271,7 +294,7 @@ export default function EditProfile() {
       <Pressable onPress={() => router.back()} style={{ marginTop: 14, alignItems: 'center' }}>
         <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
       </Pressable>
-    </ScrollView>
+    </FormScroll>
   );
 }
 
