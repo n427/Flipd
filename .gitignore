@@ -8,3 +8,5 @@ Tassel-handoff/
 Tassel-handoff.zip
 .env.local
 .superpowers/
+# Supabase CLI scratch
+supabase/.temp/
