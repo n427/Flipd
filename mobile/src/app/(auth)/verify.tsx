@@ -17,6 +17,7 @@ export default function Verify() {
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(RESEND_SECONDS);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const submitting = useRef(false); // synchronous double-submit guard
 
   // Resend countdown so people don't spam requests (each new code invalidates
   // the previous one — the #1 cause of "my code doesn't work").
@@ -34,6 +35,12 @@ export default function Verify() {
       setError('Codes are 6 to 8 digits. Paste the whole thing.');
       return;
     }
+    // Synchronous re-entry guard. `busy` is async state, so a fast double-tap
+    // or Enter+click can fire verifyOtp twice with the same code — the first
+    // call consumes the OTP, the second returns "expired or invalid". This ref
+    // blocks the second call immediately.
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setError('');
     setNotice('');
@@ -41,18 +48,23 @@ export default function Verify() {
     try {
       ({ error } = await supabase.auth.verifyOtp({ email: String(email), token: code.trim(), type: 'email' }));
     } catch {
+      submitting.current = false;
       setBusy(false);
       setError('Couldn’t reach the server. Check your connection and try again.');
       return;
     }
     setBusy(false);
     if (error) {
+      submitting.current = false;
+      // If a prior (duplicate) call already logged us in, ignore the stale error.
+      const { data } = await supabase.auth.getSession();
+      if (data.session) return; // onAuthStateChange will route us
       const msg = error.message?.toLowerCase() ?? '';
       const badCode =
         error.status === 401 || error.status === 403 || msg.includes('invalid') || msg.includes('expired') || msg.includes('token');
       setError(
         badCode
-          ? 'That code didn’t work. It may have expired, or a newer code replaced it. Resend and use the latest one.'
+          ? 'That code didn’t work. Request a new one and enter the latest code.'
           : 'Something went wrong. Try again in a moment.',
       );
       return;
