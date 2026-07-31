@@ -123,7 +123,7 @@ export default function PublicProfile() {
       setReportOpen(false);
       setReportReason(null);
       setReportNote('');
-      Alert.alert('Report sent', 'Thanks — our team will take a look.');
+      Alert.alert('Report sent', 'Thanks. Our team will take a look.');
     } catch (e) {
       Alert.alert('Could not send', e instanceof Error ? e.message : 'Try again.');
     } finally {

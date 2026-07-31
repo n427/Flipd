@@ -117,7 +117,7 @@ export default function EditProfile() {
       });
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save — try again.');
+      setError(e instanceof Error ? e.message : 'Could not save. Try again.');
       setSaving(false);
     }
   };

@@ -214,7 +214,7 @@ export default function Feed() {
         ListEmptyComponent={
           <View style={{ alignItems: 'center', justifyContent: 'center', padding: 48 }}>
             <Text style={{ fontFamily: F.medium, color: T.muted }}>
-              {error ? 'Couldn’t load — pull to retry.' : debounced || cat !== 'all' ? 'Nothing matches that.' : 'No listings yet.'}
+              {error ? 'Couldn’t load. Pull to retry.' : debounced || cat !== 'all' ? 'Nothing matches that.' : 'No listings yet.'}
             </Text>
           </View>
         }

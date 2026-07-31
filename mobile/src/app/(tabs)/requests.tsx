@@ -229,7 +229,7 @@ export default function Requests() {
             markSold ? 'Approved & marked sold' : 'Approved',
             markSold
               ? 'You each got the other’s contact. The listing is now archived and other pending requests were declined.'
-              : 'You each got the other’s contact — it’s shown on this request.',
+              : 'You each got the other’s contact. It’s shown on this request.',
           );
         }
       } catch (e) {
@@ -333,7 +333,7 @@ export default function Requests() {
         <Text style={{ fontFamily: F.bold, fontSize: 17, color: T.ink, marginBottom: 6 }}>No requests yet</Text>
         <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, textAlign: 'center' }}>
           {error
-            ? 'Couldn’t load your requests — pull to retry.'
+            ? 'Couldn’t load your requests. Pull to retry.'
             : 'When you reveal contact on a listing, or someone requests yours, it shows up here.'}
         </Text>
       </View>

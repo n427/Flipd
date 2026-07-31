@@ -145,7 +145,7 @@ export default function Post() {
       });
       router.replace(`/(tabs)/listing/${id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not post — try again.');
+      setError(e instanceof Error ? e.message : 'Could not post. Try again.');
       setSubmitting(false);
     }
   };
