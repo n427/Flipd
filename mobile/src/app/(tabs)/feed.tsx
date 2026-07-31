@@ -108,9 +108,9 @@ export default function Feed() {
   }, [loadingMore, hasMore, debounced, cat, sort, listings.length, getBlocked]);
 
   const header = (
-    <View style={{ paddingHorizontal: 12 }}>
-      <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -1, marginBottom: 12 }}>
-        flipd<Text style={{ color: T.cardinal }}>.</Text>
+    <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
+      <Text style={{ fontFamily: F.black, fontSize: 28, color: T.ink, letterSpacing: -1, marginBottom: 16 }}>
+        Flipd<Text style={{ color: T.cardinal }}>.</Text>
       </Text>
       <View
         style={{
@@ -141,7 +141,7 @@ export default function Feed() {
       </View>
 
       {/* Category chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 14, paddingBottom: 6 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 18, paddingBottom: 4 }}>
         {CATS.map((c) => {
           const active = cat === c.id;
           return (
@@ -149,7 +149,7 @@ export default function Feed() {
               key={c.id}
               onPress={() => setCat(c.id)}
               style={{
-                paddingVertical: 8,
+                paddingVertical: 9,
                 paddingHorizontal: 16,
                 borderRadius: 999,
                 borderWidth: 1,
@@ -164,7 +164,7 @@ export default function Feed() {
       </ScrollView>
 
       {/* Sort row */}
-      <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 12, paddingTop: 4 }}>
+      <View style={{ flexDirection: 'row', gap: 8, paddingTop: 12, paddingBottom: 14 }}>
         {SORTS.map((s) => {
           const active = sort === s.id;
           return (
@@ -172,8 +172,8 @@ export default function Feed() {
               key={s.id}
               onPress={() => setSort(s.id)}
               style={{
-                paddingVertical: 6,
-                paddingHorizontal: 12,
+                paddingVertical: 8,
+                paddingHorizontal: 14,
                 borderRadius: 8,
                 backgroundColor: active ? T.fieldbg : 'transparent',
               }}
