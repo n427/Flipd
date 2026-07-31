@@ -40,17 +40,12 @@ export default function EmailScreen() {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: T.bg }}>
-      {/* Top bar: brand mark + label left, step indicator right, progress bar under */}
-      <View style={{ paddingHorizontal: 28, paddingTop: 12 }}>
+      {/* Top bar: wordmark left, step indicator right, progress bar under */}
+      <View style={{ paddingHorizontal: 28, paddingTop: 40 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: T.cardinal, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontFamily: F.black, fontSize: 18, color: '#fff', marginTop: -1 }}>f</Text>
-            </View>
-            <Text style={{ fontFamily: F.extrabold, fontSize: 16, color: T.ink, letterSpacing: -0.3 }}>
-              flipd<Text style={{ color: T.cardinal }}>.</Text>
-            </Text>
-          </View>
+          <Text style={{ fontFamily: F.black, fontSize: 22, color: T.ink, letterSpacing: -0.6 }}>
+            Flipd<Text style={{ color: T.cardinal }}>.</Text>
+          </Text>
           <Text style={{ fontFamily: F.bold, fontSize: 13.5, color: T.muted }}>Step 1 of 2</Text>
         </View>
         {/* Progress bar — step 1 of 2 filled halfway */}

@@ -78,7 +78,7 @@ export default function Verify() {
   return (
     <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: T.bg }}>
       {/* Top bar: Back + step indicator, full progress bar */}
-      <View style={{ paddingHorizontal: 28, paddingTop: 12 }}>
+      <View style={{ paddingHorizontal: 28, paddingTop: 40 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Pressable onPress={() => router.back()} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="chevron-back" size={20} color={T.ink} />
