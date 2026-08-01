@@ -1,21 +1,21 @@
 import { View, Text } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { T, F } from '@/lib/theme';
 import { useUnread } from '@/lib/unread';
 
-// Bell icon with an unread-count badge for the Requests tab.
+// Message icon with an unread-count badge for the Requests tab.
 function RequestsIcon({ color, size }: { color: string; size: number }) {
   const { count } = useUnread();
   return (
     <View>
-      <Ionicons name="notifications" color={color} size={size} />
+      <Feather name="message-circle" color={color} size={size} />
       {count > 0 ? (
         <View
           style={{
             position: 'absolute',
-            top: -4,
-            right: -7,
+            top: -5,
+            right: -8,
             minWidth: 17,
             height: 17,
             borderRadius: 9,
@@ -29,6 +29,29 @@ function RequestsIcon({ color, size }: { color: string; size: number }) {
             {count > 9 ? '9+' : count}
           </Text>
         </View>
+      ) : null}
+    </View>
+  );
+}
+
+// Bell icon with a presence dot for event notifications.
+function NotificationsIcon({ color, size }: { color: string; size: number }) {
+  const { eventsCount } = useUnread();
+  return (
+    <View>
+      <Feather name="bell" color={color} size={size} />
+      {eventsCount > 0 ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: -2,
+            right: -2,
+            width: 9,
+            height: 9,
+            borderRadius: 5,
+            backgroundColor: T.cardinal,
+          }}
+        />
       ) : null}
     </View>
   );
@@ -48,41 +71,40 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="feed"
-        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} /> }}
+        options={{ tabBarIcon: ({ color, size }) => <Feather name="home" color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="requests"
         options={{ tabBarIcon: ({ color, size }) => <RequestsIcon color={color} size={size} /> }}
       />
-      {/* Post — prominent raised center button */}
+      {/* Post — raised center button, rounded square, no glow */}
       <Tabs.Screen
         name="post"
         options={{
           tabBarIcon: () => (
             <View
               style={{
-                width: 58,
-                height: 58,
-                borderRadius: 29,
+                width: 56,
+                height: 56,
+                borderRadius: 18,
                 backgroundColor: T.cardinal,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginTop: -18,
-                shadowColor: T.cardinal,
-                shadowOpacity: 0.35,
-                shadowRadius: 10,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 6,
+                marginTop: -16,
               }}
             >
-              <Ionicons name="add" color="#fff" size={32} />
+              <Feather name="plus" color="#fff" size={28} />
             </View>
           ),
         }}
       />
       <Tabs.Screen
+        name="notifications"
+        options={{ tabBarIcon: ({ color, size }) => <NotificationsIcon color={color} size={size} /> }}
+      />
+      <Tabs.Screen
         name="profile"
-        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} /> }}
+        options={{ tabBarIcon: ({ color, size }) => <Feather name="user" color={color} size={size} /> }}
       />
       {/* Hidden routes — not tabs */}
       <Tabs.Screen name="saved" options={{ href: null }} />

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, Switch, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, Switch, Alert, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +14,7 @@ import { T, F } from '@/lib/theme';
 
 const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-const MAX_PHOTOS = 8;
+const MAX_PHOTOS = 6;
 
 export default function Post() {
   const router = useRouter();
@@ -54,12 +55,18 @@ export default function Post() {
         Alert.alert('Permission needed', 'Allow photo access to add photos.');
         return;
       }
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-        allowsMultipleSelection: true,
-        selectionLimit: MAX_PHOTOS - photos.length,
-      });
+      const remaining = MAX_PHOTOS - photos.length;
+      // Picking one at a time gives a native square crop step (allowsEditing).
+      // Multi-select can't crop, so single-select unlocks crop-on-add.
+      const res =
+        remaining === 1
+          ? await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsEditing: true, aspect: [1, 1] })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              quality: 0.8,
+              allowsMultipleSelection: true,
+              selectionLimit: remaining,
+            });
       if (!res.canceled) setPhotos((p) => [...p, ...res.assets.map((a) => a.uri)].slice(0, MAX_PHOTOS));
     } catch {
       Alert.alert('Couldn’t open photos', 'Try again.');
@@ -73,7 +80,8 @@ export default function Post() {
         Alert.alert('Permission needed', 'Allow camera access to take a photo.');
         return;
       }
-      const res = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      // Crop/reposition step after capture.
+      const res = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true, aspect: [1, 1] });
       if (!res.canceled) setPhotos((p) => [...p, res.assets[0].uri].slice(0, MAX_PHOTOS));
     } catch {
       Alert.alert('Couldn’t open camera', 'Try again.');
@@ -150,18 +158,43 @@ export default function Post() {
     }
   };
 
-  return (
-    <FormScroll contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-      <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 18 }}>
-        New listing
-      </Text>
+  // Progress: photos, title, category, location → 0/4 in the header.
+  const steps = [photos.length > 0, !!title.trim(), !!category, !!locName.trim()].filter(Boolean).length;
 
+  return (
+    <View style={{ flex: 1, backgroundColor: T.bg }}>
+      {/* Header: X + title + step counter */}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: T.bg }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 20,
+            paddingTop: 8,
+            paddingBottom: 14,
+            borderBottomWidth: 1,
+            borderBottomColor: T.rule,
+          }}
+        >
+          <Pressable onPress={() => router.replace('/(tabs)/feed')} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Ionicons name="close" size={24} color={T.ink} />
+            <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, letterSpacing: -0.4 }}>New listing</Text>
+          </Pressable>
+          <Text style={{ fontFamily: F.bold, fontSize: 14, color: T.muted }}>{steps}/4</Text>
+        </View>
+      </SafeAreaView>
+
+      <FormScroll contentContainerStyle={{ padding: 20, paddingBottom: 24 }}>
       {/* Photos */}
-      <Text style={label}>Photos</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <Text style={[label, { marginBottom: 0 }]}>Photos</Text>
+        <Text style={{ fontFamily: F.medium, fontSize: 12.5, color: T.muted }}>Up to {MAX_PHOTOS} · first is the cover</Text>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
         {photos.map((uri, i) => (
-          <View key={uri} style={{ width: 76, height: 76 }}>
-            <Image source={{ uri }} style={{ width: 76, height: 76, borderRadius: 12 }} contentFit="cover" />
+          <View key={uri} style={{ width: 96, height: 96 }}>
+            <Image source={{ uri }} style={{ width: 96, height: 96, borderRadius: 14 }} contentFit="cover" />
             <Pressable
               onPress={() => removePhoto(i)}
               style={{
@@ -183,11 +216,11 @@ export default function Post() {
         {photos.length < MAX_PHOTOS && (
           <>
             <Pressable onPress={addFromLibrary} style={photoBox}>
-              <Ionicons name="images-outline" size={20} color={T.muted} />
+              <Ionicons name="image-outline" size={22} color={T.muted} />
               <Text style={photoBoxLabel}>Library</Text>
             </Pressable>
             <Pressable onPress={addFromCamera} style={photoBox}>
-              <Ionicons name="camera-outline" size={20} color={T.muted} />
+              <Ionicons name="camera-outline" size={22} color={T.muted} />
               <Text style={photoBoxLabel}>Camera</Text>
             </Pressable>
           </>
@@ -230,22 +263,36 @@ export default function Post() {
         style={[field, { height: 96, textAlignVertical: 'top', paddingTop: 14 }]}
       />
 
-      {/* Category */}
+      {/* Category — horizontal scroll */}
       <Text style={label}>Category</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20, marginBottom: 24 }}>
         {CATEGORIES.map((cat) => (
           <Pressable key={cat.id} onPress={() => setCategory(cat.id)} style={chip(category === cat.id)}>
-            <Text style={{ fontFamily: F.semibold, color: category === cat.id ? '#fff' : T.ink, fontSize: 13.5 }}>
+            <Text style={{ fontFamily: F.semibold, color: category === cat.id ? '#fff' : T.ink, fontSize: 14 }}>
               {cat.label}
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
-      {/* Negotiable */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+      {/* Negotiable — card with toggle on the right */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: T.fieldbg,
+          borderRadius: 14,
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          marginBottom: 24,
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>Open to offers</Text>
+          <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginTop: 2 }}>Buyers can send you a price</Text>
+        </View>
         <Switch value={negotiable} onValueChange={setNegotiable} trackColor={{ true: T.cardinal }} />
-        <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.ink }}>Open to offers</Text>
       </View>
 
       {/* Location */}
@@ -310,7 +357,8 @@ export default function Post() {
           {submitting ? 'Posting…' : 'Post listing'}
         </Text>
       </Pressable>
-    </FormScroll>
+      </FormScroll>
+    </View>
   );
 }
 
@@ -328,15 +376,15 @@ const field = {
   marginBottom: 20,
 } as const;
 const photoBox = {
-  width: 76,
-  height: 76,
-  borderRadius: 12,
+  width: 96,
+  height: 96,
+  borderRadius: 14,
   backgroundColor: T.fieldbg,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
-  gap: 3,
+  gap: 5,
 };
-const photoBoxLabel = { fontFamily: F.medium, color: T.muted, fontSize: 11 } as const;
+const photoBoxLabel = { fontFamily: F.medium, color: T.muted, fontSize: 12 } as const;
 const chip = (active: boolean) => ({
   paddingVertical: 9,
   paddingHorizontal: 15,

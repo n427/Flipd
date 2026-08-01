@@ -1,29 +1,44 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useSession } from './session';
-import { fetchUnreadCount } from './listings';
+import { fetchUnreadCount, countNewListingsSince } from './listings';
 import { registerForPush } from './push';
 
-type Ctx = { count: number; refresh: () => void };
-const UnreadContext = createContext<Ctx>({ count: 0, refresh: () => {} });
+type Ctx = {
+  count: number; // unread reveal requests → chat badge
+  refresh: () => void;
+  eventsCount: number; // new listings since last opening the bell tab → dot
+  markEventsSeen: () => void;
+};
+const UnreadContext = createContext<Ctx>({ count: 0, refresh: () => {}, eventsCount: 0, markEventsSeen: () => {} });
 
 const POLL_MS = 60_000;
 
-// Tracks the unread-reveals count for the Requests tab badge. Polls on a timer,
-// on app-foreground, and on demand via refresh() (called after approve/decline
-// or when the Requests screen loads and marks things seen).
+// Tracks the unread-reveals count (chat badge) and new-listing events (bell
+// dot). Polls on a timer, on app-foreground, and on demand.
 export function UnreadProvider({ children }: { children: React.ReactNode }) {
   const { user } = useSession();
   const [count, setCount] = useState(0);
+  const [eventsCount, setEventsCount] = useState(0);
+  const eventsSeenAt = useRef<string>(new Date(0).toISOString());
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
     if (!user) {
       setCount(0);
+      setEventsCount(0);
       return;
     }
-    setCount(await fetchUnreadCount());
+    const [c, ev] = await Promise.all([fetchUnreadCount(), countNewListingsSince(eventsSeenAt.current, user.id)]);
+    setCount(c);
+    setEventsCount(ev);
   }, [user]);
+
+  // Opening the bell tab clears the dot until newer listings appear.
+  const markEventsSeen = useCallback(() => {
+    eventsSeenAt.current = new Date().toISOString();
+    setEventsCount(0);
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -43,7 +58,9 @@ export function UnreadProvider({ children }: { children: React.ReactNode }) {
     if (user) registerForPush(user.id);
   }, [user]);
 
-  return <UnreadContext.Provider value={{ count, refresh }}>{children}</UnreadContext.Provider>;
+  return (
+    <UnreadContext.Provider value={{ count, refresh, eventsCount, markEventsSeen }}>{children}</UnreadContext.Provider>
+  );
 }
 
 export const useUnread = () => useContext(UnreadContext);

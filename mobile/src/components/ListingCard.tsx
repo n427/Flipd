@@ -17,8 +17,8 @@ export function ListingCard({ listing, onPress }: { listing: FeedListing; onPres
       .join(' · ') || (listing.location ?? 'USC · pickup');
 
   return (
-    <Pressable onPress={onPress} style={{ flex: 1, margin: 6 }}>
-      <View style={{ aspectRatio: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: '#f0efec' }}>
+    <Pressable onPress={onPress} style={{ flex: 1, margin: 6, marginBottom: 22 }}>
+      <View style={{ aspectRatio: 1, borderRadius: 14, overflow: 'hidden', backgroundColor: '#f0efec' }}>
         {photo && !failed ? (
           <Image
             source={{ uri: photo }}
@@ -32,14 +32,14 @@ export function ListingCard({ listing, onPress }: { listing: FeedListing; onPres
           </View>
         )}
       </View>
-      <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 14.5, marginTop: 8, color: T.ink }}>
+      <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 15, marginTop: 11, color: T.ink }}>
         {listing.title}
       </Text>
-      <Text numberOfLines={1} style={{ fontFamily: F.regular, color: T.muted, fontSize: 12.5, marginTop: 2 }}>
+      <Text numberOfLines={1} style={{ fontFamily: F.regular, color: T.muted, fontSize: 12.5, marginTop: 5 }}>
         {sellerLine}
       </Text>
       <Text
-        style={{ fontFamily: F.bold, fontSize: 15, marginTop: 2, color: listing.price > 0 ? T.ink : T.cardinal }}
+        style={{ fontFamily: F.bold, fontSize: 15.5, marginTop: 6, color: listing.price > 0 ? T.ink : T.cardinal }}
       >
         {priceLabel(listing.price)}
       </Text>

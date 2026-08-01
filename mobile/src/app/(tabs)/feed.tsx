@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { fetchFeed, fetchBlockedIds, FeedListing, FeedSort } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { CATEGORIES } from '@/lib/catalog';
 import { T, F } from '@/lib/theme';
 
@@ -108,7 +109,10 @@ export default function Feed() {
   }, [loadingMore, hasMore, debounced, cat, sort, listings.length, getBlocked]);
 
   const header = (
-    <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
+    // Sits inside the grid's paddingHorizontal:10 container; add 6 so header
+    // content lines up with the cards (10 + 6 = 16 outer edge, and each card
+    // adds its own 6 margin to reach the same 16).
+    <View style={{ paddingHorizontal: 6, paddingTop: 12 }}>
       <Text style={{ fontFamily: F.black, fontSize: 28, color: T.ink, letterSpacing: -1, marginBottom: 16 }}>
         Flipd<Text style={{ color: T.cardinal }}>.</Text>
       </Text>
@@ -140,8 +144,8 @@ export default function Feed() {
         ) : null}
       </View>
 
-      {/* Category chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 18, paddingBottom: 4 }}>
+      {/* Category chips — horizontally scrollable; overflow chips scroll into view */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9, paddingTop: 18, paddingBottom: 4, paddingRight: 12 }}>
         {CATS.map((c) => {
           const active = cat === c.id;
           return (
@@ -149,15 +153,15 @@ export default function Feed() {
               key={c.id}
               onPress={() => setCat(c.id)}
               style={{
-                paddingVertical: 9,
-                paddingHorizontal: 16,
+                paddingVertical: 11,
+                paddingHorizontal: 20,
                 borderRadius: 999,
                 borderWidth: 1,
                 borderColor: active ? T.ink : T.rule,
                 backgroundColor: active ? T.ink : '#fff',
               }}
             >
-              <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: active ? '#fff' : T.ink }}>{c.label}</Text>
+              <Text style={{ fontFamily: F.semibold, fontSize: 14.5, color: active ? '#fff' : T.ink }}>{c.label}</Text>
             </Pressable>
           );
         })}
@@ -188,11 +192,20 @@ export default function Feed() {
     </View>
   );
 
+  // Skeleton grid shown under the header while the first page loads, so the
+  // page renders content-shaped immediately instead of a lone spinner.
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <View style={{ paddingHorizontal: 10 }}>{header}</View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10 }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <View key={i} style={{ width: '50%' }}>
+              <SkeletonCard />
+            </View>
+          ))}
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -203,9 +216,9 @@ export default function Feed() {
         keyExtractor={(l) => l.id}
         numColumns={2}
         style={{ backgroundColor: T.bg }}
-        contentContainerStyle={{ paddingHorizontal: 6, paddingBottom: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 16 }}
         ListHeaderComponent={header}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.cardinal} />}
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
         ListFooterComponent={

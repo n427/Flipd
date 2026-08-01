@@ -487,6 +487,23 @@ export async function markRevealsSeen(): Promise<void> {
   }
 }
 
+// New listings (from other sellers) posted since a timestamp — drives the bell
+// tab's event dot. Returns 0 on any failure.
+export async function countNewListingsSince(sinceIso: string, userId: string): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from('listings')
+      .select('id', { count: 'exact', head: true })
+      .eq('archived', false)
+      .neq('seller_id', userId)
+      .gt('created_at', sinceIso);
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 // Count of reveals needing the user's attention, for the tab badge. Returns 0
 // on any failure (a badge should never break navigation).
 export async function fetchUnreadCount(): Promise<number> {
