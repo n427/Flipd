@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, RefreshControl, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  RefreshControl,
+  Modal,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -43,6 +55,24 @@ export default function Feed() {
   // an unbounded list surfaces stale listings first-time users can't act on.
   const [range, setRange] = useState<FeedRange>('week');
   const [rangeOpen, setRangeOpen] = useState(false);
+
+  // Category row overflow: the arrow only makes sense while there's more to
+  // reveal, so track whether we've scrolled to the end.
+  const chipScroll = useRef<ScrollView>(null);
+  const chipOffset = useRef(0);
+  const [chipsAtEnd, setChipsAtEnd] = useState(false);
+
+  const onChipScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    chipOffset.current = contentOffset.x;
+    // 4px slack so rounding at the extreme doesn't leave the arrow stuck on.
+    setChipsAtEnd(contentOffset.x + layoutMeasurement.width >= contentSize.width - 4);
+  }, []);
+
+  // Tap the arrow to page forward roughly one screen of chips.
+  const pageChips = useCallback(() => {
+    chipScroll.current?.scrollTo({ x: chipOffset.current + 180, animated: true });
+  }, []);
 
   // Blocked ids rarely change — fetch once and reuse across queries.
   const blockedRef = useRef<string[] | null>(null);
@@ -179,31 +209,75 @@ export default function Feed() {
         ) : null}
       </View>
 
-      {/* Category chips. These wrap onto two rows rather than scrolling
-          horizontally: the six labels tile to just over one screen width, so
-          a scrolling row always left the last chip (Popups, then Services
-          after a reorder) invisible with nothing clipped to hint at it.
-          Wrapping shows every category at once — no hidden options. */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingTop: 16, paddingBottom: 4 }}>
-        {CATS.map((c) => {
-          const active = cat === c.id;
-          return (
-            <Pressable
-              key={c.id}
-              onPress={() => setCat(c.id)}
+      {/* Category chips — one scrolling row. The six labels tile to just over
+          one screen width, so the tail chip sat off-screen with nothing to
+          hint at it. The arrow button makes the overflow explicit: tap to
+          page through, or swipe as usual. It hides once you reach the end. */}
+      <View style={{ paddingTop: 16, paddingBottom: 4 }}>
+        <ScrollView
+          ref={chipScroll}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          onScroll={onChipScroll}
+          scrollEventThrottle={16}
+          style={{ marginHorizontal: -6 }}
+          contentContainerStyle={{ gap: 7, paddingLeft: 6, paddingRight: 40 }}
+        >
+          {CATS.map((c) => {
+            const active = cat === c.id;
+            return (
+              <Pressable
+                key={c.id}
+                onPress={() => setCat(c.id)}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 14,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: active ? T.ink : T.rule,
+                  backgroundColor: active ? T.ink : '#fff',
+                }}
+              >
+                <Text style={{ fontFamily: F.semibold, fontSize: 13, color: active ? '#fff' : T.ink }}>{c.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {chipsAtEnd ? null : (
+          <Pressable
+            onPress={pageChips}
+            hitSlop={8}
+            style={{
+              position: 'absolute',
+              right: -6,
+              top: 16,
+              bottom: 0,
+              width: 34,
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              // Opaque backdrop so the chip underneath doesn't bleed through
+              // the arrow and read as a smudge.
+              backgroundColor: T.bg,
+              paddingLeft: 8,
+            }}
+          >
+            <View
               style={{
-                paddingVertical: 8,
-                paddingHorizontal: 14,
-                borderRadius: 999,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
                 borderWidth: 1,
-                borderColor: active ? T.ink : T.rule,
-                backgroundColor: active ? T.ink : '#fff',
+                borderColor: T.rule,
+                backgroundColor: '#fff',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              <Text style={{ fontFamily: F.semibold, fontSize: 13, color: active ? '#fff' : T.ink }}>{c.label}</Text>
-            </Pressable>
-          );
-        })}
+              <Ionicons name="chevron-forward" size={14} color={T.ink} />
+            </View>
+          </Pressable>
+        )}
       </View>
 
       {/* Range dropdown + sort row */}

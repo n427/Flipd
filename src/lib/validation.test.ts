@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveRevealStatus, isUscEmail, timeLeftLabel, resolveSharedContact, primaryMethod, parseCoords, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom, CAMPUS_SPOTS } from './validation';
+import { effectiveRevealStatus, isUscEmail, timeLeftLabel, resolveSharedContact, primaryMethod, parseCoords, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom, CAMPUS_SPOTS, findContactInfo, containsContactInfo, attachmentKind, attachmentError, isSendableMessage, swapCountLabel } from './validation';
 
 describe('isUscEmail', () => {
   it('accepts usc.edu addresses case-insensitively', () => {
@@ -200,5 +200,102 @@ describe('fillZoom', () => {
     expect(fillZoom(undefined)).toBe(1);
     expect(fillZoom(NaN)).toBe(1);
     expect(fillZoom(0)).toBe(1);
+  });
+});
+
+describe('findContactInfo', () => {
+  // The filter exists so a buyer cannot paste their number into the intro
+  // message and skip the approval gate. These are the ways people actually try.
+  it('catches plain phone numbers in common formats', () => {
+    expect(findContactInfo('call me at 213-555-0100')).toContain('phone');
+    expect(findContactInfo('(213) 555 0100')).toContain('phone');
+    expect(findContactInfo('2135550100')).toContain('phone');
+    expect(findContactInfo('213.555.0100')).toContain('phone');
+    expect(findContactInfo('+1 213 555 0100')).toContain('phone');
+  });
+
+  it('catches numbers spelled out to dodge a digit check', () => {
+    expect(findContactInfo('two one three five five five zero one zero zero')).toContain('phone');
+  });
+
+  it('catches emails including obfuscated ones', () => {
+    expect(findContactInfo('reach me at jane@usc.edu')).toContain('email');
+    expect(findContactInfo('jane (at) usc (dot) edu')).toContain('email');
+    expect(findContactInfo('jane at usc dot edu')).toContain('email');
+  });
+
+  it('catches social handles and platform mentions', () => {
+    expect(findContactInfo('im @jane.sc on insta')).toContain('handle');
+    expect(findContactInfo('snap me jane_sc')).toContain('platform');
+    expect(findContactInfo('my ig is janesc')).toContain('platform');
+    expect(findContactInfo('instagram.com/janesc')).toContain('url');
+    expect(findContactInfo('venmo @jane-sc')).toContain('platform');
+  });
+
+  it('leaves ordinary messages alone', () => {
+    expect(findContactInfo('Is the sourdough still available for Sunday?')).toEqual([]);
+    expect(findContactInfo('Can you do Tuesday afternoon around 3?')).toEqual([]);
+    expect(findContactInfo('I need tutoring for BUAD 304, are you free this week?')).toEqual([]);
+    expect(findContactInfo('Would you take $65 for the mini fridge?')).toEqual([]);
+    expect(findContactInfo('')).toEqual([]);
+  });
+
+  it('does not trip on prices, course numbers, or times', () => {
+    // False positives block real buyers, so these matter as much as the catches.
+    expect(findContactInfo('is $213 negotiable')).toEqual([]);
+    expect(findContactInfo('I am in BUAD 304 and CSCI 201')).toEqual([]);
+    expect(findContactInfo('meet at 3:30 near Leavey')).toEqual([]);
+    expect(findContactInfo('room 209 in THH')).toEqual([]);
+  });
+
+  it('containsContactInfo mirrors findContactInfo', () => {
+    expect(containsContactInfo('call 213-555-0100')).toBe(true);
+    expect(containsContactInfo('still available?')).toBe(false);
+  });
+});
+
+describe('attachments', () => {
+  it('classifies supported types', () => {
+    expect(attachmentKind('image/jpeg')).toBe('image');
+    expect(attachmentKind('image/heic')).toBe('image');
+    expect(attachmentKind('video/mp4')).toBe('video');
+    expect(attachmentKind('video/quicktime')).toBe('video');
+    expect(attachmentKind('application/pdf')).toBeNull();
+  });
+
+  it('accepts files inside the limits', () => {
+    expect(attachmentError('image/jpeg', 2 * 1024 * 1024)).toBeNull();
+    expect(attachmentError('video/mp4', 40 * 1024 * 1024, 30)).toBeNull();
+  });
+
+  it('rejects oversized or overlong files with a readable reason', () => {
+    expect(attachmentError('application/pdf', 100)).toMatch(/not supported/i);
+    expect(attachmentError('image/jpeg', 11 * 1024 * 1024)).toMatch(/10 MB/);
+    expect(attachmentError('video/mp4', 200 * 1024 * 1024, 10)).toMatch(/100 MB/);
+    expect(attachmentError('video/mp4', 10 * 1024 * 1024, 90)).toMatch(/60 seconds/);
+    expect(attachmentError('image/png', 0)).toMatch(/empty/i);
+  });
+});
+
+describe('isSendableMessage', () => {
+  // Enforced here rather than by a check constraint: the rule spans two tables
+  // and Postgres forbids subqueries in check constraints.
+  it('requires a body or at least one attachment', () => {
+    expect(isSendableMessage('hey', 0)).toBe(true);
+    expect(isSendableMessage('', 1)).toBe(true);
+    expect(isSendableMessage('   ', 2)).toBe(true);
+    expect(isSendableMessage('', 0)).toBe(false);
+    expect(isSendableMessage('   ', 0)).toBe(false);
+  });
+});
+
+describe('swapCountLabel', () => {
+  it('labels a brand-new account plainly instead of showing nothing', () => {
+    expect(swapCountLabel(0, 0)).toBe('New to Flipd');
+  });
+
+  it('combines buyer and seller swaps', () => {
+    expect(swapCountLabel(1, 0)).toBe('1 completed swap on Flipd');
+    expect(swapCountLabel(4, 2)).toBe('6 completed swaps on Flipd');
   });
 });
