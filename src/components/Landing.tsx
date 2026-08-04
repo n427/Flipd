@@ -52,6 +52,7 @@ function Nav() {
       <div style={{ flex: 1 }} />
       {[
         { label: 'How it works', id: 'how' },
+        { label: 'Buyers & sellers', id: 'both-sides' },
         { label: 'Categories', id: 'categories' },
         { label: 'Trust', id: 'trust' },
       ].map((l) => (
@@ -165,6 +166,82 @@ function HowItWorks() {
                 <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--ink)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>{s.n}</div>
                 <h3 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', margin: '16px 0 8px' }}>{s.title}</h3>
                 <p style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)', margin: 0 }}>{s.body}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Two-column breakdown of a single request, from each side. HowItWorks covers
+// the happy path in three steps; this answers the question that follows — what
+// actually happens when I tap request, and what does the other person see?
+function BothSides() {
+  const sides = [
+    {
+      role: 'Buyers',
+      lead: 'You ask. Nothing is shared until they say yes.',
+      points: [
+        { t: 'Read the AI review first', b: 'Before you send, the safety layer summarises the seller: profile completeness, rating history, and anything worth a second look.' },
+        { t: 'Send one message', b: 'Optional, and capped at one. Say what you want and when you can meet. No inbox to ignore, no back-and-forth before anyone has agreed.' },
+        { t: 'Wait for approval', b: 'Your contact details stay private until the seller approves. If they decline or the 72 hours lapse, they never see them.' },
+      ],
+    },
+    {
+      role: 'Sellers',
+      lead: 'You decide who reaches you, with context.',
+      points: [
+        { t: 'See who is asking', b: 'Their name, school, and year arrive with the request, alongside the same AI evaluation scored on profile completeness and past reviews.' },
+        { t: 'Read their message', b: 'One message, if they wrote one. Enough to judge whether it is worth your time before you commit to a conversation.' },
+        { t: 'Approve within 72 hours', b: 'Approve and the chat opens for both of you. Decline, or let it expire, and nothing is exchanged.' },
+      ],
+    },
+  ];
+  return (
+    <section id="both-sides" style={{ padding: '96px 24px', scrollMarginTop: 60 }}>
+      <div style={{ maxWidth: 980, margin: '0 auto' }}>
+        <Reveal>
+          <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', textAlign: 'center', margin: '0 0 12px' }}>
+            One request, both sides
+          </h2>
+          <p style={{ fontSize: 15, color: 'var(--muted)', textAlign: 'center', maxWidth: 560, margin: '0 auto 48px', lineHeight: 1.6 }}>
+            Every connection on Flipd starts the same way, and both people get the
+            same amount of information before anyone commits.
+          </p>
+        </Reveal>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+          {sides.map((s, i) => (
+            <Reveal key={s.role} delay={i * 120}>
+              <div style={{ border: '1px solid var(--rule)', borderRadius: 16, padding: 28, height: '100%', background: 'var(--surface)' }}>
+                <div className="t-eyebrow" style={{ fontSize: 12, letterSpacing: '0.16em', color: 'var(--accent)' }}>
+                  {s.role.toUpperCase()}
+                </div>
+                <h3 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', margin: '10px 0 22px', lineHeight: 1.3 }}>
+                  {s.lead}
+                </h3>
+                <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 18 }}>
+                  {s.points.map((p, n) => (
+                    <li key={p.t} style={{ display: 'flex', gap: 12 }}>
+                      <div
+                        aria-hidden
+                        style={{
+                          flexShrink: 0, width: 22, height: 22, borderRadius: '50%',
+                          border: '1px solid var(--rule-strong)', color: 'var(--ink-2)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 700, marginTop: 1,
+                        }}
+                      >
+                        {n + 1}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: '-0.01em', marginBottom: 3 }}>{p.t}</div>
+                        <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink-2)' }}>{p.b}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
               </div>
             </Reveal>
           ))}
@@ -368,6 +445,7 @@ export function Landing() {
       <Nav />
       <Hero />
       <HowItWorks />
+      <BothSides />
       <Categories />
       <Trust />
       <JoinCTA />

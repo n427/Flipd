@@ -1,6 +1,9 @@
 -- Dev seed: dummy data for both inbox tabs.
 --
---   Requests  → reveal requests on your listings (pending / approved / completed)
+--   Requests  → requests on your listings (pending / approved / completed),
+--                each with the buyer's intro message
+--   Messages  → a live conversation and a wrapped-up one, with threads hanging
+--                off the approved and completed requests
 --   Activity  → recent campus posts, plus a popup you've set a reminder for
 --
 -- Run by hand against a dev/staging database. NOT a migration — it lives
@@ -18,7 +21,8 @@
 --
 --   e0000000-…-101 / -103 / -104   listings owned by YOU (popup + two goods)
 --   e0000000-…-201 … -203          listings owned by the demo profile (Activity)
---   e0000000-…-102 / -105 / -106   reveal requests in your inbox
+--   e0000000-…-102 / -105 / -106   requests in your inbox
+--   e0000000-…-301 / -302          message threads on the approved ones
 --   d0000000-…-001                 the demo "Flipd Team" profile
 --
 -- WHO OWNS WHAT
@@ -113,40 +117,100 @@ on conflict (id) do update set
   created_at  = excluded.created_at,
   archived    = false;
 
--- ── REQUESTS tab: incoming reveal requests ───────────────────────────
--- Filed by the demo profile against YOUR listings, in three different states so
--- the tab shows a pending action, an approved contact block, and a completed
--- row that can be rated.
+-- ── REQUESTS tab: incoming requests ──────────────────────────────────
+-- Filed by the demo profile against YOUR listings, in three states so the tab
+-- shows a pending row to act on, an approved row linking into a conversation,
+-- and a completed row that can be rated.
+--
+-- intro_message is what the seller actually decides on, so each one reads like
+-- a real ask rather than a placeholder. None contain contact details: the API
+-- would reject those with a 422, and seeding around the rule would misrepresent
+-- what the product allows.
 --
 -- listing_title is denormalized on purpose: 008_requests_survive_delete.sql
 -- keeps requests readable after a listing is deleted.
 --
 -- Note reveal_requests_live_uniq allows only ONE pending/approved row per
--- (listing, buyer) pair — that is why each request below targets a different
--- listing rather than stacking on one.
+-- (listing, buyer) pair, which is why each request targets a different listing.
 insert into public.reveal_requests (
   id, listing_id, listing_title, buyer_id, seller_id,
-  status, offer, buyer_contact, created_at, expires_at, resolved_at
+  status, offer, intro_message, created_at, expires_at, resolved_at
 )
 select v.id::uuid, l.id, l.title,
        'd0000000-0000-4000-8000-000000000001'::uuid, l.seller_id,
-       v.status, v.offer, '{email}',
+       v.status, v.offer, v.intro,
        now() - v.age, now() - v.age + interval '72 hours', v.resolved
 from (values
   ('e0000000-0000-4000-8000-000000000102', 'e0000000-0000-4000-8000-000000000103',
-   'pending',   18, interval '3 hours',  null::timestamptz),
+   'pending',   18,
+   'Is this still around? I am in Cardinal Gardens and could grab it tomorrow afternoon if that works.',
+   interval '3 hours',  null::timestamptz),
   ('e0000000-0000-4000-8000-000000000105', 'e0000000-0000-4000-8000-000000000104',
-   'approved',  60, interval '1 day',    now() - interval '20 hours'),
+   'approved',  60,
+   'Moving into a single next week and this would be perfect. Could do pickup Saturday morning.',
+   interval '1 day',    now() - interval '20 hours'),
   ('e0000000-0000-4000-8000-000000000106', 'e0000000-0000-4000-8000-000000000101',
-   'completed', null, interval '4 days', now() - interval '3 days')
-) as v(id, listing_id, status, offer, age, resolved)
+   'completed', null,
+   'Are you doing the Leavey popup again this week? Wanted to bring a couple friends.',
+   interval '4 days', now() - interval '3 days')
+) as v(id, listing_id, status, offer, intro, age, resolved)
 join public.listings l on l.id = v.listing_id::uuid
 on conflict (id) do update set
-  status      = excluded.status,
-  offer       = excluded.offer,
-  created_at  = excluded.created_at,
-  expires_at  = excluded.expires_at,
-  resolved_at = excluded.resolved_at;
+  status        = excluded.status,
+  offer         = excluded.offer,
+  intro_message = excluded.intro_message,
+  created_at    = excluded.created_at,
+  expires_at    = excluded.expires_at,
+  resolved_at   = excluded.resolved_at;
+
+-- ── MESSAGES: a thread per approved request ──────────────────────────
+-- Approving is what opens a thread, so only the approved and completed
+-- requests get one. request_id is unique, hence the upsert.
+insert into public.message_threads (
+  id, request_id, listing_id, listing_title, buyer_id, seller_id, created_at, last_message_at
+)
+select v.id::uuid, r.id, r.listing_id, r.listing_title, r.buyer_id, r.seller_id,
+       r.resolved_at, r.resolved_at
+from (values
+  ('e0000000-0000-4000-8000-000000000301', 'e0000000-0000-4000-8000-000000000105'),
+  ('e0000000-0000-4000-8000-000000000302', 'e0000000-0000-4000-8000-000000000106')
+) as v(id, request_id)
+join public.reveal_requests r on r.id = v.request_id::uuid
+on conflict (request_id) do update set
+  listing_title = excluded.listing_title,
+  created_at    = excluded.created_at;
+
+-- A short back-and-forth in the active thread, and a closed-out one in the
+-- completed thread. created_at is staggered so ordering is stable and the
+-- trigger leaves last_message_at on the newest row.
+--
+-- Note the buyer here is the DEMO profile, so in your inbox these read as
+-- messages from Flipd Team. The last message is theirs, which leaves the
+-- thread unread for you.
+delete from public.messages
+where thread_id in (
+  'e0000000-0000-4000-8000-000000000301'::uuid,
+  'e0000000-0000-4000-8000-000000000302'::uuid
+);
+
+insert into public.messages (thread_id, sender_id, body, created_at)
+select v.thread_id::uuid,
+       case when v.from_buyer then t.buyer_id else t.seller_id end,
+       v.body,
+       now() - v.age
+from (values
+  ('e0000000-0000-4000-8000-000000000301', true,
+   'Thanks for approving. Saturday morning still good?', interval '19 hours'),
+  ('e0000000-0000-4000-8000-000000000301', false,
+   'Yep, anytime after 10 works. I am right by the village.', interval '18 hours'),
+  ('e0000000-0000-4000-8000-000000000301', true,
+   'Perfect, I will bring cash. Does 11 work?', interval '2 hours'),
+  ('e0000000-0000-4000-8000-000000000302', true,
+   'Made it out to the popup, the strawberry matcha was great.', interval '3 days'),
+  ('e0000000-0000-4000-8000-000000000302', false,
+   'So glad you came by. Doing it again in two weeks.', interval '3 days' - interval '20 minutes')
+) as v(thread_id, from_buyer, body, age)
+join public.message_threads t on t.id = v.thread_id::uuid;
 
 -- ── ACTIVITY tab: a popup reminder you've opted into ─────────────────
 -- Points at the demo thrift popup above, which starts tomorrow, so the
@@ -164,6 +228,9 @@ commit;
 -- What landed:
 --   select title, category, event_start, created_at from public.listings
 --     where id::text like 'e0000000%' order by created_at desc;
---   select listing_title, status, offer, expires_at from public.reveal_requests
+--   select listing_title, status, offer, intro_message from public.reveal_requests
 --     where id::text like 'e0000000%';
+--   select t.listing_title, m.body, m.created_at from public.messages m
+--     join public.message_threads t on t.id = m.thread_id
+--     order by m.created_at;
 --   select * from public.popup_reminders;

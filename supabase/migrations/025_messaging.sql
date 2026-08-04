@@ -122,8 +122,11 @@ security definer
 set search_path = public
 as $$
 begin
+  -- greatest(), not plain assignment: a message inserted out of order (a
+  -- backfill, a seed, a retried write) must not drag the thread's activity
+  -- timestamp backwards and mis-sort the thread list.
   update public.message_threads
-     set last_message_at = new.created_at
+     set last_message_at = greatest(coalesce(last_message_at, new.created_at), new.created_at)
    where id = new.thread_id;
   return new;
 end;

@@ -1,6 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import {
   useFonts,
@@ -83,10 +84,14 @@ export default function RootLayout() {
   }
 
   return (
-    <SessionProvider>
-      <UnreadProvider>
-        <AuthWatcher />
-      </UnreadProvider>
-    </SessionProvider>
+    // Required by react-native-gesture-handler: without a root view at the top
+    // of the tree every gesture silently does nothing.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SessionProvider>
+        <UnreadProvider>
+          <AuthWatcher />
+        </UnreadProvider>
+      </SessionProvider>
+    </GestureHandlerRootView>
   );
 }
