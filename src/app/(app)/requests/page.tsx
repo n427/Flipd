@@ -6,7 +6,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Avatar, Button, BackLink } from '@/components/ui';
+import { Avatar, Button } from '@/components/ui';
 import { RequestTimeline, RatingModal } from '@/components/WebApp';
 import { SafetyCard, type SafetyReview } from '@/components/SafetyCard';
 import { useStore } from '@/lib/store-context';
@@ -186,9 +186,8 @@ export default function RequestsPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 32px 80px' }}>
-      <BackLink />
       <h1 style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 4px' }}>
-        Inbox
+        Requests
       </h1>
       <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 26px' }}>
         Your conversations, and the requests waiting on a reply.

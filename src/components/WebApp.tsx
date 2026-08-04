@@ -111,7 +111,7 @@ export function WebAppHeader({
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginLeft: 'auto' }}>
         <a href="/requests" onClick={spaClick(onRequests)} style={{ textDecoration: 'none', background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}>
-          Inbox
+          Requests
           {pendingCount > 0 && (
             <span style={{ minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{pendingCount}</span>
           )}
