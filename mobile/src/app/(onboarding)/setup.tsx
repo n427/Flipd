@@ -6,6 +6,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { FormScroll } from '@/components/FormScroll';
+import { SkeletonBar } from '@/components/Skeleton';
 import { useSession } from '@/lib/session';
 import { fetchMyProfile, uploadAvatar, completeOnboarding } from '@/lib/listings';
 import { T, F, S } from '@/lib/theme';
@@ -181,9 +182,14 @@ export default function Setup() {
 
   if (checking) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <View style={{ paddingHorizontal: 20, paddingTop: S.screenTop, gap: 18 }}>
+          <SkeletonBar width="40%" height={24} />
+          <SkeletonBar width="100%" height={50} radius={14} />
+          <SkeletonBar width="100%" height={50} radius={14} />
+          <SkeletonBar width="100%" height={80} radius={14} />
+        </View>
+      </SafeAreaView>
     );
   }
 

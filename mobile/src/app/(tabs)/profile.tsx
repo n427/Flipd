@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -9,6 +9,8 @@ import { supabase } from '@/lib/supabase';
 import { fetchMyProfile, fetchMyListings, MyProfile, FeedListing } from '@/lib/listings';
 import { unregisterPush } from '@/lib/push';
 import { ListingCard } from '@/components/ListingCard';
+import { SkeletonCard } from '@/components/SkeletonCard';
+import { SkeletonBar, SkeletonCircle } from '@/components/Skeleton';
 import { T, F, S } from '@/lib/theme';
 
 // Tappable row used for Saved and the About links below the listings grid.
@@ -89,7 +91,28 @@ export default function Profile() {
     }, [load]),
   );
 
-  if (state === 'loading') return <View style={c.center}><ActivityIndicator color={T.cardinal} /></View>;
+  if (state === 'loading') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <View style={{ paddingHorizontal: 16, paddingTop: S.screenTop, gap: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <SkeletonCircle size={56} />
+            <View style={{ flex: 1, gap: 8 }}>
+              <SkeletonBar width="45%" height={15} />
+              <SkeletonBar width="30%" height={11} />
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <View key={i} style={{ width: '50%' }}>
+                <SkeletonCard />
+              </View>
+            ))}
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Full error screen with retry when we have nothing to show.
   if (state === 'error' && !profile) {

@@ -396,7 +396,18 @@ export default function ThreadScreen() {
           )}
         />
 
-        <View style={{ borderTopWidth: 1, borderTopColor: T.rule, paddingHorizontal: S.gutter, paddingTop: 10, paddingBottom: 10 }}>
+        {/* Extra bottom room: this screen sits inside the Tabs navigator, so
+            the tab bar butts directly against the composer. 10pt left the
+            send button crowded against the + button below it. */}
+        <View
+          style={{
+            borderTopWidth: 1,
+            borderTopColor: T.rule,
+            paddingHorizontal: S.gutter,
+            paddingTop: 12,
+            paddingBottom: 18,
+          }}
+        >
           {pending.length > 0 ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
               {pending.map((a, i) => (

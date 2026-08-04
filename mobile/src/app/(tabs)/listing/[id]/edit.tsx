@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, Switch, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, Switch, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { useSession } from '@/lib/session';
 import { fetchListing, updateListing, generateDescription } from '@/lib/listings';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FormScroll } from '@/components/FormScroll';
+import { SkeletonBar } from '@/components/Skeleton';
 import { Field } from '@/components/Field';
 import { MapPreview } from '@/components/MapPreview';
 import { CATEGORIES, CAMPUS_SPOTS } from '@/lib/catalog';
@@ -174,9 +175,14 @@ export default function EditListingScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <View style={{ paddingHorizontal: 20, paddingTop: S.screenTop, gap: 18 }}>
+          <SkeletonBar width="40%" height={24} />
+          <SkeletonBar width="100%" height={50} radius={14} />
+          <SkeletonBar width="100%" height={50} radius={14} />
+          <SkeletonBar width="100%" height={80} radius={14} />
+        </View>
+      </SafeAreaView>
     );
   }
   if (denied) {

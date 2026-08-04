@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, Alert, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -23,6 +23,7 @@ import { T, F } from '@/lib/theme';
 import { containsContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
 import { SafetyCard } from '@/components/SafetyCard';
+import { SkeletonBar } from '@/components/Skeleton';
 import { EdgeSwipeBack } from '@/components/EdgeSwipeBack';
 import { MapPreview } from '@/components/MapPreview';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
@@ -196,7 +197,19 @@ export default function ListingDetailScreen() {
     }
   };
 
-  if (state === 'loading') return <View style={c.center}><ActivityIndicator color={T.cardinal} /></View>;
+  if (state === 'loading') {
+    return (
+      <View style={{ flex: 1, backgroundColor: T.bg }}>
+        <SkeletonBar width="100%" height={320} radius={0} />
+        <View style={{ padding: 20, gap: 12 }}>
+          <SkeletonBar width="70%" height={22} />
+          <SkeletonBar width="35%" height={20} />
+          <SkeletonBar width="100%" height={14} />
+          <SkeletonBar width="85%" height={14} />
+        </View>
+      </View>
+    );
+  }
   if (state === 'error') return <View style={c.center}><Text style={{ fontFamily: F.medium, color: T.muted }}>Couldn&apos;t load this listing.</Text></View>;
   if (state === 'notfound' || !listing) return <View style={c.center}><Text style={{ fontFamily: F.medium, color: T.muted }}>Listing not found.</Text></View>;
 

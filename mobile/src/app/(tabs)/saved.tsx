@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/session';
 import { fetchSavedListings, FeedListing } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { T, F, S } from '@/lib/theme';
 
 export default function Saved() {
@@ -39,9 +40,15 @@ export default function Saved() {
 
   if (state === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, paddingTop: S.screenTop }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <View key={i} style={{ width: '50%' }}>
+              <SkeletonCard />
+            </View>
+          ))}
+        </View>
+      </SafeAreaView>
     );
   }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Pressable, Alert, TextInput } from 'react-native';
+import { View, Text, FlatList, Pressable, Alert, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,6 +20,7 @@ import {
   RatingSummary,
 } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { T, F, S } from '@/lib/theme';
 
 const REPORT_REASONS: { key: ReportReason; label: string }[] = [
@@ -135,9 +136,15 @@ export default function PublicProfile() {
 
   if (state === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, paddingTop: S.screenTop }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <View key={i} style={{ width: '50%' }}>
+              <SkeletonCard />
+            </View>
+          ))}
+        </View>
+      </SafeAreaView>
     );
   }
 
