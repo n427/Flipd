@@ -102,8 +102,9 @@ function Row({
       {/* The buyer's own words: the basis for the seller's decision, and for
           services the only way to know what is actually being asked for. */}
       {item.intro_message ? (
-        <View style={{ backgroundColor: T.fieldbg, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 11 }}>
-          <Text style={{ fontFamily: F.regular, fontSize: 14, lineHeight: 20, color: '#333' }}>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ width: 2, borderRadius: 1, backgroundColor: T.rule }} />
+          <Text style={{ flex: 1, fontFamily: F.regular, fontSize: 14, lineHeight: 20, color: '#333' }}>
             {item.intro_message}
           </Text>
         </View>
@@ -113,13 +114,15 @@ function Row({
         <Pressable
           onPress={() => onOpenChat?.(item.thread_id!)}
           style={{
-            backgroundColor: T.fieldbg,
+            backgroundColor: T.canvas,
+            borderWidth: 1,
+            borderColor: T.rule,
             borderRadius: 12,
-            paddingHorizontal: 13,
+            paddingHorizontal: 12,
             paddingVertical: 11,
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 8,
+            gap: 9,
           }}
         >
           {/* One line: the message itself is the affordance, so the row reads
@@ -127,7 +130,9 @@ function Row({
               preview. The dot only occupies space when unread. */}
           {thread?.unread ? (
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: T.cardinal }} />
-          ) : null}
+          ) : (
+            <Ionicons name="chatbubble-outline" size={14} color={T.muted} />
+          )}
           <Text
             numberOfLines={1}
             style={{
