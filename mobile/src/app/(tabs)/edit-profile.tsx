@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { FormScroll } from '@/components/FormScroll';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { goBack } from '@/lib/nav';
+import { goBackTo } from '@/lib/nav';
+import { EdgeSwipeBack } from '@/components/EdgeSwipeBack';
 import { useSession } from '@/lib/session';
 import { fetchMyProfile, updateMyProfile, uploadAvatar, NotifyEvent, NotifyPrefs } from '@/lib/listings';
 import { T, F, S } from '@/lib/theme';
@@ -117,7 +119,7 @@ export default function EditProfile() {
         contact_email: email.trim() || null,
         notify_prefs: prefs,
       });
-      goBack('/(tabs)/profile');
+      goBackTo('/(tabs)/profile');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save. Try again.');
       setSaving(false);
@@ -144,11 +146,20 @@ export default function EditProfile() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-      <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}>
-        <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 20 }}>
-          Edit profile
-        </Text>
+    <EdgeSwipeBack onBack={() => goBackTo('/(tabs)/profile')}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}>
+          <Pressable
+            onPress={() => goBackTo('/(tabs)/profile')}
+            hitSlop={10}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 10, alignSelf: 'flex-start' }}
+          >
+            <Ionicons name="chevron-back" size={20} color={T.ink} />
+            <Text style={{ fontFamily: F.bold, fontSize: 15.5, color: T.ink }}>Profile</Text>
+          </Pressable>
+          <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 20 }}>
+            Edit profile
+          </Text>
 
         <View style={{ alignItems: 'center', marginBottom: 24 }}>
           <Pressable onPress={pickAvatar} disabled={uploadingAvatar}>
@@ -259,7 +270,7 @@ export default function EditProfile() {
 
         <Text style={label}>Notifications</Text>
         <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginBottom: 12, marginTop: -2, lineHeight: 19 }}>
-          Push and email for each event. On by default.
+          Push and email for each event.
         </Text>
         <View style={{ marginBottom: 20, borderWidth: 1, borderColor: T.rule, borderRadius: 14, overflow: 'hidden' }}>
           {NOTIFY_EVENTS.map((ev, i) => (
@@ -295,11 +306,12 @@ export default function EditProfile() {
         >
           <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>{saving ? 'Saving…' : 'Save'}</Text>
         </Pressable>
-        <Pressable onPress={() => goBack('/(tabs)/profile')} style={{ marginTop: 14, alignItems: 'center' }}>
+        <Pressable onPress={() => goBackTo('/(tabs)/profile')} style={{ marginTop: 14, alignItems: 'center' }}>
           <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
         </Pressable>
-      </FormScroll>
-    </SafeAreaView>
+        </FormScroll>
+      </SafeAreaView>
+    </EdgeSwipeBack>
   );
 }
 

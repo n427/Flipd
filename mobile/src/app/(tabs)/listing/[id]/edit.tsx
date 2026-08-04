@@ -191,7 +191,7 @@ export default function EditListingScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-      <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}>
+      <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingTop: S.screenTop, paddingBottom: S.screenBottom + 32 }}>
         <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 18 }}>
           Edit listing
         </Text>

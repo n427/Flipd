@@ -112,7 +112,11 @@ export default function Profile() {
         keyExtractor={(l) => l.id}
         numColumns={2}
         contentContainerStyle={{
-          paddingHorizontal: S.gridGutter,
+          // 10 + each card's own 6pt margin = a 16pt edge, matching the
+          // header's padding:10 inside this same container. With gridGutter (6)
+          // the cards sat at 12pt and read as closer to the edge than the
+          // header above them. Same math as the feed grid.
+          paddingHorizontal: 10,
           paddingTop: S.screenTop,
           paddingBottom: S.screenBottom,
         }}

@@ -296,22 +296,36 @@ export default function Setup() {
             <Text style={heading}>Where should we reach you?</Text>
             <Text style={sub}>For sign-in codes and alerts about your listings. Buyers never see these. Messages stay in Flipd.</Text>
 
-            {METHODS.map((m) => (
-              <View key={m.id}>
-                <Text style={label}>{m.label}</Text>
-                <TextInput
-                  value={contacts[m.id]}
-                  onChangeText={(t) => setContacts((c) => ({ ...c, [m.id]: t }))}
-                  placeholder={m.placeholder}
-                  placeholderTextColor={T.muted}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType={m.id === 'phone' ? 'phone-pad' : 'email-address'}
-                  textContentType={m.id === 'phone' ? 'telephoneNumber' : 'emailAddress'}
-                  style={field}
-                />
-              </View>
-            ))}
+            {METHODS.map((m) => {
+              // Email is the verified @usc.edu address they just signed in
+              // with. It is the identity this account is built on, so it is
+              // shown for confirmation but not editable here.
+              const locked = m.id === 'email';
+              return (
+                <View key={m.id}>
+                  <Text style={label}>{m.label}</Text>
+                  {locked ? (
+                    <View style={[field, { justifyContent: 'center', backgroundColor: T.fieldbg }]}>
+                      <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.muted }}>
+                        {contacts.email || user?.email}
+                      </Text>
+                    </View>
+                  ) : (
+                    <TextInput
+                      value={contacts[m.id]}
+                      onChangeText={(t) => setContacts((c) => ({ ...c, [m.id]: t }))}
+                      placeholder={m.placeholder}
+                      placeholderTextColor={T.muted}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="phone-pad"
+                      textContentType="telephoneNumber"
+                      style={field}
+                    />
+                  )}
+                </View>
+              );
+            })}
 
             <Text style={[label, { marginTop: 4 }]}>Where should notifications go?</Text>
             {CHANNEL_OPTIONS.map((c) => {
