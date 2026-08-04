@@ -16,6 +16,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { goBackTo } from '@/lib/nav';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import {
@@ -236,9 +237,18 @@ export default function ThreadScreen() {
 
   if (state === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop }}>
+          <Pressable
+            onPress={() => goBackTo('/(tabs)/requests')}
+            hitSlop={10}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 }}
+          >
+            <Ionicons name="chevron-back" size={20} color={T.muted} />
+            <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.muted }}>Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -264,7 +274,7 @@ export default function ThreadScreen() {
       >
         <View style={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop }}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => goBackTo('/(tabs)/requests')}
             hitSlop={10}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 }}
           >

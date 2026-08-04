@@ -40,18 +40,46 @@ export async function GET(req: NextRequest) {
 
   // One query for the newest message across all threads, rather than N+1.
   const ids = rows.map((r) => r.id);
-  const previews = new Map<string, { body: string; created_at: string; sender_id: string }>();
+  // Attachments come along because a photo-only message has an empty body:
+  // without them the preview falls back to "no messages yet" on a thread that
+  // clearly has one.
+  const previews = new Map<
+    string,
+    { body: string; created_at: string; sender_id: string; attachments: { kind: string }[] }
+  >();
   if (ids.length > 0) {
     const { data: recent } = await admin
       .from('messages')
-      .select('thread_id, body, created_at, sender_id')
+      .select('thread_id, body, created_at, sender_id, attachments:message_attachments(kind)')
       .in('thread_id', ids)
       .order('created_at', { ascending: false });
-    for (const m of recent ?? []) {
+    for (const m of (recent ?? []) as unknown as {
+      thread_id: string;
+      body: string;
+      created_at: string;
+      sender_id: string;
+      attachments: { kind: string }[] | null;
+    }[]) {
       if (!previews.has(m.thread_id)) {
-        previews.set(m.thread_id, { body: m.body, created_at: m.created_at, sender_id: m.sender_id });
+        previews.set(m.thread_id, {
+          body: m.body,
+          created_at: m.created_at,
+          sender_id: m.sender_id,
+          attachments: m.attachments ?? [],
+        });
       }
     }
+  }
+
+  /** What to show in a thread list row: the text, or what was sent instead. */
+  function previewText(p: { body: string; attachments: { kind: string }[] } | null): string | null {
+    if (!p) return null;
+    if (p.body?.trim()) return p.body;
+    const n = p.attachments.length;
+    if (n === 0) return null;
+    const allPhotos = p.attachments.every((a) => a.kind === 'image');
+    const noun = allPhotos ? 'Photo' : 'Attachment';
+    return n === 1 ? noun : `${n} ${allPhotos ? 'photos' : 'attachments'}`;
   }
 
   return NextResponse.json({
@@ -73,7 +101,7 @@ export async function GET(req: NextRequest) {
         listing_removed: !r.listing,
         counterpart,
         last_message_at: r.last_message_at,
-        last_message: preview?.body ?? null,
+        last_message: previewText(preview),
         // Unread when the other party sent something after our last look.
         unread: Boolean(
           preview &&
