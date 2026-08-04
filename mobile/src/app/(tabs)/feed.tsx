@@ -1,19 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, FlatList, ScrollView, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, RefreshControl, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { fetchFeed, fetchBlockedIds, FeedListing, FeedSort } from '@/lib/listings';
+import { fetchFeed, fetchBlockedIds, FeedListing, FeedSort, FeedRange } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { CATEGORIES } from '@/lib/catalog';
-import { T, F } from '@/lib/theme';
+import { T, F, S } from '@/lib/theme';
 
 const CATS = [{ id: 'all', label: 'All' }, ...CATEGORIES];
+
+// 'Recent' moved out of this row — it's a date FILTER now, not a sort, so it
+// lives in the range dropdown. What's left are the two orderings, which apply
+// within whatever window the range selects.
 const SORTS: { id: FeedSort; label: string }[] = [
-  { id: 'recent', label: 'Recent' },
+  { id: 'recent', label: 'Newest' },
   { id: 'price_low', label: 'Price ↑' },
   { id: 'price_high', label: 'Price ↓' },
+];
+
+const RANGES: { id: FeedRange; label: string; short: string }[] = [
+  { id: 'day', label: 'Past 24 hours', short: 'Past day' },
+  { id: 'week', label: 'Past week', short: 'Past week' },
+  { id: 'month', label: 'Past month', short: 'Past month' },
+  { id: 'all', label: 'All time', short: 'All time' },
 ];
 
 export default function Feed() {
@@ -28,6 +39,10 @@ export default function Feed() {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState(''); // search term actually sent
   const [sort, setSort] = useState<FeedSort>('recent');
+  // Default to the past week: the feed is for what's currently for sale, and
+  // an unbounded list surfaces stale listings first-time users can't act on.
+  const [range, setRange] = useState<FeedRange>('week');
+  const [rangeOpen, setRangeOpen] = useState(false);
 
   // Blocked ids rarely change — fetch once and reuse across queries.
   const blockedRef = useRef<string[] | null>(null);
@@ -51,6 +66,7 @@ export default function Feed() {
         query: debounced,
         category: cat,
         sort,
+        range,
         blockedIds,
         offset: 0,
       });
@@ -59,7 +75,7 @@ export default function Feed() {
     } catch {
       setError(true);
     }
-  }, [debounced, cat, sort, getBlocked]);
+  }, [debounced, cat, sort, range, getBlocked]);
 
   useEffect(() => {
     setLoading(true);
@@ -96,6 +112,7 @@ export default function Feed() {
         query: debounced,
         category: cat,
         sort,
+        range,
         blockedIds,
         offset: listings.length,
       });
@@ -106,13 +123,13 @@ export default function Feed() {
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasMore, debounced, cat, sort, listings.length, getBlocked]);
+  }, [loadingMore, hasMore, debounced, cat, sort, range, listings.length, getBlocked]);
 
   const header = (
     // Sits inside the grid's paddingHorizontal:10 container; add 6 so header
     // content lines up with the cards (10 + 6 = 16 outer edge, and each card
     // adds its own 6 margin to reach the same 16).
-    <View style={{ paddingHorizontal: 6, paddingTop: 12 }}>
+    <View style={{ paddingHorizontal: 6, paddingTop: S.screenTop }}>
       <Text style={{ fontFamily: F.black, fontSize: 28, color: T.ink, letterSpacing: -1, marginBottom: 16 }}>
         Flipd<Text style={{ color: T.cardinal }}>.</Text>
       </Text>
@@ -128,15 +145,33 @@ export default function Feed() {
         }}
       >
         <Ionicons name="search" size={17} color={T.muted} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search Flipd"
-          placeholderTextColor={T.muted}
-          autoCapitalize="none"
-          returnKeyType="search"
-          style={{ flex: 1, fontFamily: F.medium, fontSize: 15, color: T.ink, padding: 0 }}
-        />
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            autoCapitalize="none"
+            returnKeyType="search"
+            autoCorrect={false}
+            style={{ fontFamily: F.medium, fontSize: 15, color: T.ink, padding: 0 }}
+          />
+          {/* Placeholder drawn as real Text: iOS renders the native
+              `placeholder` with fallback font metrics when the input has a
+              custom fontFamily, which shows up as wrong glyphs and wide
+              letter-spacing. An overlay keeps it in Figtree. */}
+          {!query ? (
+            <Text
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                fontFamily: F.medium,
+                fontSize: 15,
+                color: T.muted,
+              }}
+            >
+              Search Flipd
+            </Text>
+          ) : null}
+        </View>
         {query ? (
           <Pressable onPress={() => setQuery('')} hitSlop={8}>
             <Ionicons name="close-circle" size={17} color={T.muted} />
@@ -144,8 +179,12 @@ export default function Feed() {
         ) : null}
       </View>
 
-      {/* Category chips — horizontally scrollable; overflow chips scroll into view */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9, paddingTop: 18, paddingBottom: 4, paddingRight: 12 }}>
+      {/* Category chips. These wrap onto two rows rather than scrolling
+          horizontally: the six labels tile to just over one screen width, so
+          a scrolling row always left the last chip (Popups, then Services
+          after a reorder) invisible with nothing clipped to hint at it.
+          Wrapping shows every category at once — no hidden options. */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingTop: 16, paddingBottom: 4 }}>
         {CATS.map((c) => {
           const active = cat === c.id;
           return (
@@ -153,22 +192,44 @@ export default function Feed() {
               key={c.id}
               onPress={() => setCat(c.id)}
               style={{
-                paddingVertical: 11,
-                paddingHorizontal: 20,
+                paddingVertical: 8,
+                paddingHorizontal: 14,
                 borderRadius: 999,
                 borderWidth: 1,
                 borderColor: active ? T.ink : T.rule,
                 backgroundColor: active ? T.ink : '#fff',
               }}
             >
-              <Text style={{ fontFamily: F.semibold, fontSize: 14.5, color: active ? '#fff' : T.ink }}>{c.label}</Text>
+              <Text style={{ fontFamily: F.semibold, fontSize: 13, color: active ? '#fff' : T.ink }}>{c.label}</Text>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
-      {/* Sort row */}
-      <View style={{ flexDirection: 'row', gap: 8, paddingTop: 12, paddingBottom: 14 }}>
+      {/* Range dropdown + sort row */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 12, paddingBottom: 14 }}>
+        <Pressable
+          onPress={() => setRangeOpen(true)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: T.rule,
+          }}
+        >
+          <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.ink }}>
+            {RANGES.find((r) => r.id === range)?.short}
+          </Text>
+          <Ionicons name="chevron-down" size={13} color={T.muted} />
+        </Pressable>
+
+        {/* Divider — the range filter and the sorts are different axes */}
+        <View style={{ width: 1, height: 18, backgroundColor: T.rule, marginHorizontal: 2 }} />
+
         {SORTS.map((s) => {
           const active = sort === s.id;
           return (
@@ -177,7 +238,7 @@ export default function Feed() {
               onPress={() => setSort(s.id)}
               style={{
                 paddingVertical: 8,
-                paddingHorizontal: 14,
+                paddingHorizontal: 11,
                 borderRadius: 8,
                 backgroundColor: active ? T.fieldbg : 'transparent',
               }}
@@ -216,7 +277,7 @@ export default function Feed() {
         keyExtractor={(l) => l.id}
         numColumns={2}
         style={{ backgroundColor: T.bg }}
-        contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: S.screenBottom }}
         ListHeaderComponent={header}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.cardinal} />}
         onEndReached={loadMore}
@@ -235,6 +296,54 @@ export default function Feed() {
           <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}`)} />
         )}
       />
+
+      {/* Range picker. A custom sheet rather than a native picker so it matches
+          the rest of the app on both platforms. */}
+      <Modal visible={rangeOpen} animationType="fade" transparent onRequestClose={() => setRangeOpen(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' }} onPress={() => setRangeOpen(false)} />
+        <View
+          style={{
+            backgroundColor: '#fff',
+            borderTopLeftRadius: 22,
+            borderTopRightRadius: 22,
+            paddingHorizontal: 20,
+            paddingTop: 10,
+            paddingBottom: 34,
+          }}
+        >
+          <View
+            style={{ alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: T.rule, marginBottom: 16 }}
+          />
+          <Text style={{ fontFamily: F.extrabold, fontSize: 18, color: T.ink, letterSpacing: -0.3, marginBottom: 12 }}>
+            Show listings from
+          </Text>
+          {RANGES.map((r) => {
+            const active = range === r.id;
+            return (
+              <Pressable
+                key={r.id}
+                onPress={() => {
+                  setRange(r.id);
+                  setRangeOpen(false);
+                }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 15,
+                  borderTopWidth: r.id === RANGES[0].id ? 0 : 1,
+                  borderTopColor: T.rule,
+                }}
+              >
+                <Text style={{ fontFamily: active ? F.bold : F.medium, fontSize: 15.5, color: active ? T.ink : T.muted }}>
+                  {r.label}
+                </Text>
+                {active ? <Ionicons name="checkmark" size={19} color={T.cardinal} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

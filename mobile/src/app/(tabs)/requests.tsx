@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { View, Text, SectionList, Pressable, ActivityIndicator, RefreshControl, Alert, Linking, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/session';
 import { fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest, SharedContact } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
-import { T, F } from '@/lib/theme';
+import { T, F, S } from '@/lib/theme';
 
 // Status → label + colors (badge).
 const STATUS: Record<string, { label: string; bg: string; fg: string }> = {
@@ -342,32 +343,38 @@ export default function Requests() {
 
   return (
     <>
-      <SectionList
-        style={{ backgroundColor: T.bg }}
-        contentContainerStyle={{ padding: 16 }}
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        renderSectionHeader={({ section }) => (
-          <Text style={{ fontFamily: F.extrabold, fontSize: 15, color: T.ink, marginBottom: 10, marginTop: 8 }}>
-            {section.title}
-          </Text>
-        )}
-        renderItem={({ item, section }) => (
-          <Row
-            item={item}
-            onPress={() => router.push(`/(tabs)/listing/${item.listing_id}`)}
-            onRespond={
-              section.incoming
-                ? (action) => (action === 'approve' ? onApprove(item.id) : respond(item.id, 'decline'))
-                : undefined
-            }
-            onComplete={() => onComplete(item.id)}
-            onRate={() => openRate(item)}
-            busy={busyId === item.id}
-          />
-        )}
-      />
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <SectionList
+          style={{ backgroundColor: T.bg }}
+          contentContainerStyle={{
+            paddingHorizontal: S.gutter,
+            paddingTop: S.screenTop,
+            paddingBottom: S.screenBottom,
+          }}
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          renderSectionHeader={({ section }) => (
+            <Text style={{ fontFamily: F.extrabold, fontSize: 15, color: T.ink, marginBottom: 10, marginTop: 8 }}>
+              {section.title}
+            </Text>
+          )}
+          renderItem={({ item, section }) => (
+            <Row
+              item={item}
+              onPress={() => router.push(`/(tabs)/listing/${item.listing_id}`)}
+              onRespond={
+                section.incoming
+                  ? (action) => (action === 'approve' ? onApprove(item.id) : respond(item.id, 'decline'))
+                  : undefined
+              }
+              onComplete={() => onComplete(item.id)}
+              onRate={() => openRate(item)}
+              busy={busyId === item.id}
+            />
+          )}
+        />
+      </SafeAreaView>
 
       {/* Rating sheet */}
       <Modal visible={!!rateFor} animationType="slide" transparent onRequestClose={() => setRateFor(null)}>

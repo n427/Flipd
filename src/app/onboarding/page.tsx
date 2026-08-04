@@ -119,7 +119,7 @@ export default function OnboardingPage() {
   return (
     <div style={{ maxWidth: 440, margin: '0 auto', padding: '72px 24px' }}>
       <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: '-0.04em', color: 'var(--ink)' }}>
-        flipd<span style={{ color: 'var(--accent)' }}>.</span>
+        Flipd<span style={{ color: 'var(--accent)' }}>.</span>
       </div>
 
       {step === 1 ? (

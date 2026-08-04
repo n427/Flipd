@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert, M
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/session';
 import {
   fetchListing,
@@ -18,6 +19,7 @@ import {
 } from '@/lib/listings';
 import { T, F } from '@/lib/theme';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
+import { MapPreview } from '@/components/MapPreview';
 
 const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -30,6 +32,7 @@ const METHOD_META: Record<keyof MyContactMethods, { label: string; icon: keyof t
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useSession();
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error' | 'notfound'>('loading');
@@ -186,7 +189,29 @@ export default function ListingDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }} style={{ backgroundColor: T.bg }}>
-      <PhotoCarousel photos={listing.photo_urls} />
+      <View>
+        <PhotoCarousel photos={listing.photo_urls} />
+        {/* Floating back button. The photo carousel runs to the top of the
+            screen with no header, so without this there's no way back from a
+            listing except the system swipe gesture. */}
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/feed'))}
+          hitSlop={10}
+          style={{
+            position: 'absolute',
+            top: insets.top + 8,
+            left: 14,
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            backgroundColor: 'rgba(255,255,255,0.92)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="chevron-back" size={21} color={T.ink} />
+        </Pressable>
+      </View>
 
       <View style={{ padding: 20 }}>
         {/* Title + save */}
@@ -228,18 +253,18 @@ export default function ListingDetailScreen() {
         </Text>
         {hasCoords && MAPS_KEY ? (
           <>
-            <Pressable
-              onPress={() => Linking.openURL(mapsUrl)}
-              style={{ borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: T.rule, marginTop: 12 }}
-            >
-              <Image
-                source={{
-                  uri: `https://maps.googleapis.com/maps/api/staticmap?center=${listing.lat},${listing.lng}&zoom=16&size=600x240&scale=2&markers=color:red%7C${listing.lat},${listing.lng}&key=${MAPS_KEY}`,
-                }}
-                style={{ width: '100%', height: 160 }}
-                contentFit="cover"
+            {/* MapPreview rather than a bare Image: expo-image can resolve
+                the extensionless /staticmap URL to a 200 it never paints,
+                leaving a silent blank box. MapPreview uses RN Image and
+                surfaces explicit loading/failed states. */}
+            <View style={{ marginTop: 12 }}>
+              <MapPreview
+                lat={listing.lat!}
+                lng={listing.lng!}
+                height={160}
+                label={listing.place_name || listing.location || undefined}
               />
-            </Pressable>
+            </View>
             <Pressable onPress={() => Linking.openURL(mapsUrl)} style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Ionicons name="navigate-outline" size={15} color={T.cardinal} />
               <Text style={{ fontFamily: F.semibold, color: T.cardinal }}>Open in Google Maps</Text>

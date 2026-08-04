@@ -46,7 +46,7 @@ export default function SignIn() {
       <View style={{ flex: 1, paddingHorizontal: 24 }}>
         {/* Logo top-left */}
         <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -1, marginTop: 8 }}>
-          flipd<Text style={{ color: T.cardinal }}>.</Text>
+          Flipd<Text style={{ color: T.cardinal }}>.</Text>
         </Text>
 
         {/* Centered hero */}
@@ -120,17 +120,6 @@ export default function SignIn() {
           >
             <Text style={{ fontFamily: F.bold, color: T.ink, fontSize: 17 }}>I already have a code</Text>
           </Pressable>
-          <Text
-            style={{
-              fontFamily: F.regular,
-              fontSize: 13,
-              color: T.muted,
-              textAlign: 'center',
-              marginTop: 16,
-            }}
-          >
-            USC-only. No passwords, no phone numbers.
-          </Text>
         </View>
       </View>
     </SafeAreaView>

@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { FormScroll } from '@/components/FormScroll';
 import { useSession } from '@/lib/session';
 import { fetchMyProfile, uploadAvatar, completeOnboarding } from '@/lib/listings';
-import { T, F } from '@/lib/theme';
+import { T, F, S } from '@/lib/theme';
 
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
@@ -163,9 +163,9 @@ export default function Setup() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-      <FormScroll contentContainerStyle={{ padding: 24, paddingTop: 32, paddingBottom: 40 }}>
+      <FormScroll contentContainerStyle={{ paddingHorizontal: 24, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}>
         <Text style={{ fontFamily: F.black, fontSize: 22, color: T.ink, letterSpacing: -0.9 }}>
-          flipd<Text style={{ color: T.gold }}>.</Text>
+          Flipd<Text style={{ color: T.gold }}>.</Text>
         </Text>
 
         {step === 1 ? (
@@ -281,6 +281,7 @@ export default function Setup() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType={m.id === 'phone' ? 'phone-pad' : m.id === 'email' ? 'email-address' : 'default'}
+                  textContentType={m.id === 'phone' ? 'telephoneNumber' : m.id === 'email' ? 'emailAddress' : 'none'}
                   style={field}
                 />
               </View>

@@ -9,7 +9,39 @@ import { supabase } from '@/lib/supabase';
 import { fetchMyProfile, fetchMyListings, MyProfile, FeedListing } from '@/lib/listings';
 import { unregisterPush } from '@/lib/push';
 import { ListingCard } from '@/components/ListingCard';
-import { T, F } from '@/lib/theme';
+import { T, F, S } from '@/lib/theme';
+
+// Tappable row used for Saved and the About links below the listings grid.
+function LinkRow({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: T.rule,
+        borderRadius: 12,
+        paddingVertical: 13,
+        paddingHorizontal: 15,
+      }}
+    >
+      <Ionicons name={icon} size={18} color={T.cardinal} />
+      <Text style={{ flex: 1, fontFamily: F.bold, fontSize: 15, color: T.ink }}>{label}</Text>
+      <Ionicons name="chevron-forward" size={18} color={T.muted} />
+    </Pressable>
+  );
+}
 
 export default function Profile() {
   const router = useRouter();
@@ -76,10 +108,14 @@ export default function Profile() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
       <FlatList
-        data={listings}
+        data={listings.slice(0, PREVIEW_COUNT)}
         keyExtractor={(l) => l.id}
         numColumns={2}
-        contentContainerStyle={{ padding: 6 }}
+        contentContainerStyle={{
+          paddingHorizontal: S.gridGutter,
+          paddingTop: S.screenTop,
+          paddingBottom: S.screenBottom,
+        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListHeaderComponent={
           <View style={{ padding: 10, gap: 8 }}>
@@ -112,27 +148,28 @@ export default function Profile() {
               </Pressable>
             </View>
 
-            <Pressable
-              onPress={() => router.push('/(tabs)/saved')}
+            <View style={{ marginTop: 14 }}>
+              <LinkRow icon="heart" label="Saved" onPress={() => router.push('/(tabs)/saved')} />
+            </View>
+
+            <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 10,
-                backgroundColor: '#fff',
-                borderWidth: 1,
-                borderColor: T.rule,
-                borderRadius: 12,
-                paddingVertical: 13,
-                paddingHorizontal: 15,
-                marginTop: 14,
+                justifyContent: 'space-between',
+                marginTop: 18,
               }}
             >
-              <Ionicons name="heart" size={18} color={T.cardinal} />
-              <Text style={{ flex: 1, fontFamily: F.bold, fontSize: 15, color: T.ink }}>Saved</Text>
-              <Ionicons name="chevron-forward" size={18} color={T.muted} />
-            </Pressable>
-
-            <Text style={{ fontFamily: F.bold, fontSize: 15, marginTop: 18, color: T.ink }}>My Listings</Text>
+              <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>My Listings</Text>
+              {/* Only offer "See all" when the preview is actually hiding something. */}
+              {listings.length > PREVIEW_COUNT ? (
+                <Pressable onPress={() => router.push('/(tabs)/my-listings')} hitSlop={8}>
+                  <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.cardinal }}>
+                    See all {listings.length}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -145,9 +182,23 @@ export default function Profile() {
         renderItem={({ item }) => (
           <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}`)} />
         )}
+        ListFooterComponent={
+          <View style={{ padding: 10, paddingTop: 24, gap: 8 }}>
+            <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink, marginBottom: 2 }}>About</Text>
+            <LinkRow icon="help-circle-outline" label="Support" onPress={() => router.push('/(tabs)/support')} />
+            <LinkRow icon="document-text-outline" label="Terms of Service" onPress={() => router.push('/(tabs)/terms')} />
+            <LinkRow icon="lock-closed-outline" label="Privacy Policy" onPress={() => router.push('/(tabs)/privacy')} />
+            <Text style={{ fontFamily: F.regular, fontSize: 12, color: T.muted, textAlign: 'center', marginTop: 10 }}>
+              © 2026 Flipd
+            </Text>
+          </View>
+        }
       />
     </SafeAreaView>
   );
 }
+
+// Listings shown on the profile before "See all" takes over.
+const PREVIEW_COUNT = 4;
 
 const c = { center: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const } };

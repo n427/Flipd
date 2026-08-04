@@ -2,12 +2,15 @@ import { useCallback, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '@/lib/session';
-import { fetchSavedListings, FeedListing } from '@/lib/listings';
+import { fetchMyListings, FeedListing } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
 import { T, F, S } from '@/lib/theme';
 
-export default function Saved() {
+// Full list of the signed-in user's listings. The profile tab shows only a
+// short preview grid; this is where "See all" lands.
+export default function MyListings() {
   const router = useRouter();
   const { user } = useSession();
   const [listings, setListings] = useState<FeedListing[]>([]);
@@ -17,25 +20,24 @@ export default function Saved() {
   const load = useCallback(async () => {
     if (!user) return;
     try {
-      setListings(await fetchSavedListings(user.id));
+      setListings(await fetchMyListings(user.id));
       setState('ready');
     } catch {
       setState('error');
     }
   }, [user]);
 
-  // Reload on focus so un-saving from a detail view updates the list.
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await load();
     setRefreshing(false);
   }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   if (state === 'loading') {
     return (
@@ -45,39 +47,38 @@ export default function Saved() {
     );
   }
 
-  if (state === 'error' && listings.length === 0) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg, padding: 24, gap: 14 }}>
-        <Text style={{ fontFamily: F.medium, color: T.muted }}>Couldn’t load your saved items.</Text>
-        <Pressable onPress={() => { setState('loading'); load(); }} style={{ backgroundColor: T.cardinal, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 }}>
-          <Text style={{ fontFamily: F.bold, color: '#fff' }}>Retry</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          paddingHorizontal: 16,
+          paddingTop: S.screenTop,
+          paddingBottom: 10,
+        }}
+      >
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/profile'))}
+          hitSlop={10}
+        >
+          <Ionicons name="chevron-back" size={23} color={T.ink} />
+        </Pressable>
+        <Text style={{ fontFamily: F.black, fontSize: 22, color: T.ink, letterSpacing: -0.6 }}>My Listings</Text>
+      </View>
+
       <FlatList
         data={listings}
         keyExtractor={(l) => l.id}
         numColumns={2}
         style={{ backgroundColor: T.bg }}
-        contentContainerStyle={{
-          paddingHorizontal: S.gridGutter,
-          paddingTop: S.screenTop,
-          paddingBottom: S.screenBottom,
-        }}
+        contentContainerStyle={{ paddingHorizontal: S.gridGutter, paddingBottom: S.screenBottom }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListHeaderComponent={
-          <Text style={{ fontFamily: F.black, fontSize: 24, color: T.ink, letterSpacing: -0.6, paddingHorizontal: 6, paddingBottom: 10 }}>
-            Saved
-          </Text>
-        }
         ListEmptyComponent={
           <View style={{ padding: 40, alignItems: 'center' }}>
             <Text style={{ fontFamily: F.medium, color: T.muted, textAlign: 'center' }}>
-              Nothing saved yet. Tap the heart on a listing to keep it here.
+              {state === 'error' ? 'Couldn’t load your listings.' : 'You haven’t posted anything yet.'}
             </Text>
           </View>
         }

@@ -5,7 +5,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Avatar, Button } from '@/components/ui';
+import { Avatar, Button, BackLink } from '@/components/ui';
 import { RequestTimeline, RatingModal, ContactLinks } from '@/components/WebApp';
 import { useStore } from '@/lib/store-context';
 import { timeLeftLabel } from '@/lib/validation';
@@ -36,6 +36,7 @@ export default function RequestsPage() {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px 80px' }}>
+      <BackLink />
       <h1 style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 4px' }}>
         Requests
       </h1>
@@ -55,7 +56,7 @@ export default function RequestsPage() {
       {[...byListing.entries()].map(([listingId, requests]) => (
         <div key={listingId} style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
-            <Link href={`/listing/${listingId}`} style={{ fontWeight: 700, fontSize: 15.5, color: 'var(--ink)', textDecoration: 'none', letterSpacing: '-0.01em' }}>
+            <Link href={`/listing/${listingId}?from=requests`} style={{ fontWeight: 700, fontSize: 15.5, color: 'var(--ink)', textDecoration: 'none', letterSpacing: '-0.01em' }}>
               {requests[0].listingTitle}
             </Link>
             {requests.some((r) => r.status === 'PENDING') && (

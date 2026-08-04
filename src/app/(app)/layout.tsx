@@ -64,7 +64,7 @@ function AppChrome({ children }: { children: React.ReactNode }) {
               router.push('/profile');
               return;
             }
-            router.push(`/listing/${a.listingId}`);
+            router.push(`/listing/${a.listingId}?from=activity`);
           }}
         />
       )}

@@ -87,6 +87,12 @@ export default function EmailScreen() {
             autoFocus
             returnKeyType="go"
             onSubmitEditing={submit}
+            // Without an explicit type iOS guesses this is a credential field
+            // and renders the placeholder with wide AutoFill letter-spacing.
+            // 'username' is the right hint for passwordless email sign-in and
+            // still lets the keychain suggest the address.
+            textContentType="username"
+            autoComplete="email"
             style={{
               backgroundColor: T.fieldbg,
               borderWidth: 1.5,

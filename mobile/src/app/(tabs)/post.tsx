@@ -11,7 +11,7 @@ import { FormScroll } from '@/components/FormScroll';
 import { MapPreview } from '@/components/MapPreview';
 import { CATEGORIES, CAMPUS_SPOTS } from '@/lib/catalog';
 import { searchPlaces, placeDetails, PlaceHit } from '@/lib/places';
-import { T, F } from '@/lib/theme';
+import { T, F, S } from '@/lib/theme';
 
 const MAX_PHOTOS = 6;
 const MAX_TITLE = 60;
@@ -206,7 +206,7 @@ export default function Post() {
         </View>
       </SafeAreaView>
 
-      <FormScroll contentContainerStyle={{ paddingHorizontal: PAGE_PAD, paddingTop: 20, paddingBottom: 28 }}>
+      <FormScroll contentContainerStyle={{ paddingHorizontal: PAGE_PAD, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}>
         {/* Photos — 3-up grid, add tiles first so the CTA never hides below the fold */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
           <Text style={label}>Photos</Text>
@@ -389,6 +389,8 @@ export default function Post() {
             onFocus={() => setFocused('loc')}
             onBlur={() => setFocused(null)}
             placeholder="Search a place"
+            textContentType="none"
+            autoComplete="off"
             placeholderTextColor={T.muted}
             style={[
               field,

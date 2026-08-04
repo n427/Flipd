@@ -104,7 +104,7 @@ export async function sendPush(
 
 const wrap = (body: string) =>
   `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#111;max-width:480px">
-    <p style="font-weight:800;font-size:18px;margin:0 0 16px">flipd<span style="color:#990000">.</span></p>
+    <p style="font-weight:800;font-size:18px;margin:0 0 16px">Flipd<span style="color:#990000">.</span></p>
     ${body}
     <p style="font-size:12px;color:#98a0a8;margin-top:24px">You can change notification settings in your Flipd profile.</p>
   </div>`;

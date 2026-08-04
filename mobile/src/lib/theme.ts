@@ -12,6 +12,19 @@ export const T = {
   danger: '#B4231C', // errors
 } as const;
 
+// Screen spacing scale. Reference these instead of repeating literals, so a
+// new screen inherits the rhythm rather than inventing its own.
+//
+// `screenTop` sits INSIDE a SafeAreaView edges={['top']} — it is breathing room
+// below the notch inset, never a substitute for it. A hardcoded stand-in (the
+// old paddingTop: 56 on Saved) is wrong on any device whose inset isn't 56.
+export const S = {
+  screenTop: 12, // gap under the safe-area inset before the first element
+  screenBottom: 16, // gap after the last element, above the tab bar
+  gutter: 16, // horizontal page padding
+  gridGutter: 6, // grid screens — ListingCard carries its own margin
+} as const;
+
 // Figtree weights (loaded at the root). Use these font families rather than
 // fontWeight so the custom face actually renders on device.
 export const F = {

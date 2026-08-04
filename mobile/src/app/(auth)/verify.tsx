@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
+import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView, Linking, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { VERIFY_HELP, SUPPORT_EMAIL } from '@/lib/legal';
 import { T, F } from '@/lib/theme';
 
 const RESEND_SECONDS = 30;
@@ -16,6 +17,7 @@ export default function Verify() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(RESEND_SECONDS);
+  const [helpOpen, setHelpOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const submitting = useRef(false); // synchronous double-submit guard
 
@@ -141,6 +143,10 @@ export default function Verify() {
             returnKeyType="go"
             autoFocus
             onSubmitEditing={submit}
+            // Lets iOS/Android offer the emailed code straight from the
+            // notification instead of making people retype it.
+            textContentType="oneTimeCode"
+            autoComplete="one-time-code"
             style={{
               backgroundColor: T.fieldbg,
               borderWidth: 1.5,
@@ -189,10 +195,63 @@ export default function Verify() {
       {/* Footer */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 28, paddingTop: 12, paddingBottom: 28 }}>
         <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted }}>Code expires in 10 minutes</Text>
-        <Pressable onPress={() => Linking.openURL('mailto:support@flipdcampus.com')} hitSlop={6}>
+        <Pressable onPress={() => setHelpOpen(true)} hitSlop={6}>
           <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.cardinal }}>Need help?</Text>
         </Pressable>
       </View>
+
+      {/* Help drawer — answers the common blockers inline. Leaving for Mail
+          mid-verification is the one moment someone is least able to come
+          back, so email is the last resort rather than the only option. */}
+      <Modal visible={helpOpen} animationType="slide" transparent onRequestClose={() => setHelpOpen(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={() => setHelpOpen(false)} />
+        <View
+          style={{
+            backgroundColor: '#fff',
+            borderTopLeftRadius: 22,
+            borderTopRightRadius: 22,
+            paddingHorizontal: 24,
+            paddingTop: 10,
+            paddingBottom: 34,
+          }}
+        >
+          {/* Grabber */}
+          <View
+            style={{ alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: T.rule, marginBottom: 18 }}
+          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+            <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, letterSpacing: -0.4 }}>
+              Need help?
+            </Text>
+            <Pressable onPress={() => setHelpOpen(false)} hitSlop={10}>
+              <Ionicons name="close" size={22} color={T.muted} />
+            </Pressable>
+          </View>
+
+          {VERIFY_HELP.map((h, i) => (
+            <View key={h.q} style={{ marginTop: i === 0 ? 0 : 16 }}>
+              <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.ink, marginBottom: 4 }}>{h.q}</Text>
+              <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, lineHeight: 20 }}>{h.a}</Text>
+            </View>
+          ))}
+
+          <Pressable
+            onPress={() => {
+              setHelpOpen(false);
+              Linking.openURL(`mailto:${SUPPORT_EMAIL}`);
+            }}
+            style={{
+              marginTop: 24,
+              backgroundColor: T.fieldbg,
+              borderRadius: 14,
+              paddingVertical: 15,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>Email support</Text>
+          </Pressable>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

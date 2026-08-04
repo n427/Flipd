@@ -17,7 +17,10 @@ export function ListingCard({ listing, onPress }: { listing: FeedListing; onPres
       .join(' · ') || (listing.location ?? 'USC · pickup');
 
   return (
-    <Pressable onPress={onPress} style={{ flex: 1, margin: 6, marginBottom: 22 }}>
+    // maxWidth caps a lone card at half the row. Without it `flex: 1` lets the
+    // last item in an odd-length list stretch to full width, since there's no
+    // sibling to share the row with.
+    <Pressable onPress={onPress} style={{ flex: 1, maxWidth: '50%', margin: 6, marginBottom: 22 }}>
       <View style={{ aspectRatio: 1, borderRadius: 14, overflow: 'hidden', backgroundColor: '#f0efec' }}>
         {photo && !failed ? (
           <Image

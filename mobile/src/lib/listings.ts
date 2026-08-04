@@ -29,10 +29,27 @@ export function priceLabel(price: number): string {
 // from public_profiles (the base profiles table is not readable for others
 // under RLS, so a listings->profiles embedded join returns null).
 export type FeedSort = 'recent' | 'price_low' | 'price_high';
+
+// Date range is a FILTER, not a sort: it narrows which listings come back, and
+// the sort then applies within that window. So "Price ↑ / past week" means the
+// cheapest listings posted in the last 7 days, not the cheapest overall.
+export type FeedRange = 'day' | 'week' | 'month' | 'all';
+
+// Days back from now. 'all' has no cutoff.
+const RANGE_DAYS: Record<Exclude<FeedRange, 'all'>, number> = { day: 1, week: 7, month: 30 };
+
+/** Cutoff timestamp for a range, or null when unbounded. */
+export function rangeSince(range: FeedRange | undefined): string | null {
+  if (!range || range === 'all') return null;
+  const days = RANGE_DAYS[range];
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
 export type FeedQuery = {
   query?: string;
   category?: string | null; // null/'all' → all categories
   sort?: FeedSort;
+  range?: FeedRange;
   blockedIds?: string[];
   limit?: number;
   offset?: number;
@@ -60,6 +77,9 @@ export async function fetchFeed(opts: FeedQuery = {}): Promise<{ listings: FeedL
   if (opts.blockedIds && opts.blockedIds.length) {
     q = q.not('seller_id', 'in', `(${opts.blockedIds.join(',')})`);
   }
+  // Applied before the sort, so price ordering ranks only in-window listings.
+  const since = rangeSince(opts.range);
+  if (since) q = q.gte('created_at', since);
 
   if (opts.sort === 'price_low') q = q.order('price', { ascending: true, nullsFirst: true });
   else if (opts.sort === 'price_high') q = q.order('price', { ascending: false, nullsFirst: false });

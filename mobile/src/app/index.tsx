@@ -14,7 +14,7 @@ export default function Index() {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.cardinal, gap: 22 }}>
         <Text style={{ fontFamily: F.black, fontSize: 52, color: '#fff', letterSpacing: -1.5 }}>
-          flipd<Text style={{ color: T.gold }}>.</Text>
+          Flipd<Text style={{ color: T.gold }}>.</Text>
         </Text>
         <ActivityIndicator color="rgba(255,255,255,0.8)" />
       </View>
