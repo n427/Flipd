@@ -143,7 +143,7 @@ export function Thread({ threadId }: { threadId: string }) {
   const name = head.counterpart?.display_name ?? 'Flipd member';
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 24px 0', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)' }}>
+    <div style={{ padding: '20px 20px 0', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 222px)' }}>
       <Link href="/messages" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none', marginBottom: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
         <Icon name="chevronLeft" size={14} /> All messages
       </Link>

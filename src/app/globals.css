@@ -238,3 +238,50 @@ a, button, input, select, textarea, [tabindex] { outline-color: var(--accent); }
 
   .landing-footer { padding: 22px 16px !important; justify-content: center !important; text-align: center !important; }
 }
+
+/* ── Messages: sidebar + conversation ─────────────────────────────── */
+/* Two panes on desktop so switching threads is one click. Below 900px the
+   sidebar is hidden on a thread page and the conversation takes the width —
+   a 280px list beside a chat is unusable on a phone. */
+.messages-split {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.messages-sidebar {
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: #fff;
+  padding: 8px;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
+.messages-pane {
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: #fff;
+  min-height: calc(100vh - 220px);
+  overflow: hidden;
+}
+
+.messages-pane-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 900px) {
+  .messages-split {
+    grid-template-columns: 1fr;
+  }
+  /* On a thread page the conversation wins; the list is a tap away via Back. */
+  .messages-split:has(.messages-pane:not(.messages-pane-empty)) .messages-sidebar {
+    display: none;
+  }
+  .messages-pane-empty {
+    display: none;
+  }
+}

@@ -92,7 +92,7 @@ export default function RequestsPage() {
   };
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '36px 24px 80px' }}>
+    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 32px 64px' }}>
       <BackLink />
       <h1 style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 4px' }}>
         Requests
@@ -222,14 +222,6 @@ export default function RequestsPage() {
 
                 {/* Actions sit at the bottom of the card, aligned right. */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
-                  {(a.status === 'APPROVED' || a.status === 'COMPLETED') && a.threadId && (
-                    <Link
-                      href={`/messages/${a.threadId}`}
-                      style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--rule)', borderRadius: 8, padding: '7px 12px', fontWeight: 600, fontSize: 13, color: 'var(--ink)', textDecoration: 'none' }}
-                    >
-                      Open chat →
-                    </Link>
-                  )}
                   {a.status === 'PENDING' ? (
                     <>
                       <Button kind="ghost" size="sm" onClick={() => setDeclining(a)}>Decline</Button>
@@ -275,16 +267,6 @@ export default function RequestsPage() {
                   {a.declineReason && (
                     <div className="t-meta" style={{ fontSize: 12.5, marginTop: 6 }}>
                       Reason: {a.declineReason}
-                    </div>
-                  )}
-                  {(a.status === 'APPROVED' || a.status === 'COMPLETED') && a.threadId && (
-                    <div style={{ marginTop: 8 }}>
-                      <Link
-                        href={`/messages/${a.threadId}`}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}
-                      >
-                        Open chat
-                      </Link>
                     </div>
                   )}
                 </div>
