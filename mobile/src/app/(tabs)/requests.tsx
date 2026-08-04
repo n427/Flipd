@@ -13,9 +13,6 @@ import { SkeletonRows } from '@/components/Skeleton';
 import { T, F, S } from '@/lib/theme';
 
 // Status → label + colors (badge).
-// Rows shown per section before "See all".
-const PREVIEW_COUNT = 2;
-
 const STATUS: Record<string, { label: string; bg: string; fg: string }> = {
   pending: { label: 'Pending', bg: '#FFF3D6', fg: '#8A6D1A' },
   approved: { label: 'Approved', bg: '#E4F3E7', fg: '#1E6B33' },
@@ -276,7 +273,10 @@ export default function Requests() {
   const [busyId, setBusyId] = useState<string | null>(null);
   // Each section previews PREVIEW_COUNT rows until "See all" is tapped. Keyed
   // by section title so the two expand independently.
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Two tabs rather than two stacked sections: only one list is relevant at a
+  // time, and stacking them meant scrolling past every received request to
+  // reach the ones you sent.
+  const [tab, setTab] = useState<'received' | 'sent'>('received');
   // Confirmation sheet for completing a deal, and an inline error line —
   // both replace native Alerts, which felt out of place in the app.
   const [completing, setCompleting] = useState<RevealRequest | null>(null);
@@ -421,7 +421,7 @@ export default function Requests() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.canvas }} edges={['top']}>
         <View style={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop }}>
           <SkeletonRows count={4} />
         </View>
@@ -429,24 +429,16 @@ export default function Requests() {
     );
   }
 
-  const sections = [
-    { title: 'People who want to talk', data: incoming, incoming: true },
-    { title: 'Requests you sent', data: outgoing, incoming: false },
-  ]
-    .filter((s) => s.data.length > 0)
-    .map((s) => ({
-      ...s,
-      total: s.data.length,
-      data: expanded[s.title] ? s.data : s.data.slice(0, PREVIEW_COUNT),
-    }));
+  const active = tab === 'received' ? incoming : outgoing;
+  const sections = active.length ? [{ title: '', data: active, incoming: tab === 'received' }] : [];
 
-  if (!sections.length) {
+  if (!incoming.length && !outgoing.length) {
     // Scrollable so pull-to-refresh actually works here — this used to be a
     // plain View that told people to "pull to retry" with nothing to pull.
     // A failed load also gets its own wording and a Retry button, rather than
     // being indistinguishable from having no requests at all.
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.canvas }} edges={['top']}>
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -480,9 +472,67 @@ export default function Requests() {
 
   return (
     <>
-      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.canvas }} edges={['top']}>
+        {/* Segmented control. Counts sit in the label so an empty tab is
+            obvious without switching to it. */}
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: 6,
+            marginHorizontal: S.gutter,
+            marginTop: S.screenTop,
+            marginBottom: 4,
+            backgroundColor: '#fff',
+            borderWidth: 1,
+            borderColor: T.rule,
+            borderRadius: 12,
+            padding: 4,
+          }}
+        >
+          {([
+            { id: 'received' as const, label: 'Received', n: incoming.length },
+            { id: 'sent' as const, label: 'Sent', n: outgoing.length },
+          ]).map((t) => {
+            const on = tab === t.id;
+            return (
+              <Pressable
+                key={t.id}
+                onPress={() => setTab(t.id)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 9,
+                  borderRadius: 9,
+                  alignItems: 'center',
+                  backgroundColor: on ? T.ink : 'transparent',
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: on ? F.bold : F.medium,
+                    fontSize: 13.5,
+                    color: on ? '#fff' : T.muted,
+                  }}
+                >
+                  {t.label}
+                  {t.n > 0 ? ` (${t.n})` : ''}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {sections.length === 0 ? (
+          <View style={{ alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 }}>
+            <Text style={{ fontFamily: F.medium, fontSize: 14, color: T.muted, textAlign: 'center' }}>
+              {tab === 'received'
+                ? 'No one has asked about your listings yet.'
+                : 'You haven’t sent any requests yet.'}
+            </Text>
+          </View>
+        ) : null}
+
         <SectionList
-          style={{ backgroundColor: T.bg }}
+          style={{ backgroundColor: T.canvas }}
           contentContainerStyle={{
             paddingHorizontal: S.gutter,
             paddingTop: S.screenTop,
@@ -492,28 +542,7 @@ export default function Requests() {
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           renderSectionHeader={({ section }) => (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 12,
-                marginTop: 18,
-              }}
-            >
-              <Text style={{ fontFamily: F.extrabold, fontSize: 15, color: T.ink }}>{section.title}</Text>
-              {/* Only offer it when the preview is actually hiding something. */}
-              {section.total > PREVIEW_COUNT ? (
-                <Pressable
-                  onPress={() => setExpanded((e) => ({ ...e, [section.title]: !e[section.title] }))}
-                  hitSlop={8}
-                >
-                  <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.cardinal }}>
-                    {expanded[section.title] ? 'Show less' : `See all ${section.total}`}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
+            <View />
           )}
           renderItem={({ item, section }) => (
             <Row

@@ -6,6 +6,9 @@ export const T = {
   bg: '#FFFFFF', // pure white background
   surface: '#FFFFFF', // cards / inputs
   fieldbg: '#F5F5F5', // subtle input fill on white
+  // Page tint for card-based screens. White cards on a pure-white page are
+  // separated only by a hairline, which reads as one undifferentiated sheet.
+  canvas: '#FAF9F7',
   ink: '#1A1613', // primary text
   muted: '#8A8178', // secondary text
   rule: '#EAE6DF', // hairline borders

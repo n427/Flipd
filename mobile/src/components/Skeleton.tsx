@@ -88,19 +88,34 @@ export function SkeletonGroup({ children, style }: { children: ReactNode; style?
  * vary so it reads as conversation rather than a list.
  */
 export function SkeletonChat() {
+  const pulse = usePulse();
+  // Mirrors the real bubbles: your side is cardinal-tinted and right-aligned,
+  // theirs is the neutral fill on the left. A uniformly gray stack reads as a
+  // loading bar; this reads as a conversation that has not painted yet.
   const rows: { mine: boolean; width: DimensionValue; height: number }[] = [
-    { mine: false, width: '62%', height: 38 },
-    { mine: true, width: '48%', height: 30 },
-    { mine: false, width: '72%', height: 52 },
-    { mine: true, width: '40%', height: 30 },
-    { mine: false, width: '55%', height: 30 },
+    { mine: false, width: '58%', height: 34 },
+    { mine: true, width: '44%', height: 34 },
+    { mine: false, width: '70%', height: 54 },
+    { mine: true, width: '38%', height: 34 },
+    { mine: false, width: '52%', height: 34 },
+    { mine: true, width: '62%', height: 34 },
   ];
   return (
-    <View style={{ flex: 1, paddingHorizontal: 4, gap: 12, justifyContent: 'flex-end', paddingBottom: 12 }}>
+    <View style={{ flex: 1, gap: 10, justifyContent: 'flex-end', paddingBottom: 12 }}>
       {rows.map((r, i) => (
-        <View key={i} style={{ alignItems: r.mine ? 'flex-end' : 'flex-start' }}>
-          <SkeletonBar width={r.width} height={r.height} radius={16} />
-        </View>
+        <Animated.View
+          key={i}
+          style={{
+            alignSelf: r.mine ? 'flex-end' : 'flex-start',
+            width: r.width,
+            height: r.height,
+            borderRadius: 16,
+            // Tinted rather than flat gray, so the two sides are legible even
+            // before any text exists.
+            backgroundColor: r.mine ? 'rgba(153,0,0,0.16)' : T.rule,
+            opacity: pulse,
+          }}
+        />
       ))}
     </View>
   );
