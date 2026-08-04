@@ -68,10 +68,13 @@ function BuyerReview({ userId }: { userId: string }) {
 export default function RequestsPage() {
   const router = useRouter();
   const store = useStore();
-  const [confirmSold, setConfirmSold] = React.useState<ActivityItem | null>(null);
   const [declining, setDeclining] = React.useState<ActivityItem | null>(null);
   const [rating, setRating] = React.useState<ActivityItem | null>(null);
 
+  // Two tabs rather than two stacked lists, matching the app: only one is
+  // relevant at a time, and stacking meant scrolling past every received
+  // request to reach the ones you sent.
+  const [tab, setTab] = React.useState<'received' | 'sent'>('received');
   const incoming = store.activity.filter((a) => a.dir === 'in');
   // Requests you sent. Mobile shows these in a second section; on web they had
   // nowhere to live, so a buyer could not see what they had asked for.
@@ -81,11 +84,11 @@ export default function RequestsPage() {
     byListing.set(a.listingId, [...(byListing.get(a.listingId) ?? []), a]);
   }
 
+  // Approving opens the conversation, so go straight into it — the whole
+  // point of approving is to start talking.
   const approve = async (a: ActivityItem) => {
-    const listing = store.listings.find((l) => l.id === a.listingId);
-    const singleItem = listing?.category === 'goods';
-    await store.respondReveal(a.id, 'approve');
-    if (singleItem) setConfirmSold(a);
+    const result = await store.respondReveal(a.id, 'approve');
+    if (typeof result === 'string') router.push(`/messages/${result}`);
   };
 
   return (
@@ -98,22 +101,57 @@ export default function RequestsPage() {
         Requests you have received and sent. Approving opens a chat here in Flipd.
       </p>
 
-      {byListing.size > 0 && (
-        <h2 style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 14px' }}>
-          People who want to talk
-        </h2>
-      )}
+      {/* Segmented control, matching the app. Counts sit in the label so an
+          empty tab is obvious without switching to it. */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 6,
+          background: '#fff',
+          border: '1px solid var(--rule)',
+          borderRadius: 12,
+          padding: 4,
+          marginBottom: 22,
+        }}
+      >
+        {([
+          { id: 'received' as const, label: 'Received', n: incoming.length },
+          { id: 'sent' as const, label: 'Sent', n: outgoing.length },
+        ]).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            style={{
+              flex: 1,
+              padding: '9px 0',
+              borderRadius: 9,
+              border: 0,
+              cursor: 'pointer',
+              fontFamily: 'var(--sans)',
+              fontWeight: tab === t.id ? 700 : 500,
+              fontSize: 13.5,
+              background: tab === t.id ? 'var(--ink)' : 'transparent',
+              color: tab === t.id ? '#fff' : 'var(--muted)',
+            }}
+          >
+            {t.label}
+            {t.n > 0 ? ` (${t.n})` : ''}
+          </button>
+        ))}
+      </div>
 
-      {byListing.size === 0 && outgoing.length === 0 && (
+      {tab === 'received' && byListing.size === 0 && (
         <div style={{ padding: '70px 0', textAlign: 'center' }}>
-          <div className="t-h3" style={{ color: 'var(--ink)' }}>No requests yet</div>
-          <div className="t-meta" style={{ fontSize: 12.5, marginTop: 6 }}>
-            When you request contact on a listing, or someone requests yours, it shows up here.
-          </div>
+          <div className="t-meta" style={{ fontSize: 13 }}>No one has asked about your listings yet.</div>
+        </div>
+      )}
+      {tab === 'sent' && outgoing.length === 0 && (
+        <div style={{ padding: '70px 0', textAlign: 'center' }}>
+          <div className="t-meta" style={{ fontSize: 13 }}>You haven&rsquo;t sent any requests yet.</div>
         </div>
       )}
 
-      {[...byListing.entries()].map(([listingId, requests]) => (
+      {tab === 'received' && [...byListing.entries()].map(([listingId, requests]) => (
         <div key={listingId} style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
             <Link href={`/listing/${listingId}?from=requests`} style={{ fontWeight: 700, fontSize: 15.5, color: 'var(--ink)', textDecoration: 'none', letterSpacing: '-0.01em' }}>
@@ -190,11 +228,8 @@ export default function RequestsPage() {
         </div>
       ))}
 
-      {outgoing.length > 0 && (
-        <div style={{ marginTop: byListing.size > 0 ? 36 : 0 }}>
-          <h2 style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 14px' }}>
-            Requests you sent
-          </h2>
+      {tab === 'sent' && outgoing.length > 0 && (
+        <div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {outgoing.map((a) => (
               <div
@@ -241,33 +276,6 @@ export default function RequestsPage() {
                 )}
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {confirmSold && (
-        <div onClick={() => setConfirmSold(null)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(17,17,17,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: 400, boxShadow: 'var(--shadow-strong)' }}>
-            <h2 style={{ fontWeight: 800, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 8px' }}>
-              Mark as sold?
-            </h2>
-            <p style={{ fontFamily: 'var(--sans)', fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink-2)', margin: '0 0 20px' }}>
-              You approved {confirmSold.who.split(' ')[0]}. If this item is spoken for, we&rsquo;ll move the listing to your past listings and let other pending requesters know it&rsquo;s no longer available.
-            </p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <Button kind="ghost" onClick={() => setConfirmSold(null)} style={{ flex: 1 }}>Keep it listed</Button>
-              <Button
-                kind="primary"
-                style={{ flex: 1 }}
-                onClick={async () => {
-                  await store.respondReveal(confirmSold.id, 'approve', { markSold: true });
-                  setConfirmSold(null);
-                  router.refresh();
-                }}
-              >
-                Mark as sold
-              </Button>
-            </div>
           </div>
         </div>
       )}

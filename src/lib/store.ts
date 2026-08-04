@@ -205,7 +205,9 @@ export interface FlipdStore {
   getListing: (id: string) => Promise<Listing | null>;
   setArchived: (id: string, archived: boolean) => Promise<boolean>;
   requestReveal: (listingId: string, offer: number | undefined, introMessage: string) => Promise<{ ok: boolean; error?: string }>;
-  respondReveal: (id: string, action: 'approve' | 'decline' | 'complete', opts?: { markSold?: boolean; declineReason?: string }) => Promise<boolean>;
+  // Resolves to the new thread id on a successful approve (so the caller can
+  // navigate into the chat), true on other successes, false on failure.
+  respondReveal: (id: string, action: 'approve' | 'decline' | 'complete', opts?: { markSold?: boolean; declineReason?: string }) => Promise<string | boolean>;
   latestRevealFor: (listingId: string) => ActivityItem | undefined;
   pendingByListing: Record<string, number>;
   blockedIds: Set<string>;
@@ -456,8 +458,17 @@ export function useFlipdStore(): FlipdStore {
       body: JSON.stringify({ action, mark_sold: opts.markSold === true, decline_reason: opts.declineReason ?? null }),
     }).catch(() => null);
     if (!res || !res.ok) return false;
+    // The server hands back the thread it just opened, so the caller can send
+    // the seller straight into the conversation instead of making them find it.
+    const { thread_id: threadId } = (await res.json().catch(() => ({}))) as { thread_id?: string | null };
     setActivity((prev) => prev.map((a) =>
-      a.id === id ? { ...a, status: action === 'approve' ? 'APPROVED' : action === 'complete' ? 'COMPLETED' : 'DECLINED' } : a,
+      a.id === id
+        ? {
+            ...a,
+            status: action === 'approve' ? 'APPROVED' : action === 'complete' ? 'COMPLETED' : 'DECLINED',
+            threadId: threadId ?? a.threadId,
+          }
+        : a,
     ));
     if (opts.markSold) {
       const sold = activity.find((a) => a.id === id);
@@ -466,7 +477,7 @@ export function useFlipdStore(): FlipdStore {
         await refreshActivity();
       }
     }
-    return true;
+    return threadId ?? true;
   };
 
   const refreshMe = async () => {

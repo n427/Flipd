@@ -347,8 +347,21 @@ export default function ThreadScreen() {
           ref={listRef}
           data={messages}
           keyExtractor={(m) => m.id}
-          contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: 12 }}
+          contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: 12, flexGrow: 1 }}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          ListEmptyComponent={
+            // A freshly approved chat opens with nothing in it. Say what to do
+            // rather than leaving a blank page under the composer.
+            <View style={{ alignItems: 'center', paddingTop: 40, paddingHorizontal: 24, gap: 6 }}>
+              <Ionicons name="chatbubbles-outline" size={26} color={T.rule} />
+              <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink, marginTop: 4 }}>
+                You&apos;re connected
+              </Text>
+              <Text style={{ fontFamily: F.regular, fontSize: 13.5, color: T.muted, textAlign: 'center', lineHeight: 19 }}>
+                Say hi and sort out where and when to meet.
+              </Text>
+            </View>
+          }
           ListHeaderComponent={
             head.intro_message ? (
               <View style={{ backgroundColor: T.fieldbg, borderRadius: 12, padding: 12, marginBottom: 14 }}>

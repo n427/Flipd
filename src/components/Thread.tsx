@@ -194,6 +194,17 @@ export function Thread({ threadId }: { threadId: string }) {
           </div>
         )}
 
+        {/* A freshly approved chat opens empty. Say what to do rather than
+            leaving a blank panel above the composer. */}
+        {messages.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>You&rsquo;re connected</div>
+            <div className="t-meta" style={{ fontSize: 13, marginTop: 6 }}>
+              Say hi and sort out where and when to meet.
+            </div>
+          </div>
+        )}
+
         {messages.map((m) => (
           <div key={m.id} style={{ display: 'flex', justifyContent: m.mine ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
             <div style={{ maxWidth: '76%' }}>
