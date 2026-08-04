@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView, Linking, Modal } from 'react-native';
+import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { goBack } from '@/lib/nav';
@@ -204,22 +205,9 @@ export default function Verify() {
       {/* Help drawer — answers the common blockers inline. Leaving for Mail
           mid-verification is the one moment someone is least able to come
           back, so email is the last resort rather than the only option. */}
-      <Modal visible={helpOpen} animationType="slide" transparent onRequestClose={() => setHelpOpen(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={() => setHelpOpen(false)} />
-        <View
-          style={{
-            backgroundColor: '#fff',
-            borderTopLeftRadius: 22,
-            borderTopRightRadius: 22,
-            paddingHorizontal: 24,
-            paddingTop: 10,
-            paddingBottom: 34,
-          }}
-        >
-          {/* Grabber */}
-          <View
-            style={{ alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: T.rule, marginBottom: 18 }}
-          />
+      <Sheet visible={helpOpen} onClose={() => setHelpOpen(false)} contentStyle={{ paddingHorizontal: 24 }}>
+        <SheetGrabber />
+        <View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
             <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, letterSpacing: -0.4 }}>
               Need help?
@@ -252,7 +240,7 @@ export default function Verify() {
             <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>Email support</Text>
           </Pressable>
         </View>
-      </Modal>
+      </Sheet>
     </SafeAreaView>
   );
 }

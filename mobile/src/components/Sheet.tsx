@@ -1,30 +1,38 @@
 import { ReactNode } from 'react';
 import { Modal, View, Pressable, StyleProp, ViewStyle } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  runOnJS,
-  interpolate,
-  Extrapolation,
-} from 'react-native-reanimated';
-
-const DISMISS_DISTANCE = 120; // px dragged before we let go of it
-const DISMISS_VELOCITY = 800; // or a fast flick, whichever comes first
+import { GESTURES_SUPPORTED } from '@/lib/gestures';
+import { T } from '@/lib/theme';
 
 /**
- * Bottom sheet you can swipe down to dismiss.
+ * Bottom sheet that can be swiped down to dismiss.
  *
- * RN's Modal has no dismiss gesture of its own, so every drawer in the app
- * could only be closed by finding the X or tapping the scrim. This adds the
- * gesture people expect, keeping the scrim tap and hardware back button.
+ * The swipe needs Reanimated worklets, which Expo Go's runtime does not ship
+ * (Reanimated 4 moved them into react-native-worklets). Importing that module
+ * at the top level crashes the screen in Expo Go with `Exception in
+ * HostFunction`, so the animated implementation lives in a separate module
+ * that is only required when the runtime can actually run it.
  *
- * A drag past DISMISS_DISTANCE or a fast downward flick closes it; anything
- * short of that springs back, so a hesitant swipe never loses the sheet.
+ * In Expo Go this renders a plain sheet: no drag, but the scrim tap, the close
+ * controls, and everything inside still work. In a development build you get
+ * the gesture.
  */
-export function Sheet({
+export function Sheet(props: {
+  visible: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  contentStyle?: StyleProp<ViewStyle>;
+}) {
+  if (GESTURES_SUPPORTED) {
+    // Required lazily: a top-level import would run in Expo Go too and crash.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- must stay lazy; a static import crashes Expo Go
+    const { SwipeSheet } = require('./SwipeSheet') as typeof import('./SwipeSheet');
+    return <SwipeSheet {...props} />;
+  }
+  return <StaticSheet {...props} />;
+}
+
+/** No-gesture fallback. Same layout, dismissed via scrim tap or a close control. */
+function StaticSheet({
   visible,
   onClose,
   children,
@@ -35,65 +43,24 @@ export function Sheet({
   children: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
-  const y = useSharedValue(0);
-
-  const close = () => {
-    y.value = 0; // reset so the next open starts seated
-    onClose();
-  };
-
-  const pan = Gesture.Pan()
-    // Downward only: an upward drag would otherwise lift the sheet off the
-    // bottom of the screen and expose the scrim beneath it.
-    .onChange((e) => {
-      y.value = Math.max(0, y.value + e.changeY);
-    })
-    .onEnd((e) => {
-      if (y.value > DISMISS_DISTANCE || e.velocityY > DISMISS_VELOCITY) {
-        // Animate the rest of the way out, then unmount on the JS thread.
-        y.value = withTiming(600, { duration: 180 }, (done) => {
-          if (done) runOnJS(close)();
-        });
-      } else {
-        y.value = withSpring(0, { damping: 20, stiffness: 220 });
-      }
-    });
-
-  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
-  // Fade the scrim as the sheet travels, so the dismiss reads as one motion.
-  const scrimStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(y.value, [0, 300], [1, 0], Extrapolation.CLAMP),
-  }));
-
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
-      <Animated.View style={[{ flex: 1 }, scrimStyle]}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={close} />
-      </Animated.View>
-      <GestureDetector gesture={pan}>
-        <Animated.View style={sheetStyle}>
-          <View
-            style={[
-              {
-                backgroundColor: '#fff',
-                borderTopLeftRadius: 22,
-                borderTopRightRadius: 22,
-                paddingHorizontal: 22,
-                paddingTop: 10,
-                paddingBottom: 34,
-              },
-              contentStyle,
-            ]}
-          >
-            {children}
-          </View>
-        </Animated.View>
-      </GestureDetector>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={onClose} />
+      <View style={[sheetBody, contentStyle]}>{children}</View>
     </Modal>
   );
 }
 
-/** The drag affordance. Its presence is what tells people the sheet is draggable. */
+export const sheetBody = {
+  backgroundColor: '#fff',
+  borderTopLeftRadius: 22,
+  borderTopRightRadius: 22,
+  paddingHorizontal: 22,
+  paddingTop: 10,
+  paddingBottom: 34,
+} as const;
+
+/** The drag affordance. Also reads as a sheet handle when the gesture is absent. */
 export function SheetGrabber() {
   return (
     <View
@@ -102,7 +69,7 @@ export function SheetGrabber() {
         width: 38,
         height: 4,
         borderRadius: 2,
-        backgroundColor: '#EAE6DF',
+        backgroundColor: T.rule,
         marginBottom: 16,
       }}
     />

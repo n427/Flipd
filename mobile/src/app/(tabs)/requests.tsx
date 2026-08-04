@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, SectionList, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, SectionList, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { useSession } from '@/lib/session';
 import { fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
@@ -411,9 +412,10 @@ export default function Requests() {
       </SafeAreaView>
 
       {/* Decline sheet — a reason is optional, so declining stays one tap. */}
-      <Modal visible={!!declining} animationType="slide" transparent onRequestClose={() => setDeclining(null)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 36 }}>
+      <Sheet visible={!!declining} onClose={() => setDeclining(null)}>
+        <SheetGrabber />
+        <View>
+          <View>
             <Text style={{ fontFamily: F.extrabold, fontSize: 19, color: T.ink, letterSpacing: -0.3 }}>
               Decline {declining?.counterpart?.display_name?.split(' ')[0] || 'this request'}?
             </Text>
@@ -455,12 +457,13 @@ export default function Requests() {
             </Pressable>
           </View>
         </View>
-      </Modal>
+      </Sheet>
 
       {/* Rating sheet */}
-      <Modal visible={!!rateFor} animationType="slide" transparent onRequestClose={() => setRateFor(null)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 36 }}>
+      <Sheet visible={!!rateFor} onClose={() => setRateFor(null)}>
+        <SheetGrabber />
+        <View>
+          <View>
             <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, letterSpacing: -0.4 }}>
               Rate {rateFor?.counterpart?.display_name || 'this Trojan'}
             </Text>
@@ -517,7 +520,7 @@ export default function Requests() {
             </Pressable>
           </View>
         </View>
-      </Modal>
+      </Sheet>
     </>
   );
 }

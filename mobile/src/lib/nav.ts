@@ -20,6 +20,19 @@ export function goBack(fallback: Parameters<typeof router.replace>[0] = '/(tabs)
 }
 
 /**
+ * Go back to an explicitly known screen.
+ *
+ * These screens live in a Tabs navigator, where `router.back()` pops the tab
+ * history rather than the screen you actually arrived from — open a listing
+ * from Requests after visiting Feed and `back()` returns you to Feed. When the
+ * caller told us where it came from (a `?from=` param), that answer is exact,
+ * so navigate there instead of trusting the ambiguous history.
+ */
+export function goBackTo(destination: Parameters<typeof router.replace>[0]) {
+  router.replace(destination);
+}
+
+/**
  * Tabs a screen can be opened from. Screens reachable from several places
  * (a listing opens from the feed, Requests, Saved, Notifications, a profile…)
  * take a `from` param so the back button returns to the right one instead of

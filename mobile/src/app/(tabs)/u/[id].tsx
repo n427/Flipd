@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Pressable, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, Pressable, Alert, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { useSession } from '@/lib/session';
 import {
   fetchPublicProfile,
@@ -243,9 +244,10 @@ export default function PublicProfile() {
         />
 
         {/* Report sheet */}
-        <Modal visible={reportOpen} animationType="slide" transparent onRequestClose={() => setReportOpen(false)}>
-          <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 36 }}>
+        <Sheet visible={reportOpen} onClose={() => setReportOpen(false)}>
+          <SheetGrabber />
+          <View>
+            <View>
               <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, letterSpacing: -0.4 }}>
                 Report {profile?.display_name || 'this Trojan'}
               </Text>
@@ -325,7 +327,7 @@ export default function PublicProfile() {
               </Pressable>
             </View>
           </View>
-        </Modal>
+        </Sheet>
     </SafeAreaView>
   );
 }
