@@ -116,10 +116,16 @@ export interface NewListingInput {
   description?: string;
 }
 
+// Date range is a FILTER, not a sort: it narrows which listings show, and the
+// sort then applies within that window. Mirrors FeedRange in the mobile app so
+// both platforms offer the same windows.
+export type FeedRange = 'day' | 'week' | 'month' | 'all';
+
 export interface FilterArgs {
   activeCat?: CategoryId | string;
   query?: string;
   sort?: 'recent' | 'low' | 'high';
+  range?: FeedRange;
   priceMin?: number | null;
   priceMax?: number | null;
 }

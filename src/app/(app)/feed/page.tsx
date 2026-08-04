@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { WebAppFeed, FeedSkeleton } from '@/components/WebApp';
 import { useStore } from '@/lib/store-context';
+import type { FeedRange } from '@/lib/types';
 
 function FeedPageInner() {
   const router = useRouter();
@@ -13,6 +14,8 @@ function FeedPageInner() {
 
   const [activeCat, setActiveCat] = React.useState('all');
   const [sort, setSort] = React.useState('recent');
+  // Matches the app's default: the feed is for what's currently for sale.
+  const [range, setRange] = React.useState<FeedRange>('week');
   const [priceMin, setPriceMin] = React.useState('');
   const [priceMax, setPriceMax] = React.useState('');
 
@@ -27,6 +30,8 @@ function FeedPageInner() {
       query={query}
       sort={sort}
       setSort={setSort}
+      range={range}
+      setRange={setRange}
       priceMin={priceMin}
       setPriceMin={setPriceMin}
       priceMax={priceMax}

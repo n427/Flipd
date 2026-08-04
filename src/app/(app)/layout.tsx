@@ -29,7 +29,21 @@ function AppChrome({ children }: { children: React.ReactNode }) {
   const decline = (id: string) => store.respondReveal(id, 'decline');
 
   return (
-    <div style={{ background: '#fff', minHeight: '100%', fontFamily: 'var(--sans)', position: 'relative' }}>
+    // minHeight:100vh + a flex column, so the white background always reaches
+    // the bottom of the viewport and the footer sits below the content. The
+    // previous minHeight:100% resolved against a parent with no height, so on
+    // short pages (Activity, post preview) the white stopped early and the
+    // gray body showed through underneath.
+    <div
+      style={{
+        background: '#fff',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: 'var(--sans)',
+        position: 'relative',
+      }}
+    >
       <WebAppHeader
         onLogo={() => router.push('/feed')}
         query={query}
@@ -43,7 +57,7 @@ function AppChrome({ children }: { children: React.ReactNode }) {
         meName={store.me?.display_name ?? 'Me'}
         meAvatarUrl={store.me?.avatar_url ?? undefined}
       />
-      <div style={{ minHeight: 'calc(100vh - 200px)' }}>{children}</div>
+      <div style={{ flex: 1 }}>{children}</div>
       <footer style={{ borderTop: '1px solid var(--rule)', padding: '22px 32px', display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap', fontFamily: 'var(--sans)', fontSize: 12, color: 'var(--muted)' }}>
         <a href="/terms" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Terms</a>
         <a href="/privacy" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Privacy</a>

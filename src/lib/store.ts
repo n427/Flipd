@@ -3,7 +3,7 @@
 import React from 'react';
 import { CATEGORIES } from './data';
 import type {
-  ActivityItem, ActivityStatus, FilterArgs, Listing, Profile, RatingSummary, Seller,
+  ActivityItem, ActivityStatus, FeedRange, FilterArgs, Listing, Profile, RatingSummary, Seller,
 } from './types';
 import { effectiveRevealStatus, formatEventWindow, type RevealStatus } from './validation';
 
@@ -583,10 +583,20 @@ export function useFlipdStore(): FlipdStore {
   };
 }
 
+// Days back from now for each range. 'all' has no cutoff.
+const RANGE_DAYS: Record<Exclude<FeedRange, 'all'>, number> = { day: 1, week: 7, month: 30 };
+
+/** Cutoff timestamp in ms for a range, or null when unbounded. */
+export function rangeSince(range: FeedRange | undefined): number | null {
+  if (!range || range === 'all') return null;
+  return Date.now() - RANGE_DAYS[range] * 86_400_000;
+}
+
 export function filterListings(
   listings: Listing[],
-  { activeCat = 'all', query = '', sort = 'recent', priceMin = null, priceMax = null }: FilterArgs = {},
+  { activeCat = 'all', query = '', sort = 'recent', range = 'all', priceMin = null, priceMax = null }: FilterArgs = {},
 ): Listing[] {
+  const since = rangeSince(range);
   let out = listings.filter((l) => {
     if (l.archived) return false;
     if (activeCat !== 'all' && !(l.categories ?? [l.category]).includes(activeCat)) return false;
@@ -594,6 +604,12 @@ export function filterListings(
       const q = query.toLowerCase();
       const hay = (l.title + ' ' + l.meta + ' ' + l.categoryLabel + ' ' + l.seller.name).toLowerCase();
       if (!hay.includes(q)) return false;
+    }
+    // Applied before the sort, so price ordering ranks only in-window listings.
+    // A listing with no created_at is kept rather than silently hidden.
+    if (since != null && l.created_at) {
+      const t = new Date(l.created_at).getTime();
+      if (Number.isFinite(t) && t < since) return false;
     }
     const price = l.price ?? 0;
     if (priceMin != null && price < priceMin) return false;

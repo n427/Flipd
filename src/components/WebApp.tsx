@@ -12,7 +12,7 @@ import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, 
 import { CATEGORIES } from '@/lib/data';
 import { classYearLabel, filterListings, formatPostedDate, photoCropStyle, useFlipdStore, type FlipdStore } from '@/lib/store';
 import { timeLeftLabel, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom, findContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
-import type { ActivityItem, ActivityStatus, Listing, PhotoTone, Profile, RatingSummary } from '@/lib/types';
+import type { ActivityItem, ActivityStatus, FeedRange, Listing, PhotoTone, Profile, RatingSummary } from '@/lib/types';
 
 const TITLE_MAX = 80;
 
@@ -375,16 +375,17 @@ export function FeedSkeleton() {
 }
 
 export function WebAppFeed({
-  store, activeCat, setActiveCat, onListing, query, sort, setSort, priceMin, setPriceMin, priceMax, setPriceMax,
+  store, activeCat, setActiveCat, onListing, query, sort, setSort, range, setRange, priceMin, setPriceMin, priceMax, setPriceMax,
 }: {
   store: FlipdStore; activeCat: string; setActiveCat: (c: string) => void;
   onListing: (l: Listing) => void; query: string;
   sort: string; setSort: (s: string) => void;
+  range: FeedRange; setRange: (r: FeedRange) => void;
   priceMin: string; setPriceMin: (p: string) => void;
   priceMax: string; setPriceMax: (p: string) => void;
 }) {
   const items = filterListings(store.listings, {
-    activeCat, query, sort: sort as never,
+    activeCat, query, sort: sort as never, range,
     priceMin: priceMin ? Number(priceMin) : null,
     priceMax: priceMax ? Number(priceMax) : null,
   });
@@ -425,11 +426,20 @@ export function WebAppFeed({
           />
         </div>
         <WebDropdown
+          label="Posted" value={range} onChange={(r) => setRange(r as FeedRange)}
+          options={[
+            { id: 'day', label: 'Past 24 hours' },
+            { id: 'week', label: 'Past week' },
+            { id: 'month', label: 'Past month' },
+            { id: 'all', label: 'All time' },
+          ]}
+        />
+        <WebDropdown
           label="Sort" value={sort} onChange={setSort}
           options={[
-            { id: 'recent', label: 'Most recent' },
-            { id: 'low', label: 'Price: low → high' },
-            { id: 'high', label: 'Price: high → low' },
+            { id: 'recent', label: 'Newest' },
+            { id: 'low', label: 'Price ↑' },
+            { id: 'high', label: 'Price ↓' },
           ]}
         />
       </div>
@@ -1874,6 +1884,8 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
   const [modal, setModal] = React.useState<'reveal' | null>(null);
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState('recent');
+  // Matches the app's default: the feed is for what's currently for sale.
+  const [range, setRange] = React.useState<FeedRange>('week');
   const [priceMin, setPriceMin] = React.useState('');
   const [priceMax, setPriceMax] = React.useState('');
   const [notifOpen, setNotifOpen] = React.useState(false);
@@ -1905,6 +1917,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         <WebAppFeed
           store={store} activeCat={activeCat} setActiveCat={setActiveCat}
           onListing={goDetail} query={query} sort={sort} setSort={setSort}
+          range={range} setRange={setRange}
           priceMin={priceMin} setPriceMin={setPriceMin} priceMax={priceMax} setPriceMax={setPriceMax}
         />
       )}
