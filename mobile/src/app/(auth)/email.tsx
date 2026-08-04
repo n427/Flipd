@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, Scrol
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { supabase } from '@/lib/supabase';
 import { isUscEmail } from '@/lib/usc';
 import { T, F } from '@/lib/theme';
@@ -44,7 +45,7 @@ export default function EmailScreen() {
       {/* Top bar: Back + step indicator, progress bar under */}
       <View style={{ paddingHorizontal: 28, paddingTop: 40 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable onPress={() => router.back()} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Pressable onPress={() => goBack('/(auth)/sign-in')} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="chevron-back" size={20} color={T.ink} />
             <Text style={{ fontFamily: F.bold, fontSize: 15.5, color: T.ink }}>Back</Text>
           </Pressable>

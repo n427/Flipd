@@ -388,7 +388,7 @@ export default function Requests() {
           renderItem={({ item, section }) => (
             <Row
               item={item}
-              onPress={() => router.push(`/(tabs)/listing/${item.listing_id}`)}
+              onPress={() => router.push(`/(tabs)/listing/${item.listing_id}?from=requests`)}
               onRespond={
                 section.incoming
                   ? (action) => (action === 'approve' ? onApprove(item.id) : respond(item.id, 'decline'))

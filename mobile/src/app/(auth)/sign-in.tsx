@@ -60,7 +60,7 @@ export default function SignIn() {
               marginBottom: 12,
             }}
           >
-            The marketplace for USC.
+            The USC Marketplace
           </Text>
           <Text
             style={{
@@ -72,7 +72,7 @@ export default function SignIn() {
               letterSpacing: -1.8,
             }}
           >
-            Buy from people who show up.
+            Buy from trusted students
           </Text>
           <Text
             style={{
@@ -84,7 +84,7 @@ export default function SignIn() {
               marginTop: 16,
             }}
           >
-            Every buyer and seller verified with @usc.edu. No scams, no strangers, no ghosting.
+            Every buyer and seller verified with @usc.edu. No scams or strangers, only fellow Trojans.
           </Text>
 
           {/* Overlapped product showcase */}

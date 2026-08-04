@@ -73,7 +73,7 @@ export default function Notifications() {
           const photo = item.photo_urls[0];
           return (
             <Pressable
-              onPress={() => router.push(`/(tabs)/listing/${item.id}`)}
+              onPress={() => router.push(`/(tabs)/listing/${item.id}?from=notifications`)}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',

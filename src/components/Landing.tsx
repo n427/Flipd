@@ -122,13 +122,13 @@ function Hero() {
   return (
     <section style={{ textAlign: 'center', padding: '84px 24px 96px', overflow: 'hidden' }}>
       <div style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 100ms', fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>
-        The marketplace for USC.
+        The USC Marketplace
       </div>
       <h1 style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 250ms', fontSize: 'clamp(40px, 7vw, 68px)', fontWeight: 800, letterSpacing: '-0.045em', lineHeight: 1.02, color: 'var(--ink)', margin: '14px 0 0' }}>
-        Buy from people<br />who show up.
+        Buy from trusted<br />students
       </h1>
       <p style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 400ms', fontSize: 17, color: 'var(--muted)', fontWeight: 500, margin: '20px auto 0', maxWidth: 480 }}>
-        Every buyer and seller verified with @usc.edu. No scams, no strangers, no ghosting.
+        Every buyer and seller verified with @usc.edu. No scams or strangers, only fellow Trojans.
       </p>
       <div style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 550ms', marginTop: 28, display: 'flex', gap: 14, justifyContent: 'center', alignItems: 'center' }}>
         <button className="btn btn-primary" style={{ padding: '13px 28px', fontSize: 14 }} onClick={() => scrollTo('join')}>
@@ -146,16 +146,16 @@ function Hero() {
 
 function HowItWorks() {
   const steps = [
-    { n: '1', title: 'Verify with your USC email', body: "Magic-link sign-in. No passwords. You're tied to your @usc.edu the whole way through." },
-    { n: '2', title: 'Browse the campus feed', body: 'Services, food, popups, sublets, goods — every listing from a real, signed-in USC student.' },
-    { n: '3', title: 'Reveal contact', body: 'The seller sees your name, school, and year, and has 72 hours to approve. Then you connect and meet up.' },
+    { n: '1', title: 'Verify with your USC email', body: '6 digit code emailed straight to your @usc.edu. No password needed!' },
+    { n: '2', title: 'Browse the campus feed', body: 'Services, popups, sublets, and goods: every listing from a real USC student.' },
+    { n: '3', title: 'Request Contact', body: 'The seller reviews your profile & reviews and has 72 hours to approve. Then you connect and meet up.' },
   ];
   return (
     <section id="how" style={{ padding: '96px 24px', background: 'var(--surface)', scrollMarginTop: 60 }}>
       <div style={{ maxWidth: 980, margin: '0 auto' }}>
         <Reveal>
           <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', textAlign: 'center', margin: '0 0 48px' }}>
-            Three steps. No DMs from strangers.
+            Three simple steps
           </h2>
         </Reveal>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
@@ -177,10 +177,9 @@ function HowItWorks() {
 function Categories() {
   const cats = [
     { icon: 'services', label: 'Services', sub: 'nails · hair · tutoring · photo' },
-    { icon: 'food', label: 'Food', sub: 'bakers · meal prep · drinks' },
     { icon: 'event', label: 'Popups', sub: 'events · fundraisers' },
-    { icon: 'housing', label: 'Housing', sub: 'sublets · roommates' },
     { icon: 'goods', label: 'Goods', sub: 'furniture · books · tech' },
+    { icon: 'housing', label: 'Housing', sub: 'sublets · roommates' },
   ];
   return (
     <section id="categories" style={{ padding: '96px 24px', scrollMarginTop: 60 }}>
@@ -211,18 +210,18 @@ function Categories() {
 function Trust() {
   const stats = [
     { stat: '100%', label: 'verified @usc.edu accounts' },
-    { stat: '72h', label: 'seller approval window' },
     { stat: '0', label: 'anonymous interactions' },
+    { stat: '72h', label: 'seller approval window' },
   ];
   return (
     <section id="trust" style={{ padding: '96px 24px', background: 'var(--ink)', color: '#fff', scrollMarginTop: 60 }}>
       <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
         <Reveal>
           <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', margin: '0 0 16px' }}>
-            Verification isn't a feature.<br />It's the whole product.
+            Trust &amp; safety is our<br />whole product
           </h2>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', maxWidth: 520, margin: '0 auto 48px', lineHeight: 1.6 }}>
-            When you reveal contact on Flipd, both sides know exactly who's on the other end — name, school, year. Accountability is built in.
+            When you receive or make a request on Flipd, the AI safety layer scans the other person&apos;s profile and advises you before you proceed.
           </p>
         </Reveal>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>

@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, Scrol
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { supabase } from '@/lib/supabase';
 import { VERIFY_HELP, SUPPORT_EMAIL } from '@/lib/legal';
 import { T, F } from '@/lib/theme';
@@ -102,7 +103,7 @@ export default function Verify() {
       {/* Top bar: Back + step indicator, full progress bar */}
       <View style={{ paddingHorizontal: 28, paddingTop: 40 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable onPress={() => router.back()} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Pressable onPress={() => goBack('/(auth)/email')} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="chevron-back" size={20} color={T.ink} />
             <Text style={{ fontFamily: F.bold, fontSize: 15.5, color: T.ink }}>Back</Text>
           </Pressable>
@@ -123,7 +124,7 @@ export default function Verify() {
           </Text>
           <Text style={{ fontFamily: F.regular, color: T.muted, fontSize: 15.5, marginTop: 10, marginBottom: 26, lineHeight: 22 }}>
             Sent to <Text style={{ fontFamily: F.bold, color: T.ink }}>{String(email)}</Text>.{' '}
-            <Text onPress={() => router.back()} style={{ fontFamily: F.bold, color: T.cardinal }}>Change</Text>
+            <Text onPress={() => goBack('/(auth)/email')} style={{ fontFamily: F.bold, color: T.cardinal }}>Change</Text>
           </Text>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>

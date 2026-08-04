@@ -6,19 +6,54 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, Button, BackLink } from '@/components/ui';
-import { RequestTimeline, RatingModal, ContactLinks } from '@/components/WebApp';
+import { RequestTimeline, RatingModal } from '@/components/WebApp';
 import { useStore } from '@/lib/store-context';
-import { timeLeftLabel } from '@/lib/validation';
-import type { ActivityItem, RevealContact } from '@/lib/types';
+import { timeLeftLabel, swapCountLabel } from '@/lib/validation';
+import type { ActivityItem } from '@/lib/types';
 
-function hasContact(contact?: RevealContact): contact is RevealContact {
-  return !!contact && (!!contact.instagram || !!contact.phone || !!contact.email);
+// Offered when declining. Optional — declining stays a single tap — but a
+// reason keeps the loop useful for the buyer without feeling punitive.
+const DECLINE_REASONS = [
+  { id: 'bad_timing', label: 'Bad timing' },
+  { id: 'already_sold', label: 'Already sold' },
+  { id: 'not_enough_info', label: 'Not enough info' },
+] as const;
+
+// Trust signals for the seller's decision. Swap counts read more honestly than
+// a star average early on, so the rating never appears on its own.
+function TrustLine({ userId }: { userId: string }) {
+  const [swaps, setSwaps] = React.useState<{ asBuyer: number; asSeller: number } | null>(null);
+  const [rating, setRating] = React.useState<{ average: number | null; count: number } | null>(null);
+  React.useEffect(() => {
+    let alive = true;
+    fetch(`/api/users/${userId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !d) return;
+        setSwaps(d.swaps ?? { asBuyer: 0, asSeller: 0 });
+        setRating(d.ratings ?? null);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [userId]);
+  if (!swaps) return null;
+  const label = swapCountLabel(swaps.asBuyer, swaps.asSeller);
+  const isNew = swaps.asBuyer + swaps.asSeller === 0;
+  return (
+    <div className="t-meta" style={{ fontSize: 12.5, marginTop: 3, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <span style={{ fontWeight: 600, color: isNew ? 'var(--muted)' : 'var(--ink)' }}>{label}</span>
+      {rating && rating.count > 0 && rating.average != null && (
+        <span>· {rating.average.toFixed(1)} from {rating.count} rating{rating.count === 1 ? '' : 's'}</span>
+      )}
+    </div>
+  );
 }
 
 export default function RequestsPage() {
   const router = useRouter();
   const store = useStore();
   const [confirmSold, setConfirmSold] = React.useState<ActivityItem | null>(null);
+  const [declining, setDeclining] = React.useState<ActivityItem | null>(null);
   const [rating, setRating] = React.useState<ActivityItem | null>(null);
 
   const incoming = store.activity.filter((a) => a.dir === 'in');
@@ -84,17 +119,31 @@ export default function RequestsPage() {
                       <span style={{ color: 'var(--accent)', fontWeight: 600 }}> · {timeLeftLabel(a.expiresAt)}</span>
                     )}
                   </div>
+                  <TrustLine userId={a.counterpartId ?? ''} />
+                  {/* The buyer's own words: the single biggest input to this
+                      decision, and for services the only way to know what is
+                      actually being asked for. */}
+                  {a.introMessage && (
+                    <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--surface)', borderRadius: 10, fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink-2)' }}>
+                      {a.introMessage}
+                    </div>
+                  )}
                   <RequestTimeline status={a.status} />
-                  {(a.status === 'APPROVED' || a.status === 'COMPLETED') && hasContact(a.contact) && (
+                  {(a.status === 'APPROVED' || a.status === 'COMPLETED') && a.threadId && (
                     <div style={{ marginTop: 8 }}>
-                      <ContactLinks contact={a.contact} variant="row" />
+                      <Link
+                        href={`/messages/${a.threadId}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}
+                      >
+                        Open chat
+                      </Link>
                     </div>
                   )}
                 </div>
                 {a.status === 'PENDING' ? (
                   <div style={{ display: 'flex', gap: 8 }}>
                     <Button kind="primary" size="sm" onClick={() => approve(a)}>Approve</Button>
-                    <Button kind="ghost" size="sm" onClick={() => store.respondReveal(a.id, 'decline')}>Decline</Button>
+                    <Button kind="ghost" size="sm" onClick={() => setDeclining(a)}>Decline</Button>
                   </div>
                 ) : a.status === 'APPROVED' ? (
                   <Button kind="secondary" size="sm" onClick={() => store.respondReveal(a.id, 'complete')}>Mark completed</Button>
@@ -132,6 +181,46 @@ export default function RequestsPage() {
                 }}
               >
                 Mark as sold
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {declining && (
+        <div onClick={() => setDeclining(null)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(17,17,17,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: 400, boxShadow: 'var(--shadow-strong)' }}>
+            <h2 style={{ fontWeight: 800, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 8px' }}>
+              Decline {declining.who.split(' ')[0]}?
+            </h2>
+            <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink-2)', margin: '0 0 18px' }}>
+              Adding a reason is optional, and it helps them know whether to try again.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+              {DECLINE_REASONS.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={async () => {
+                    await store.respondReveal(declining.id, 'decline', { declineReason: r.id });
+                    setDeclining(null);
+                  }}
+                  style={{ textAlign: 'left', border: '1.5px solid var(--rule)', borderRadius: 12, padding: '12px 14px', background: '#fff', fontSize: 14, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer' }}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Button kind="ghost" onClick={() => setDeclining(null)} style={{ flex: 1 }}>Cancel</Button>
+              <Button
+                kind="secondary"
+                style={{ flex: 1 }}
+                onClick={async () => {
+                  await store.respondReveal(declining.id, 'decline');
+                  setDeclining(null);
+                }}
+              >
+                Decline without a reason
               </Button>
             </div>
           </div>

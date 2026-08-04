@@ -1,6 +1,9 @@
 // Flipd — shared types
 
 export type PhotoTone = 'cream' | 'cardinal' | 'gold' | 'ink';
+// 'food' is retired from CATEGORIES (no longer postable or filterable) but
+// stays in the union: existing listings still carry it and must remain
+// representable. Do not remove without migrating those rows.
 export type CategoryId = 'all' | 'services' | 'food' | 'event' | 'housing' | 'goods';
 export type ContactMethod = 'instagram' | 'phone' | 'email';
 
@@ -67,16 +70,12 @@ export interface Listing {
 export type ActivityDir = 'in' | 'out';
 export type ActivityStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'EXPIRED' | 'COMPLETED';
 
-export interface RevealContact {
-  instagram?: string;
-  phone?: string;
-  email?: string;
-}
-
 export interface ActivityItem {
   id: string;
   dir: ActivityDir;
   who: string;
+  // The other party's profile id, for fetching their trust signals.
+  counterpartId?: string;
   school: string;
   avatarUrl?: string;
   listingTitle: string;
@@ -90,7 +89,13 @@ export interface ActivityItem {
   dismissed: boolean;
   canRate: boolean;
   status: ActivityStatus;
-  contact?: RevealContact;
+  // The buyer's opening message: what the seller approves on.
+  introMessage?: string;
+  // Why the seller declined, when they picked a reason.
+  declineReason?: string;
+  // Set once approved. Contact details are never exchanged now — the
+  // conversation happens in-app, and this points at it.
+  threadId?: string;
 }
 
 export interface Category {

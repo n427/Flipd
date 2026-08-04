@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '@/lib/session';
@@ -60,7 +61,7 @@ export default function MyListings() {
         }}
       >
         <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/profile'))}
+          onPress={() => goBack('/(tabs)/profile')}
           hitSlop={10}
         >
           <Ionicons name="chevron-back" size={23} color={T.ink} />
@@ -83,7 +84,7 @@ export default function MyListings() {
           </View>
         }
         renderItem={({ item }) => (
-          <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}`)} />
+          <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}?from=my-listings`)} />
         )}
       />
     </SafeAreaView>

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert, M
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { goBack, leaveAfterDelete, backTarget } from '@/lib/nav';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/session';
 import {
@@ -30,7 +31,9 @@ const METHOD_META: Record<keyof MyContactMethods, { label: string; icon: keyof t
 };
 
 export default function ListingDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `from` records which tab opened this listing, so back returns there
+  // rather than always dumping the user on the feed.
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useSession();
@@ -107,7 +110,7 @@ export default function ListingDetailScreen() {
           setBusy(true);
           try {
             await deleteListing(listing.id);
-            router.back();
+            leaveAfterDelete(backTarget(from));
           } catch (e) {
             setBusy(false);
             Alert.alert('Could not delete', e instanceof Error ? e.message : 'Try again.');
@@ -195,7 +198,7 @@ export default function ListingDetailScreen() {
             screen with no header, so without this there's no way back from a
             listing except the system swipe gesture. */}
         <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/feed'))}
+          onPress={() => goBack(backTarget(from))}
           hitSlop={10}
           style={{
             position: 'absolute',

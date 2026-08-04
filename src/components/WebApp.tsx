@@ -5,13 +5,14 @@
 // profile (my listings / saved / activity), and a notifications panel.
 // All wired to the in-memory store.
 import React from 'react';
+import Link from 'next/link';
 import { Icon } from './Icon';
 import { LocationPicker } from './LocationPicker';
 import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, Pill, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { classYearLabel, filterListings, formatPostedDate, photoCropStyle, useFlipdStore, type FlipdStore } from '@/lib/store';
-import { timeLeftLabel, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom } from '@/lib/validation';
-import type { ActivityItem, ActivityStatus, Listing, PhotoTone, Profile, RatingSummary, RevealContact } from '@/lib/types';
+import { timeLeftLabel, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom, findContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
+import type { ActivityItem, ActivityStatus, Listing, PhotoTone, Profile, RatingSummary } from '@/lib/types';
 
 const TITLE_MAX = 80;
 
@@ -114,6 +115,9 @@ export function WebAppHeader({
             <span style={{ minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{pendingCount}</span>
           )}
         </a>
+        <a href="/messages" style={{ textDecoration: 'none', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>
+          Messages
+        </a>
         <button onClick={onBell} aria-label="Notifications" style={{ background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
           <Icon name="bell" size={18} color="var(--ink)" />
           {unreadCount > 0 && (
@@ -179,37 +183,6 @@ export function RatingModal({ whom, onClose, onSubmit }: { whom: string; onClose
           </Button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Contact links (shared: activity row "row" variant + listing-detail "plain" variant) ──
-export function ContactLinks({ contact, variant = 'row' }: { contact: RevealContact; variant?: 'row' | 'plain' }) {
-  const row = variant === 'row';
-  const linkStyle: React.CSSProperties = row
-    ? { display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }
-    : { display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none' };
-  const iconSize = row ? 13 : 16;
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: row ? 6 : 10, alignItems: row ? 'flex-start' : undefined }}>
-      {contact.instagram && (
-        <a href={`https://instagram.com/${contact.instagram.replace(/^@/, '')}`} target="_blank" rel="noreferrer" style={linkStyle}>
-          <Icon name="instagram" size={iconSize} color={row ? undefined : 'var(--ink)'} />
-          {row ? contact.instagram : <>{' '}{contact.instagram}</>}
-        </a>
-      )}
-      {contact.phone && (
-        <a href={`tel:${contact.phone}`} style={linkStyle}>
-          <Icon name="phone" size={iconSize} color={row ? undefined : 'var(--ink)'} />
-          {row ? contact.phone : <>{' '}{contact.phone}</>}
-        </a>
-      )}
-      {contact.email && (
-        <a href={`mailto:${contact.email}`} style={linkStyle}>
-          <Icon name="mail" size={iconSize} color={row ? undefined : 'var(--ink)'} />
-          {row ? contact.email : <>{' '}{contact.email}</>}
-        </a>
-      )}
     </div>
   );
 }
@@ -287,9 +260,14 @@ function ActivityRow({
         )}
         {a.dir === 'out' && !compact && <RequestTimeline status={a.status} />}
 
-        {a.dir === 'out' && a.status === 'APPROVED' && a.contact && (
+        {a.status === 'APPROVED' && a.threadId && (
           <div style={{ marginTop: 8 }}>
-            <ContactLinks contact={a.contact} variant="row" />
+            <Link
+              href={`/messages/${a.threadId}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}
+            >
+              <Icon name="chat" size={13} /> Open chat
+            </Link>
           </div>
         )}
 
@@ -596,10 +574,12 @@ export function WebListingDetail({
           </button>
         </>
       )
-    ) : reveal?.status === 'APPROVED' && reveal.contact ? (
+    ) : reveal?.status === 'APPROVED' && reveal.threadId ? (
       <div>
-        <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 12 }}>CONTACT</div>
-        <ContactLinks contact={reveal.contact} variant="plain" />
+        <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 12 }}>YOUR CHAT</div>
+        <Link href={`/messages/${reveal.threadId}`} style={{ textDecoration: 'none' }}>
+          <Button kind="primary" full size="lg" icon="chat">Open chat</Button>
+        </Link>
       </div>
     ) : (
       latestReveal?.status === 'DECLINED' ? (
@@ -612,16 +592,22 @@ export function WebListingDetail({
       <>
         {latestReveal?.status === 'EXPIRED' && (
           <div style={{ fontFamily: 'var(--sans)', fontSize: 13, color: 'var(--muted)', marginBottom: 10 }}>
-            Your request expired — you can ask again.
+            Your request expired. You can ask again.
           </div>
         )}
         <div style={{ display: 'flex', flexDirection: full ? 'column' : 'row', gap: 10 }}>
-          {reveal?.status === 'PENDING' ? (
+          {/* An open conversation outranks the request CTA: someone who
+              already has a thread wants to get back into it, not start over. */}
+          {reveal?.threadId ? (
+            <Link href={`/messages/${reveal.threadId}`} style={{ textDecoration: 'none', display: full ? 'block' : undefined }}>
+              <Button kind="primary" full={full} size="lg" icon="chat">Open chat</Button>
+            </Link>
+          ) : reveal?.status === 'PENDING' ? (
             <Button kind="secondary" full={full} size="lg" disabled>
-              {timeLeftLabel(reveal.expiresAt) ? `Requested · ${timeLeftLabel(reveal.expiresAt)}` : 'Requested — waiting on seller'}
+              {timeLeftLabel(reveal.expiresAt) ? `Requested · ${timeLeftLabel(reveal.expiresAt)}` : 'Requested · waiting on seller'}
             </Button>
           ) : (
-            <Button kind="primary" full={full} size="lg" onClick={preview ? () => {} : onReveal} disabled={preview}>Reveal Contact</Button>
+            <Button kind="primary" full={full} size="lg" onClick={preview ? () => {} : onReveal} disabled={preview}>Message seller</Button>
           )}
           <Button
             kind={saved ? 'secondary-active' : 'secondary'}
@@ -1783,17 +1769,23 @@ const CONTACT_METHOD_ICONS: Record<'instagram' | 'phone' | 'email', string> = {
   email: 'mail',
 };
 
-export function RevealModal({ listing, me, onClose, onContinue }: { listing: Listing; me: Profile | null; onClose: () => void; onContinue: (offer?: number, buyerContact?: string[]) => void }) {
+export function RevealModal({ listing, me, onClose, onContinue }: { listing: Listing; me: Profile | null; onClose: () => void; onContinue: (offer: number | undefined, introMessage: string) => void }) {
   const [offerText, setOfferText] = React.useState('');
-  const saved = (['instagram', 'phone', 'email'] as const).filter((k) => me?.[`contact_${k}` as const]);
-  const [checked, setChecked] = React.useState<Record<string, boolean>>(() => Object.fromEntries(saved.map((k) => [k, true])));
-  const chosen = saved.filter((k) => checked[k]);
-  const canShare = chosen.length >= 1;
+  const [intro, setIntro] = React.useState('');
+  const [touched, setTouched] = React.useState(false);
   // Only sellers who marked the listing "open to offers" accept them.
   const canOffer = !!listing.negotiable && !listing.eventStart;
   const firstName = listing.seller.name.split(' ')[0];
-  const handleShare = async () => {
-    if (!canShare) return;
+
+  // Same check the server runs. Here it exists purely so a buyer finds out
+  // before they hit send, not as enforcement — the API rejects independently.
+  const hits = findContactInfo(intro);
+  const blocked = hits.length > 0;
+  const tooLong = intro.length > 600;
+  const canSend = intro.trim().length > 0 && !blocked && !tooLong;
+
+  const handleSend = async () => {
+    if (!canSend) return;
     const confetti = (await import('canvas-confetti')).default;
     confetti({
       particleCount: 120,
@@ -1803,52 +1795,50 @@ export function RevealModal({ listing, me, onClose, onContinue }: { listing: Lis
     });
     const parsed = parseInt(offerText, 10);
     const offer = canOffer && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-    onContinue(offer, chosen);
+    onContinue(offer, intro.trim());
   };
+
   return (
     <ModalScrim onClose={onClose}>
       <div style={{ background: '#fff', borderRadius: 8, padding: 0, width: 460, overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.18)', fontFamily: 'var(--sans)' }}>
         <div style={{ background: 'var(--ink)', color: '#fff', padding: '28px 28px', display: 'flex', alignItems: 'center', gap: 14, position: 'relative' }}>
           <Icon name="shield" size={26} color="#fff" />
-          <div className="t-eyebrow" style={{ color: '#fff', fontSize: 14, letterSpacing: '0.2em' }}>REVEAL CONTACT</div>
+          <div className="t-eyebrow" style={{ color: '#fff', fontSize: 14, letterSpacing: '0.2em' }}>SEND A REQUEST</div>
         </div>
         <div style={{ padding: '24px 28px' }}>
           <h2 style={{ fontWeight: 800, fontSize: 24, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 10px' }}>
-            Share your info with <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>{firstName}</em>?
+            Message <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>{firstName}</em>
           </h2>
           <p className="t-body" style={{ fontSize: 13.5, margin: '0 0 16px' }}>
-            We&apos;ll share your <strong>name</strong>, <strong>school</strong>, and <strong>year</strong>, and the contact methods you pick below. If {firstName} approves, you&apos;ll each see the other&apos;s contact.
+            {firstName} sees your <strong>name</strong>, <strong>school</strong>, and <strong>year</strong> with your message, and has 72 hours to reply. Approving opens a chat right here in Flipd.
           </p>
-          {saved.length === 0 ? (
-            <p className="t-body" style={{ fontSize: 13.5, margin: '0 0 20px' }}>
-              Add a contact method to request. <a href="/profile/edit" style={{ color: 'var(--ink)', textDecoration: 'underline', fontWeight: 600 }}>Edit profile</a>
+
+          <label className="field-label">Your message</label>
+          <textarea
+            className="field"
+            rows={4}
+            value={intro}
+            onChange={(e) => setIntro(e.target.value.slice(0, 700))}
+            onBlur={() => setTouched(true)}
+            placeholder={
+              listing.categoryLabel === 'Services'
+                ? 'What do you need, and when works for you?'
+                : 'Say what you\u2019re after and when you could meet.'
+            }
+            style={{ resize: 'vertical', marginBottom: 6 }}
+          />
+          {/* Blocked rather than silently redacted: a buyer who thinks their
+              number went through would wait forever for a text. */}
+          {blocked && (touched || intro.length > 12) ? (
+            <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--accent)', margin: '0 0 14px' }}>
+              {CONTACT_BLOCKED_MESSAGE}
             </p>
           ) : (
-            <div style={{ marginBottom: 20 }}>
-              <label className="field-label">Share these methods</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {saved.map((k) => (
-                  <label
-                    key={k}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      border: '1.5px solid var(--rule)', borderRadius: 12,
-                      padding: '11px 14px', cursor: 'pointer', fontSize: 14.5,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={!!checked[k]}
-                      onChange={(e) => setChecked((prev) => ({ ...prev, [k]: e.target.checked }))}
-                      style={{ width: 16, height: 16 }}
-                    />
-                    <Icon name={CONTACT_METHOD_ICONS[k]} size={16} color="var(--muted)" />
-                    <span style={{ fontWeight: 600 }}>{CONTACT_METHOD_LABELS[k]}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+            <p style={{ fontSize: 12, color: tooLong ? 'var(--accent)' : 'var(--muted)', margin: '0 0 14px' }}>
+              {tooLong ? 'Keep it under 600 characters.' : `${intro.length}/600`}
+            </p>
           )}
+
           {canOffer && (
             <>
               <label className="field-label">Your offer (optional)</label>
@@ -1867,7 +1857,7 @@ export function RevealModal({ listing, me, onClose, onContinue }: { listing: Lis
           )}
           <div style={{ display: 'flex', gap: 8 }}>
             <Button kind="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Button>
-            <Button kind={canShare ? 'primary' : 'disabled'} onClick={handleShare} disabled={!canShare} style={{ flex: 1 }} icon="arrowRight">Share</Button>
+            <Button kind={canSend ? 'primary' : 'disabled'} onClick={handleSend} disabled={!canSend} style={{ flex: 1 }} icon="arrowRight">Send</Button>
           </div>
         </div>
       </div>
@@ -1938,8 +1928,8 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
           listing={selected}
           me={store.me}
           onClose={() => setModal(null)}
-          onContinue={async (offer, buyerContact) => {
-            const r = await store.requestReveal(selected.id, offer, buyerContact);
+          onContinue={async (offer, introMessage) => {
+            const r = await store.requestReveal(selected.id, offer, introMessage);
             if (!r.ok && r.error) alert(r.error);
             setModal(null);
           }}

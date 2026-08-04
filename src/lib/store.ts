@@ -3,7 +3,7 @@
 import React from 'react';
 import { CATEGORIES } from './data';
 import type {
-  ActivityItem, ActivityStatus, FilterArgs, Listing, Profile, RatingSummary, RevealContact, Seller,
+  ActivityItem, ActivityStatus, FilterArgs, Listing, Profile, RatingSummary, Seller,
 } from './types';
 import { effectiveRevealStatus, formatEventWindow, type RevealStatus } from './validation';
 
@@ -56,7 +56,9 @@ type RevealDto = {
   counterpart: { id: string; display_name: string | null; school_unit: string | null; class_year: string | null; avatar_url: string | null } | null;
   listing_archived?: boolean;
   listing_removed?: boolean;
-  contact?: RevealContact;
+  intro_message?: string | null;
+  decline_reason?: string | null;
+  thread_id?: string | null;
 };
 
 // Per-photo crop styling. `cover` fills the tile; the extra scale() lets a
@@ -162,6 +164,7 @@ function mapReveal(dto: RevealDto, dir: 'in' | 'out'): ActivityItem {
     id: dto.id,
     dir,
     who: dto.counterpart?.display_name ?? 'Flipd member',
+    counterpartId: dto.counterpart?.id ?? undefined,
     school: [dto.counterpart?.school_unit, classYearLabel(dto.counterpart?.class_year ?? null)]
       .filter(Boolean).join(' '),
     avatarUrl: dto.counterpart?.avatar_url ?? undefined,
@@ -176,7 +179,12 @@ function mapReveal(dto: RevealDto, dir: 'in' | 'out'): ActivityItem {
     dismissed: dto.dismissed ?? false,
     canRate: dto.can_rate ?? false,
     status: effectiveRevealStatus(dto.status, dto.expires_at).toUpperCase() as ActivityStatus,
-    contact: dto.contact,
+    // What the buyer wrote when asking — the basis for the seller's decision.
+    introMessage: dto.intro_message ?? undefined,
+    declineReason: dto.decline_reason ?? undefined,
+    // Present once approved: contact details are never exchanged now, the
+    // conversation lives here instead.
+    threadId: dto.thread_id ?? undefined,
   };
 }
 
@@ -196,8 +204,8 @@ export interface FlipdStore {
   removeListing: (id: string) => Promise<boolean>;
   getListing: (id: string) => Promise<Listing | null>;
   setArchived: (id: string, archived: boolean) => Promise<boolean>;
-  requestReveal: (listingId: string, offer?: number, buyerContact?: string[]) => Promise<{ ok: boolean; error?: string }>;
-  respondReveal: (id: string, action: 'approve' | 'decline' | 'complete', opts?: { markSold?: boolean }) => Promise<boolean>;
+  requestReveal: (listingId: string, offer: number | undefined, introMessage: string) => Promise<{ ok: boolean; error?: string }>;
+  respondReveal: (id: string, action: 'approve' | 'decline' | 'complete', opts?: { markSold?: boolean; declineReason?: string }) => Promise<boolean>;
   latestRevealFor: (listingId: string) => ActivityItem | undefined;
   pendingByListing: Record<string, number>;
   blockedIds: Set<string>;
@@ -425,11 +433,11 @@ export function useFlipdStore(): FlipdStore {
     return true;
   };
 
-  const requestReveal = async (listingId: string, offer?: number, buyerContact?: string[]) => {
+  const requestReveal = async (listingId: string, offer: number | undefined, introMessage: string) => {
     const res = await fetch('/api/reveals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ listing_id: listingId, offer, buyer_contact: buyerContact }),
+      body: JSON.stringify({ listing_id: listingId, offer, intro_message: introMessage }),
     }).catch(() => null);
     if (!res) return { ok: false, error: 'Network error — try again.' };
     if (res.status === 409) { await refreshActivity(); return { ok: true }; }
@@ -441,11 +449,11 @@ export function useFlipdStore(): FlipdStore {
     return { ok: true };
   };
 
-  const respondReveal = async (id: string, action: 'approve' | 'decline' | 'complete', opts: { markSold?: boolean } = {}) => {
+  const respondReveal = async (id: string, action: 'approve' | 'decline' | 'complete', opts: { markSold?: boolean; declineReason?: string } = {}) => {
     const res = await fetch(`/api/reveals/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, mark_sold: opts.markSold === true }),
+      body: JSON.stringify({ action, mark_sold: opts.markSold === true, decline_reason: opts.declineReason ?? null }),
     }).catch(() => null);
     if (!res || !res.ok) return false;
     setActivity((prev) => prev.map((a) =>

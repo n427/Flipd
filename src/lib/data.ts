@@ -6,8 +6,7 @@ export const USC_UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA',
 export const CATEGORIES: Category[] = [
   { id: 'all', label: 'All', icon: 'grid' },
   { id: 'services', label: 'Services', icon: 'services' },
-  { id: 'food', label: 'Food', icon: 'food' },
-  { id: 'housing', label: 'Housing', icon: 'housing' },
-  { id: 'goods', label: 'Goods', icon: 'goods' },
   { id: 'event', label: 'Popups', icon: 'event' },
+  { id: 'goods', label: 'Goods', icon: 'goods' },
+  { id: 'housing', label: 'Housing', icon: 'housing' },
 ];

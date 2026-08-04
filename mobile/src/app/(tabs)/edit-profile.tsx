@@ -5,6 +5,7 @@ import { FormScroll } from '@/components/FormScroll';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { fetchMyProfile, updateMyProfile, uploadAvatar, NotifyEvent, NotifyPrefs } from '@/lib/listings';
 import { T, F, S } from '@/lib/theme';
@@ -116,7 +117,7 @@ export default function EditProfile() {
         contact_email: email.trim() || null,
         notify_prefs: prefs,
       });
-      router.back();
+      goBack('/(tabs)/profile');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save. Try again.');
       setSaving(false);
@@ -303,7 +304,7 @@ export default function EditProfile() {
         >
           <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>{saving ? 'Saving…' : 'Save'}</Text>
         </Pressable>
-        <Pressable onPress={() => router.back()} style={{ marginTop: 14, alignItems: 'center' }}>
+        <Pressable onPress={() => goBack('/(tabs)/profile')} style={{ marginTop: 14, alignItems: 'center' }}>
           <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
         </Pressable>
       </FormScroll>
