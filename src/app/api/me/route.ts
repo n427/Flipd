@@ -22,7 +22,7 @@ const HEARD_FROM = ['instagram', 'friend', 'flyer', 'class_club', 'other'];
 // Attribution describes the moment of signup, so it is captured once and never
 // revised — see the write-once guard in PATCH below.
 const WRITE_ONCE = ['heard_from', 'heard_from_detail'] as const;
-const NOTIFY_EVENTS = ['new_request', 'approval', 'reminder', 'expiry'];
+const NOTIFY_EVENTS = ['new_request', 'approval', 'reminder', 'expiry', 'new_message'];
 
 export async function PATCH(req: NextRequest) {
   const user = await getRequestUser(req);

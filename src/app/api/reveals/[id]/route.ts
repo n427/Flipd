@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
-import { effectiveRevealStatus, resolveSharedContact, type RevealStatus } from '@/lib/validation';
-import { sharedContactEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail, wantsPush } from '@/lib/notify';
+import { effectiveRevealStatus, type RevealStatus } from '@/lib/validation';
+import { approvedEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail, wantsPush } from '@/lib/notify';
+
+const DECLINE_REASONS = ['bad_timing', 'already_sold', 'not_enough_info'];
 
 export async function PATCH(
   req: NextRequest,
@@ -12,14 +14,18 @@ export async function PATCH(
   const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  const { action, mark_sold } = await req.json().catch(() => ({}));
+  const { action, mark_sold, decline_reason } = await req.json().catch(() => ({}));
   if (action !== 'approve' && action !== 'decline' && action !== 'complete') {
     return NextResponse.json({ error: "action must be 'approve', 'decline', or 'complete'" }, { status: 400 });
+  }
+  // Optional: declining without a reason stays a single tap.
+  if (decline_reason != null && !DECLINE_REASONS.includes(decline_reason)) {
+    return NextResponse.json({ error: 'unknown decline_reason' }, { status: 400 });
   }
 
   const { data: existing } = await admin
     .from('reveal_requests')
-    .select('id, listing_id, buyer_id, seller_id, status, expires_at, buyer_contact')
+    .select('id, listing_id, listing_title, buyer_id, seller_id, status, expires_at')
     .eq('id', params.id)
     .single();
   if (!existing) return NextResponse.json({ error: 'not found' }, { status: 404 });
@@ -40,55 +46,57 @@ export async function PATCH(
     .update({
       status: action === 'approve' ? 'approved' : action === 'complete' ? 'completed' : 'declined',
       resolved_at: new Date().toISOString(),
+      ...(action === 'decline' && decline_reason ? { decline_reason } : {}),
     })
     .eq('id', params.id)
     .select('id, status')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Event 2: the approval payload — email both parties the contact info
-  // they're each owed (mutual reveal).
+  // Event 2: approval opens a thread. No contact details change hands — the
+  // conversation happens in Flipd, and the notification points at it.
+  let threadId: string | null = null;
   if (action === 'approve') {
     const [{ data: buyerProfile }, { data: sellerProfile }, { data: listingRow }] = await Promise.all([
-      admin.from('profiles').select('display_name, notify_prefs, contact_instagram, contact_phone, contact_email').eq('id', existing.buyer_id).single(),
-      admin.from('profiles').select('display_name, notify_prefs, contact_instagram, contact_phone, contact_email').eq('id', existing.seller_id).single(),
-      admin.from('listings').select('title, contact').eq('id', existing.listing_id).single(),
+      admin.from('profiles').select('display_name, notify_prefs').eq('id', existing.buyer_id).single(),
+      admin.from('profiles').select('display_name, notify_prefs').eq('id', existing.seller_id).single(),
+      admin.from('listings').select('title').eq('id', existing.listing_id).single(),
     ]);
-    const listingTitle = listingRow?.title ?? 'a listing';
+    const listingTitle = listingRow?.title ?? existing.listing_title ?? 'a listing';
 
-    // Buyer gets the seller's offered contact (all offered methods).
-    const sellerShared = resolveSharedContact(listingRow?.contact ?? [], {
-      instagram: sellerProfile?.contact_instagram ?? null,
-      phone: sellerProfile?.contact_phone ?? null,
-      email: sellerProfile?.contact_email ?? null,
-    });
-    if (Object.keys(sellerShared).length && wantsEmail(buyerProfile?.notify_prefs, 'approval')) {
+    // request_id is unique, so a double-approve returns the existing thread
+    // rather than creating a second one.
+    const { data: thread, error: threadError } = await admin
+      .from('message_threads')
+      .upsert(
+        {
+          request_id: existing.id,
+          listing_id: existing.listing_id,
+          listing_title: listingTitle,
+          buyer_id: existing.buyer_id,
+          seller_id: existing.seller_id,
+        },
+        { onConflict: 'request_id' },
+      )
+      .select('id')
+      .single();
+    if (threadError) return NextResponse.json({ error: threadError.message }, { status: 500 });
+    threadId = thread?.id ?? null;
+
+    if (wantsEmail(buyerProfile?.notify_prefs, 'approval')) {
       const to = await verifiedEmailFor(existing.buyer_id);
       if (to) {
-        const { subject, html } = sharedContactEmail(sellerProfile?.display_name ?? 'The seller', listingTitle, sellerShared);
-        void sendEmail(to, subject, html);
-      }
-    }
-
-    // Seller gets the buyer's chosen contact (mutual — the new half).
-    const buyerShared = resolveSharedContact((existing as unknown as { buyer_contact: string[] | null }).buyer_contact ?? [], {
-      instagram: buyerProfile?.contact_instagram ?? null,
-      phone: buyerProfile?.contact_phone ?? null,
-      email: buyerProfile?.contact_email ?? null,
-    });
-    if (Object.keys(buyerShared).length && wantsEmail(sellerProfile?.notify_prefs, 'approval')) {
-      const to = await verifiedEmailFor(existing.seller_id);
-      if (to) {
-        const { subject, html } = sharedContactEmail(buyerProfile?.display_name ?? 'The buyer', listingTitle, buyerShared);
+        const { subject, html } = approvedEmail(sellerProfile?.display_name ?? 'The seller', listingTitle);
         void sendEmail(to, subject, html);
       }
     }
 
     // Push: the buyer was waiting on this outcome — tell them it's approved.
     if (wantsPush(buyerProfile?.notify_prefs, 'approval'))
-      void sendPush(existing.buyer_id, 'Request approved', `${sellerProfile?.display_name ?? 'The seller'} shared contact for “${listingTitle}”.`, {
+      void sendPush(existing.buyer_id, 'Request approved', `${sellerProfile?.display_name ?? 'The seller'} approved your request for “${listingTitle}”. You can message them now.`, {
         type: 'approval',
         reveal_id: existing.id,
+        thread_id: threadId,
       });
   }
 
@@ -104,5 +112,7 @@ export async function PATCH(
       .neq('id', params.id);
   }
 
-  return NextResponse.json({ reveal: data });
+  // thread_id lets the client navigate straight into the conversation instead
+  // of making the seller go find it.
+  return NextResponse.json({ reveal: data, thread_id: threadId });
 }

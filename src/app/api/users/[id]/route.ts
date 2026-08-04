@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getSessionUser } from '@/lib/supabase/server';
+import { fetchSwapCounts } from '@/lib/trust';
 
-// GET /api/users/<id> — public profile: identity, active listings, ratings.
-// Deliberately excludes contact fields; those stay gated behind the reveal
-// flow, so this endpoint can never become a way around it.
+// GET /api/users/<id> — public profile: identity, active listings, ratings,
+// and completed-swap counts.
+// Deliberately excludes contact fields. Phone and email are notification
+// destinations now and are never shown to another user, so this endpoint must
+// never become a way to read them.
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -35,9 +38,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const count = rows.length;
   const average = count > 0 ? rows.reduce((s, r) => s + r.score, 0) / count : null;
 
+  // Completed swaps read more honestly than a star average early on: 4.5 from
+  // two ratings is noise. Surfaces show these together, never the rating alone.
+  const swaps = await fetchSwapCounts(params.id);
+
   return NextResponse.json({
     profile,
     listings: listings ?? [],
+    swaps,
     ratings: {
       average,
       count,
