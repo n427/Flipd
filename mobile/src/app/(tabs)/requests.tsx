@@ -72,23 +72,18 @@ function Row({
     <View
       style={{
         backgroundColor: '#fff',
-        borderRadius: 14,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: T.rule,
-        marginBottom: 10,
+        // Cards need more air between them than their own internal sections,
+        // or the list reads as one continuous block of hairlines.
+        marginBottom: 16,
         overflow: 'hidden',
+        padding: 16,
+        gap: 14,
       }}
     >
-      <Pressable
-        onPress={onPress}
-        style={{
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
+      <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
           <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>
             {item.listing_title || 'A listing'}
@@ -110,7 +105,7 @@ function Row({
       {/* The buyer's own words: the basis for the seller's decision, and for
           services the only way to know what is actually being asked for. */}
       {item.intro_message ? (
-        <View style={{ borderTopWidth: 1, borderTopColor: T.rule, paddingHorizontal: 16, paddingVertical: 12 }}>
+        <View style={{ backgroundColor: T.fieldbg, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 11 }}>
           <Text style={{ fontFamily: F.regular, fontSize: 14, lineHeight: 20, color: '#333' }}>
             {item.intro_message}
           </Text>
@@ -121,10 +116,10 @@ function Row({
         <Pressable
           onPress={() => onOpenChat?.(item.thread_id!)}
           style={{
-            borderTopWidth: 1,
-            borderTopColor: T.rule,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
+            backgroundColor: T.fieldbg,
+            borderRadius: 12,
+            paddingHorizontal: 13,
+            paddingVertical: 11,
             flexDirection: 'row',
             alignItems: 'center',
             gap: 10,
@@ -170,13 +165,14 @@ function Row({
         <Pressable
           onPress={onReview}
           style={{
-            borderTopWidth: 1,
-            borderTopColor: T.rule,
-            paddingVertical: 12,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 6,
+            paddingVertical: 11,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: T.rule,
           }}
         >
           <Ionicons name="sparkles-outline" size={14} color={T.cardinal} />
@@ -184,25 +180,40 @@ function Row({
         </Pressable>
       ) : null}
 
+      {/* Real buttons rather than divider-separated strips: the card reads as
+          one object with actions, not a stack of hairlines. */}
       {canRespond ? (
-        <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: T.rule }}>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
           <Pressable
             onPress={() => onRespond!('decline')}
             disabled={busy}
-            style={{ flex: 1, paddingVertical: 13, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              borderRadius: 12,
+              backgroundColor: T.fieldbg,
+              alignItems: 'center',
+              opacity: busy ? 0.5 : 1,
+            }}
           >
             <Text style={{ fontFamily: F.bold, fontSize: 14, color: T.muted }}>Decline</Text>
           </Pressable>
-          <View style={{ width: 1, backgroundColor: T.rule }} />
           <Pressable
             onPress={() => onRespond!('approve')}
             disabled={busy}
-            style={{ flex: 1, paddingVertical: 13, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              borderRadius: 12,
+              backgroundColor: T.cardinal,
+              alignItems: 'center',
+              opacity: busy ? 0.5 : 1,
+            }}
           >
             {busy ? (
-              <ActivityIndicator size="small" color={T.cardinal} />
+              <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={{ fontFamily: F.bold, fontSize: 14, color: T.cardinal }}>Approve</Text>
+              <Text style={{ fontFamily: F.bold, fontSize: 14, color: '#fff' }}>Approve</Text>
             )}
           </Pressable>
         </View>
@@ -212,7 +223,14 @@ function Row({
         <Pressable
           onPress={onComplete}
           disabled={busy}
-          style={{ borderTopWidth: 1, borderTopColor: T.rule, paddingVertical: 13, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+          style={{
+            paddingVertical: 12,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: T.rule,
+            alignItems: 'center',
+            opacity: busy ? 0.5 : 1,
+          }}
         >
           {busy ? (
             <ActivityIndicator size="small" color={T.cardinal} />
@@ -227,9 +245,10 @@ function Row({
           onPress={onRate}
           disabled={busy}
           style={{
-            borderTopWidth: 1,
-            borderTopColor: T.rule,
-            paddingVertical: 13,
+            paddingVertical: 12,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: T.rule,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
@@ -478,8 +497,8 @@ export default function Requests() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginBottom: 10,
-                marginTop: 8,
+                marginBottom: 12,
+                marginTop: 18,
               }}
             >
               <Text style={{ fontFamily: F.extrabold, fontSize: 15, color: T.ink }}>{section.title}</Text>
