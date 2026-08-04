@@ -7,12 +7,27 @@ import { Select } from '@/components/Select';
 
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
-const METHODS = [
-  { id: 'instagram', label: 'Instagram', valueLabel: 'Instagram handle', placeholder: '@you.sc' },
-  { id: 'phone', label: 'Text', valueLabel: 'Phone number', placeholder: '(213) 555-0100' },
-  { id: 'email', label: 'Email', valueLabel: 'Email', placeholder: 'you@usc.edu' },
+// Where Flipd sends notifications. These are NOT shared with other users —
+// conversations happen in the app, so a phone number is only ever a way for us
+// to tell you something happened.
+const CONTACT_FIELDS = [
+  { id: 'phone', valueLabel: 'Phone number', placeholder: '(213) 555-0100' },
+  { id: 'email', valueLabel: 'Email', placeholder: 'you@usc.edu' },
 ] as const;
-type MethodId = (typeof METHODS)[number]['id'];
+type MethodId = (typeof CONTACT_FIELDS)[number]['id'];
+
+// Delivery channels the user can opt into, per the notify_prefs jsonb shape.
+const CHANNEL_OPTIONS = [
+  { id: 'app', label: 'In the app', hint: 'Push notifications' },
+  { id: 'email', label: 'Email', hint: '' },
+  { id: 'sms', label: 'Text', hint: 'Coming soon' },
+] as const;
+type ChannelId = (typeof CHANNEL_OPTIONS)[number]['id'];
+
+// Events these channels apply to. Keeping one setting across all of them is
+// deliberate: a per-event matrix at signup is more configuration than anyone
+// wants before they have used the product once.
+const ALL_EVENTS = ['new_request', 'approval', 'reminder', 'expiry', 'new_message'] as const;
 
 // Signup attribution. `id` is what lands in the database and must match the
 // CHECK constraint in migration 022 and HEARD_FROM in src/app/api/me/route.ts;
@@ -37,7 +52,9 @@ export default function OnboardingPage() {
   const [heardLabel, setHeardLabel] = React.useState('');
   const [heardDetail, setHeardDetail] = React.useState('');
   const [photo, setPhoto] = React.useState<{ file: File; url: string } | null>(null);
-  const [contacts, setContacts] = React.useState<{ instagram: string; phone: string; email: string }>({ instagram: '', phone: '', email: '' });
+  const [contacts, setContacts] = React.useState<{ phone: string; email: string }>({ phone: '', email: '' });
+  // In-app on by default: it's the channel that always works and costs nothing.
+  const [channels, setChannels] = React.useState<ChannelId[]>(['app', 'email']);
   const [verifiedEmail, setVerifiedEmail] = React.useState('');
   const [error, setError] = React.useState('');
   const [saving, setSaving] = React.useState(false);
@@ -48,7 +65,8 @@ export default function OnboardingPage() {
     fetch('/api/me')
       .then((r) => (r.ok ? r.json() : { profile: null }))
       .then(({ profile }) => {
-        const hasContact = Boolean(profile?.contact_instagram || profile?.contact_phone || profile?.contact_email);
+        // Instagram no longer counts: it can't receive a notification.
+        const hasContact = Boolean(profile?.contact_phone || profile?.contact_email);
         if (profile?.display_name && hasContact) { router.replace('/feed'); return; }
         if (profile?.contact_email) {
           setVerifiedEmail(profile.contact_email);
@@ -70,8 +88,9 @@ export default function OnboardingPage() {
 
   const finish = async (e: React.FormEvent) => {
     e.preventDefault();
-    const filled = (['instagram', 'phone', 'email'] as const).filter((k) => contacts[k].trim());
-    if (filled.length === 0) { setError('Add at least one way to reach you.'); return; }
+    const filled = (['phone', 'email'] as const).filter((k) => contacts[k].trim());
+    if (filled.length === 0) { setError('Add a phone number or email so we can reach you.'); return; }
+    if (channels.length === 0) { setError('Pick at least one place to get notifications.'); return; }
     setSaving(true);
     setError('');
     try {
@@ -79,7 +98,7 @@ export default function OnboardingPage() {
         const fd = new FormData();
         fd.append('photo', photo.file, photo.file.name);
         const up = await fetch('/api/me/avatar', { method: 'POST', body: fd });
-        if (!up.ok) throw new Error('Photo upload failed — try a smaller image.');
+        if (!up.ok) throw new Error('Photo upload failed. Try a smaller image.');
       }
       const res = await fetch('/api/me', {
         method: 'PATCH',
@@ -90,19 +109,25 @@ export default function OnboardingPage() {
           school_unit: unit,
           heard_from: heardChannel?.id,
           heard_from_detail: heardDetail.trim() || null,
-          contact_method: primaryMethod({ instagram: contacts.instagram.trim() || null, phone: contacts.phone.trim() || null, email: contacts.email.trim() || null }),
-          contact_instagram: contacts.instagram.trim() || null,
+          contact_method: primaryMethod({ instagram: null, phone: contacts.phone.trim() || null, email: contacts.email.trim() || null }),
           contact_phone: contacts.phone.trim() || null,
           contact_email: contacts.email.trim() || null,
+          notify_prefs: Object.fromEntries(
+            ALL_EVENTS.map((ev) => [ev, {
+              app: channels.includes('app'),
+              email: channels.includes('email'),
+              sms: channels.includes('sms'),
+            }]),
+          ),
         }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || 'Could not save — try again.');
+        throw new Error(body.error || 'Could not save. Try again.');
       }
       router.push('/feed');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save — try again.');
+      setError(err instanceof Error ? err.message : 'Could not save. Try again.');
       setSaving(false);
     }
   };
@@ -167,13 +192,13 @@ export default function OnboardingPage() {
       ) : (
         <>
           <h1 style={{ fontWeight: 800, fontSize: 28, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '28px 0 6px' }}>
-            How do buyers reach you?
+            Where should we reach you?
           </h1>
           <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 28px' }}>
-            Shared only after you approve a request. You set this once.
+            For sign-in codes and alerts about your listings. Buyers never see these. Messages stay in Flipd.
           </p>
           <form onSubmit={finish} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {METHODS.map((m) => (
+            {CONTACT_FIELDS.map((m) => (
               <div key={m.id}>
                 <label className="field-label">{m.valueLabel}</label>
                 <input
@@ -185,6 +210,40 @@ export default function OnboardingPage() {
                 />
               </div>
             ))}
+            <div>
+              <label className="field-label">Where should notifications go?</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {CHANNEL_OPTIONS.map((c) => {
+                  const on = channels.includes(c.id);
+                  // Text has no provider wired up yet, so offering it would
+                  // promise delivery that never happens.
+                  const disabled = c.id === 'sms';
+                  return (
+                    <label
+                      key={c.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        border: '1.5px solid ' + (on && !disabled ? 'var(--ink)' : 'var(--rule)'),
+                        borderRadius: 12, padding: '11px 14px',
+                        cursor: disabled ? 'default' : 'pointer',
+                        fontSize: 14.5, opacity: disabled ? 0.55 : 1,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={on && !disabled}
+                        disabled={disabled}
+                        onChange={(e) => setChannels((prev) =>
+                          e.target.checked ? [...prev, c.id] : prev.filter((x) => x !== c.id))}
+                        style={{ width: 16, height: 16 }}
+                      />
+                      <span style={{ fontWeight: 600 }}>{c.label}</span>
+                      {c.hint && <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>{c.hint}</span>}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
             {error && <div style={{ fontSize: 13, color: 'var(--accent)' }}>{error}</div>}
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="button" className="btn btn-ghost" onClick={() => { setStep(1); setError(''); }}>Back</button>

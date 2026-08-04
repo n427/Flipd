@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,12 +25,24 @@ const CHANNELS: readonly { id: string; label: string; detailPrompt?: string }[] 
   { id: 'other', label: 'Other', detailPrompt: "How'd you find us? (optional)" },
 ];
 
+// Where Flipd sends notifications. NOT shared with other users: conversations
+// happen in the app, so a phone number is only a way for us to reach you.
 const METHODS = [
-  { id: 'instagram', label: 'Instagram handle', placeholder: '@you.sc' },
   { id: 'phone', label: 'Phone number', placeholder: '(213) 555-0100' },
   { id: 'email', label: 'Email', placeholder: 'you@usc.edu' },
 ] as const;
 type MethodId = (typeof METHODS)[number]['id'];
+
+const CHANNEL_OPTIONS = [
+  { id: 'app', label: 'In the app', hint: 'Push notifications' },
+  { id: 'email', label: 'Email', hint: '' },
+  { id: 'sms', label: 'Text', hint: 'Coming soon' },
+] as const;
+type ChannelId = (typeof CHANNEL_OPTIONS)[number]['id'];
+
+// One setting across all events: a per-event matrix at signup is more
+// configuration than anyone wants before using the product once.
+const ALL_EVENTS = ['new_request', 'approval', 'reminder', 'expiry', 'new_message'] as const;
 
 export default function Setup() {
   const router = useRouter();
@@ -43,7 +56,9 @@ export default function Setup() {
   const [heardDetail, setHeardDetail] = useState('');
   const [avatar, setAvatar] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [contacts, setContacts] = useState<Record<MethodId, string>>({ instagram: '', phone: '', email: '' });
+  const [contacts, setContacts] = useState<Record<MethodId, string>>({ phone: '', email: '' });
+  // In-app on by default: the channel that always works and costs nothing.
+  const [channels, setChannels] = useState<ChannelId[]>(['app', 'email']);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -56,7 +71,8 @@ export default function Setup() {
     fetchMyProfile(user.id)
       .then((p) => {
         if (!alive) return;
-        const hasContact = Boolean(p?.contact_instagram || p?.contact_phone || p?.contact_email);
+        // Instagram no longer counts: it can't receive a notification.
+        const hasContact = Boolean(p?.contact_phone || p?.contact_email);
         if (p?.display_name && hasContact) {
           router.replace('/(tabs)/feed');
           return;
@@ -127,7 +143,11 @@ export default function Setup() {
 
   const finish = async () => {
     if (!METHODS.some((m) => contacts[m.id].trim())) {
-      setError('Add at least one way to reach you.');
+      setError('Add a phone number or email so we can reach you.');
+      return;
+    }
+    if (channels.length === 0) {
+      setError('Pick at least one place to get notifications.');
       return;
     }
     setSaving(true);
@@ -139,9 +159,15 @@ export default function Setup() {
         school_unit: unit,
         heard_from: heardId!,
         heard_from_detail: heardDetail.trim() || null,
-        contact_instagram: contacts.instagram.trim() || null,
         contact_phone: contacts.phone.trim() || null,
         contact_email: contacts.email.trim() || null,
+        notify_prefs: Object.fromEntries(
+          ALL_EVENTS.map((ev) => [ev, {
+            app: channels.includes('app'),
+            email: channels.includes('email'),
+            sms: channels.includes('sms'),
+          }]),
+        ),
       });
       // Re-read before navigating: the watcher would otherwise still see
       // onboarded === 'no' and bounce us straight back here.
@@ -267,8 +293,8 @@ export default function Setup() {
           </>
         ) : (
           <>
-            <Text style={heading}>How do buyers reach you?</Text>
-            <Text style={sub}>Shared only after you approve a request. You set this once.</Text>
+            <Text style={heading}>Where should we reach you?</Text>
+            <Text style={sub}>For sign-in codes and alerts about your listings. Buyers never see these. Messages stay in Flipd.</Text>
 
             {METHODS.map((m) => (
               <View key={m.id}>
@@ -280,12 +306,51 @@ export default function Setup() {
                   placeholderTextColor={T.muted}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  keyboardType={m.id === 'phone' ? 'phone-pad' : m.id === 'email' ? 'email-address' : 'default'}
-                  textContentType={m.id === 'phone' ? 'telephoneNumber' : m.id === 'email' ? 'emailAddress' : 'none'}
+                  keyboardType={m.id === 'phone' ? 'phone-pad' : 'email-address'}
+                  textContentType={m.id === 'phone' ? 'telephoneNumber' : 'emailAddress'}
                   style={field}
                 />
               </View>
             ))}
+
+            <Text style={[label, { marginTop: 4 }]}>Where should notifications go?</Text>
+            {CHANNEL_OPTIONS.map((c) => {
+              const on = channels.includes(c.id);
+              // Text has no provider wired up, so offering it would promise
+              // delivery that never happens.
+              const disabled = c.id === 'sms';
+              return (
+                <Pressable
+                  key={c.id}
+                  onPress={() =>
+                    disabled
+                      ? undefined
+                      : setChannels((prev) => (on ? prev.filter((x) => x !== c.id) : [...prev, c.id]))
+                  }
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                    borderWidth: 1.5,
+                    borderColor: on && !disabled ? T.ink : T.rule,
+                    borderRadius: 12,
+                    paddingVertical: 13,
+                    paddingHorizontal: 14,
+                    opacity: disabled ? 0.55 : 1,
+                  }}
+                >
+                  <Ionicons
+                    name={on && !disabled ? 'checkbox' : 'square-outline'}
+                    size={19}
+                    color={on && !disabled ? T.cardinal : T.muted}
+                  />
+                  <Text style={{ flex: 1, fontFamily: F.semibold, fontSize: 15, color: T.ink }}>{c.label}</Text>
+                  {c.hint ? (
+                    <Text style={{ fontFamily: F.regular, fontSize: 12.5, color: T.muted }}>{c.hint}</Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
 
             {error ? <Text style={errText}>{error}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 10 }}>

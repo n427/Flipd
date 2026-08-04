@@ -8,16 +8,18 @@ import { Select } from '@/components/Select';
 
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
+// Notification destinations, not things other users see. Conversations happen
+// in the app, so a phone number is only ever a way for Flipd to reach you.
 const METHODS = [
-  { id: 'instagram', label: 'Instagram', valueLabel: 'Instagram handle', placeholder: '@you.sc' },
-  { id: 'phone', label: 'Text', valueLabel: 'Phone number', placeholder: '(213) 555-0100' },
-  { id: 'email', label: 'Email', valueLabel: 'Email', placeholder: 'you@usc.edu' },
+  { id: 'phone', valueLabel: 'Phone number', placeholder: '(213) 555-0100' },
+  { id: 'email', valueLabel: 'Email', placeholder: 'you@usc.edu' },
 ] as const;
 type MethodId = (typeof METHODS)[number]['id'];
 
 const NOTIFY_EVENTS = [
   { id: 'new_request', label: 'New request on your listing' },
-  { id: 'approval', label: 'Request approved (contact shared with you)' },
+  { id: 'approval', label: 'Request approved (your chat is open)' },
+  { id: 'new_message', label: 'New message in a conversation' },
   { id: 'reminder', label: 'Reminder before a request expires' },
   { id: 'expiry', label: 'Your request expired' },
 ] as const;
@@ -31,9 +33,9 @@ export default function ProfileEditPage() {
   const [year, setYear] = React.useState('');
   const [unit, setUnit] = React.useState('');
   const [bio, setBio] = React.useState('');
-  const [contacts, setContacts] = React.useState<{ instagram: string; phone: string; email: string }>({ instagram: '', phone: '', email: '' });
+  const [contacts, setContacts] = React.useState<{ phone: string; email: string }>({ phone: '', email: '' });
   const [photo, setPhoto] = React.useState<{ file: File; url: string } | null>(null);
-  const [prefs, setPrefs] = React.useState<Record<string, { email?: boolean; sms?: boolean }>>({});
+  const [prefs, setPrefs] = React.useState<Record<string, { app?: boolean; email?: boolean; sms?: boolean }>>({});
   const [error, setError] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
@@ -46,7 +48,6 @@ export default function ProfileEditPage() {
     setUnit(me.school_unit ?? '');
     setBio(me.bio ?? '');
     setContacts({
-      instagram: me.contact_instagram ?? '',
       phone: me.contact_phone ?? '',
       email: me.contact_email ?? '',
     });
@@ -57,8 +58,8 @@ export default function ProfileEditPage() {
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { setError('Your name is required.'); return; }
-    const filled = (['instagram', 'phone', 'email'] as const).filter((k) => contacts[k].trim());
-    if (filled.length === 0) { setError('Add at least one way to reach you.'); return; }
+    const filled = (['phone', 'email'] as const).filter((k) => contacts[k].trim());
+    if (filled.length === 0) { setError('Add a phone number or email so we can reach you.'); return; }
     setSaving(true);
     setError('');
     try {
@@ -76,8 +77,7 @@ export default function ProfileEditPage() {
           class_year: year,
           school_unit: unit,
           bio,
-          contact_method: primaryMethod({ instagram: contacts.instagram.trim() || null, phone: contacts.phone.trim() || null, email: contacts.email.trim() || null }),
-          contact_instagram: contacts.instagram.trim() || null,
+          contact_method: primaryMethod({ instagram: null, phone: contacts.phone.trim() || null, email: contacts.email.trim() || null }),
           contact_phone: contacts.phone.trim() || null,
           contact_email: contacts.email.trim() || null,
           notify_prefs: prefs,
@@ -154,7 +154,10 @@ export default function ProfileEditPage() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <label className="field-label">How buyers reach you</label>
+          <label className="field-label">Where we reach you</label>
+          <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '-4px 0 4px', lineHeight: 1.5 }}>
+            Used for sign-in codes and notifications. Other users never see these.
+          </p>
           {METHODS.map((m) => (
             <div key={m.id}>
               <label className="field-label">{m.valueLabel}</label>
@@ -172,14 +175,23 @@ export default function ProfileEditPage() {
         <div>
           <label className="field-label">Notifications</label>
           <div style={{ border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px', padding: '10px 16px', background: 'var(--surface)', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 64px', padding: '10px 16px', background: 'var(--surface)', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>
               <span />
+              <span style={{ textAlign: 'center' }}>In app</span>
               <span style={{ textAlign: 'center' }}>Email</span>
               <span style={{ textAlign: 'center' }}>Text</span>
             </div>
             {NOTIFY_EVENTS.map((ev, i) => (
-              <div key={ev.id} style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px', alignItems: 'center', padding: '12px 16px', borderTop: i > 0 ? '1px solid var(--rule)' : 0 }}>
+              <div key={ev.id} style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 64px', alignItems: 'center', padding: '12px 16px', borderTop: i > 0 ? '1px solid var(--rule)' : 0 }}>
                 <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>{ev.label}</span>
+                <span style={{ textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={prefs[ev.id]?.app !== false}
+                    onChange={(e2) => setPrefs((p) => ({ ...p, [ev.id]: { ...p[ev.id], app: e2.target.checked } }))}
+                    aria-label={`In-app for: ${ev.label}`}
+                  />
+                </span>
                 <span style={{ textAlign: 'center' }}>
                   <input
                     type="checkbox"

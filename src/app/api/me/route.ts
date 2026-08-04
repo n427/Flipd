@@ -34,11 +34,12 @@ export async function PATCH(req: NextRequest) {
     if (typeof body[key] === 'string') update[key] = body[key].trim() || null;
   }
   if (body.notify_prefs && typeof body.notify_prefs === 'object') {
-    const prefs: Record<string, { email?: boolean; sms?: boolean }> = {};
+    const prefs: Record<string, { app?: boolean; email?: boolean; sms?: boolean }> = {};
     for (const ev of NOTIFY_EVENTS) {
       const entry = body.notify_prefs[ev];
       if (entry && typeof entry === 'object') {
         prefs[ev] = {};
+        if (typeof entry.app === 'boolean') prefs[ev].app = entry.app;
         if (typeof entry.email === 'boolean') prefs[ev].email = entry.email;
         if (typeof entry.sms === 'boolean') prefs[ev].sms = entry.sms;
       }

@@ -223,8 +223,10 @@ export async function createListing(input: NewListing): Promise<string> {
 
 // Per-event notification prefs. Both channels default ON — a stored `false`
 // turns that channel off for that event. Matches the web/server shape.
-export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry';
-export type NotifyPrefs = Partial<Record<NotifyEvent, { email?: boolean; push?: boolean; sms?: boolean }>>;
+export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message';
+// `app` is the key the web preference UI writes for push; `push` is the older
+// name. Both are written and read so either client's saved shape is honoured.
+export type NotifyPrefs = Partial<Record<NotifyEvent, { app?: boolean; email?: boolean; push?: boolean; sms?: boolean }>>;
 
 export type MyProfile = {
   id: string;
@@ -589,7 +591,9 @@ export async function generateDescription(title: string, category: string): Prom
 // Contact channels, in the order that decides the primary one. Mirrors
 // METHOD_ORDER in web src/lib/validation.ts — /api/me validates contact_method
 // against the same list.
-const METHOD_ORDER = ['instagram', 'phone', 'email'] as const;
+// Instagram is gone: it was only ever a contact-sharing method, and Flipd
+// cannot deliver a notification there.
+const METHOD_ORDER = ['phone', 'email'] as const;
 
 export type OnboardingInput = {
   display_name: string;
@@ -597,9 +601,10 @@ export type OnboardingInput = {
   school_unit: string | null;
   heard_from: string;
   heard_from_detail: string | null;
-  contact_instagram: string | null;
+  // Notification destinations, never shown to other users.
   contact_phone: string | null;
   contact_email: string | null;
+  notify_prefs?: Record<string, { app?: boolean; email?: boolean; sms?: boolean }>;
 };
 
 // Finish onboarding. Goes through /api/me rather than a direct table write so

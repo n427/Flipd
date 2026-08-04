@@ -6,7 +6,10 @@ import { admin } from './supabase/admin';
 
 export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message';
 
-type NotifyPrefs = Partial<Record<NotifyEvent, { email?: boolean; sms?: boolean; push?: boolean }>>;
+// `app` is what the preference UI writes for push. `push` is the older key
+// from before in-app notifications had a name in the UI; it is still honoured
+// so existing rows keep working rather than silently flipping back on.
+type NotifyPrefs = Partial<Record<NotifyEvent, { app?: boolean; email?: boolean; sms?: boolean; push?: boolean }>>;
 
 // Email defaults ON for every event; a stored `false` turns it off.
 export function wantsEmail(prefs: unknown, event: NotifyEvent): boolean {
@@ -14,10 +17,11 @@ export function wantsEmail(prefs: unknown, event: NotifyEvent): boolean {
   return p[event]?.email !== false;
 }
 
-// Push defaults ON for every event; a stored `false` turns it off.
+// Push defaults ON for every event; a stored `false` turns it off. Reads both
+// keys so a profile saved under either shape is respected.
 export function wantsPush(prefs: unknown, event: NotifyEvent): boolean {
   const p = (prefs ?? {}) as NotifyPrefs;
-  return p[event]?.push !== false;
+  return p[event]?.app !== false && p[event]?.push !== false;
 }
 
 // The delivery address is the auth account's verified USC email — not the

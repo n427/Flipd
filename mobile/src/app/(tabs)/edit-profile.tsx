@@ -14,7 +14,8 @@ const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', '
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
 const NOTIFY_EVENTS: { id: NotifyEvent; label: string }[] = [
   { id: 'new_request', label: 'New request on your listing' },
-  { id: 'approval', label: 'Your request was approved' },
+  { id: 'approval', label: 'Request approved (your chat is open)' },
+  { id: 'new_message', label: 'New message in a conversation' },
   { id: 'reminder', label: 'Reminder before a request expires' },
   { id: 'expiry', label: 'Your request expired' },
 ];
@@ -31,7 +32,6 @@ export default function EditProfile() {
   const [year, setYear] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [instagram, setInstagram] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [prefs, setPrefs] = useState<NotifyPrefs>({});
@@ -50,7 +50,6 @@ export default function EditProfile() {
         setUnit(p.school_unit ?? null);
         setYear(p.class_year ?? null);
         setAvatar(p.avatar_url ?? null);
-        setInstagram(p.contact_instagram ?? '');
         setPhone(p.contact_phone ?? '');
         setEmail(p.contact_email ?? '');
         setPrefs(p.notify_prefs ?? {});
@@ -66,11 +65,13 @@ export default function EditProfile() {
     loadProfile();
   }, [loadProfile]);
 
-  // A single toggle per event controls both channels (email + push). Both
-  // default ON, so "enabled" means neither is explicitly false.
-  const eventOn = (id: NotifyEvent) => prefs[id]?.email !== false && prefs[id]?.push !== false;
+  // A single toggle per event controls every channel. All default ON, so
+  // "enabled" means none is explicitly false. `app` and `push` are both written
+  // because the web preference grid uses `app` and older rows use `push`.
+  const eventOn = (id: NotifyEvent) =>
+    prefs[id]?.email !== false && prefs[id]?.push !== false && prefs[id]?.app !== false;
   const setEvent = (id: NotifyEvent, on: boolean) =>
-    setPrefs((prev) => ({ ...prev, [id]: { ...prev[id], email: on, push: on } }));
+    setPrefs((prev) => ({ ...prev, [id]: { ...prev[id], email: on, push: on, app: on } }));
 
   // Pick + upload a profile photo. Uploads immediately (separate from Save) so
   // the new URL is persisted even if the user backs out without saving fields.
@@ -112,7 +113,6 @@ export default function EditProfile() {
         bio: bio.trim() || null,
         school_unit: unit,
         class_year: year,
-        contact_instagram: instagram.trim() || null,
         contact_phone: phone.trim() || null,
         contact_email: email.trim() || null,
         notify_prefs: prefs,
@@ -233,19 +233,10 @@ export default function EditProfile() {
           ))}
         </View>
 
-        <Text style={label}>Contact methods</Text>
+        <Text style={label}>Where we reach you</Text>
         <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginBottom: 12, marginTop: -2, lineHeight: 19 }}>
-          Only shared with the other person when a request is approved. You pick which each time.
+          Used for sign-in codes and notifications. Other users never see these, and messages stay in Flipd.
         </Text>
-        <TextInput
-          value={instagram}
-          onChangeText={setInstagram}
-          placeholder="Instagram username"
-          placeholderTextColor={T.muted}
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={field}
-        />
         <TextInput
           value={phone}
           onChangeText={setPhone}
