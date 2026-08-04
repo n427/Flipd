@@ -137,7 +137,9 @@ export default function OnboardingPage() {
                 if (f) setPhoto({ file: f, url: URL.createObjectURL(f) });
                 e.target.value = '';
               }} />
-              <button type="button" onClick={() => fileRef.current?.click()} aria-label="Add profile photo" style={{ width: 64, height: 64, borderRadius: '50%', border: photo ? 0 : '1.5px dashed var(--rule-strong)', background: 'var(--surface)', overflow: 'hidden', cursor: 'pointer', padding: 0, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Solid ring once a photo is set (a dashed one reads as an empty
+                  slot); dashed while empty to invite a tap. */}
+              <button type="button" onClick={() => fileRef.current?.click()} aria-label="Add profile photo" style={{ width: 64, height: 64, borderRadius: '50%', border: photo ? '1.5px solid var(--rule-strong)' : '1.5px dashed var(--rule-strong)', background: 'var(--surface)', overflow: 'hidden', cursor: 'pointer', padding: 0, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {photo ? (
                   <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (

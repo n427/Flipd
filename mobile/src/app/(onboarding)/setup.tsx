@@ -176,7 +176,7 @@ export default function Setup() {
             <View style={{ alignItems: 'center', marginBottom: 24 }}>
               <Pressable onPress={pickAvatar} disabled={uploading}>
                 {avatar ? (
-                  <Image source={{ uri: avatar }} style={{ width: 80, height: 80, borderRadius: 40 }} contentFit="cover" />
+                  <Image source={{ uri: avatar }} style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: T.rule }} contentFit="cover" />
                 ) : (
                   <View
                     style={{

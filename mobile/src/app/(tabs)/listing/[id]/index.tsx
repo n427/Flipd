@@ -290,9 +290,9 @@ export default function ListingDetailScreen() {
               }}
             >
               {listing.seller.avatar_url ? (
-                <Image source={{ uri: listing.seller.avatar_url }} style={{ width: 44, height: 44, borderRadius: 22 }} contentFit="cover" />
+                <Image source={{ uri: listing.seller.avatar_url }} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: T.rule }} contentFit="cover" />
               ) : (
-                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: T.fieldbg, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: T.fieldbg, borderWidth: 1, borderColor: T.rule, alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="person" size={20} color={T.muted} />
                 </View>
               )}

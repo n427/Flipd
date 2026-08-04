@@ -66,6 +66,10 @@ export function Avatar({
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontWeight: 600, fontSize: size * 0.4, letterSpacing: '0.02em', flexShrink: 0,
         overflow: 'hidden',
+        // Hairline ring so the avatar edge stays readable against a light
+        // photo or a white surface. Matches the mobile avatars (T.rule).
+        border: '1px solid var(--rule)',
+        boxSizing: 'border-box',
       }}
     >
       {src ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}

@@ -187,9 +187,9 @@ export default function PublicProfile() {
         ListHeaderComponent={
           <View style={{ padding: 10, alignItems: 'center', gap: 8, marginBottom: 8 }}>
             {profile?.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={{ width: 72, height: 72, borderRadius: 36 }} contentFit="cover" />
+              <Image source={{ uri: profile.avatar_url }} style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 1, borderColor: T.rule }} contentFit="cover" />
             ) : (
-              <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: T.fieldbg }} />
+              <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: T.fieldbg, borderWidth: 1, borderColor: T.rule }} />
             )}
             <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink }}>
               {profile?.display_name ?? 'A Trojan'}

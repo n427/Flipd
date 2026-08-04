@@ -121,9 +121,9 @@ export default function Profile() {
           <View style={{ padding: 10, gap: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               {profile?.avatar_url ? (
-                <Image source={{ uri: profile.avatar_url }} style={{ width: 56, height: 56, borderRadius: 28 }} contentFit="cover" />
+                <Image source={{ uri: profile.avatar_url }} style={{ width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: T.rule }} contentFit="cover" />
               ) : (
-                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#eee' }} />
+                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: T.fieldbg, borderWidth: 1, borderColor: T.rule }} />
               )}
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: F.extrabold, fontSize: 18, color: T.ink }}>{profile?.display_name ?? user?.email ?? 'You'}</Text>

@@ -569,9 +569,7 @@ export async function fetchUserListings(userId: string): Promise<FeedListing[]> 
 // mobile client (see web src/lib/supabase/authAny.ts).
 const API_BASE = 'https://www.flipdcampus.com';
 export async function generateDescription(title: string, category: string): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Not signed in.');
+  const token = await requireToken();
   const res = await fetch(`${API_BASE}/api/generate-description`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -605,9 +603,7 @@ export type OnboardingInput = {
 // the server keeps enforcing the heard_from CHECK and its write-once rule —
 // a direct Supabase update would bypass both.
 export async function completeOnboarding(input: OnboardingInput): Promise<void> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Not signed in.');
+  const token = await requireToken();
   const contact_method =
     METHOD_ORDER.find((m) => input[`contact_${m}` as keyof OnboardingInput]) ?? null;
   const res = await fetch(`${API_BASE}/api/me`, {
@@ -649,9 +645,7 @@ export async function respondReveal(
   action: 'approve' | 'decline' | 'complete',
   markSold = false,
 ): Promise<void> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Not signed in.');
+  const token = await requireToken();
   const res = await fetch(`${API_BASE}/api/reveals/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -668,9 +662,7 @@ export async function respondReveal(
 // Returns the new public avatar URL. Do NOT set Content-Type — RN fills the
 // multipart boundary itself.
 export async function uploadAvatar(localUri: string): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Not signed in.');
+  const token = await requireToken();
   const ext = (localUri.split('.').pop() || 'jpg').toLowerCase();
   const form = new FormData();
   form.append('photo', {
@@ -727,12 +719,27 @@ export async function createReveal(
   return { ok: false, status: res.status, error: body.error || `Request failed (${res.status})` };
 }
 
-// Bearer token for the token-authed web listing routes.
-async function requireToken(): Promise<string> {
+// Bearer token for the token-authed web routes.
+//
+// getSession() hands back whatever is cached without necessarily refreshing it,
+// so an hour into a session the access token is expired and every API-backed
+// action (Fill with AI, delete, mark sold, edit) fails with 'unauthorized'
+// while direct Supabase queries keep working. Refresh when the token is
+// expired or nearly so.
+export async function requireToken(): Promise<string> {
   const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Not signed in.');
-  return token;
+  let session = data.session;
+  if (!session) throw new Error('Not signed in.');
+
+  // expires_at is epoch seconds. Refresh with a minute of headroom so a token
+  // can't expire in flight.
+  const expiresAt = session.expires_at ?? 0;
+  if (expiresAt * 1000 - Date.now() < 60_000) {
+    const { data: refreshed, error } = await supabase.auth.refreshSession();
+    if (error || !refreshed.session) throw new Error('Your session expired. Sign in again.');
+    session = refreshed.session;
+  }
+  return session.access_token;
 }
 
 // Permanently delete a listing you own. The server also cleans up its photos
