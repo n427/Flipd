@@ -95,7 +95,7 @@ export default function RequestsPage() {
         Requests
       </h1>
       <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 28px' }}>
-        Buyers who asked for your contact. Approving shares the contact method from your profile with that buyer.
+        Requests you have received and sent. Approving opens a chat here in Flipd.
       </p>
 
       {byListing.size > 0 && (
@@ -108,7 +108,7 @@ export default function RequestsPage() {
         <div style={{ padding: '70px 0', textAlign: 'center' }}>
           <div className="t-h3" style={{ color: 'var(--ink)' }}>No requests yet</div>
           <div className="t-meta" style={{ fontSize: 12.5, marginTop: 6 }}>
-            When someone taps Reveal Contact on one of your listings, they show up here.
+            When you request contact on a listing, or someone requests yours, it shows up here.
           </div>
         </div>
       )}
@@ -189,6 +189,61 @@ export default function RequestsPage() {
           </div>
         </div>
       ))}
+
+      {outgoing.length > 0 && (
+        <div style={{ marginTop: byListing.size > 0 ? 36 : 0 }}>
+          <h2 style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 14px' }}>
+            Requests you sent
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {outgoing.map((a) => (
+              <div
+                key={a.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', border: '1px solid var(--rule)', borderRadius: 14, background: '#fff' }}
+              >
+                <Avatar name={a.who} src={a.avatarUrl} size={44} tone="cream" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Link
+                    href={`/listing/${a.listingId}?from=requests`}
+                    style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', textDecoration: 'none' }}
+                  >
+                    {a.listingTitle || 'A listing'}
+                  </Link>
+                  <div className="t-meta" style={{ fontSize: 12.5, marginTop: 1 }}>
+                    {a.who} · asked {a.when} ago
+                    {a.offer != null && ` · offered $${a.offer.toLocaleString('en-US')}`}
+                  </div>
+                  <RequestTimeline status={a.status} />
+                  {a.declineReason && (
+                    <div className="t-meta" style={{ fontSize: 12.5, marginTop: 6 }}>
+                      Reason: {a.declineReason}
+                    </div>
+                  )}
+                  {(a.status === 'APPROVED' || a.status === 'COMPLETED') && a.threadId && (
+                    <div style={{ marginTop: 8 }}>
+                      <Link
+                        href={`/messages/${a.threadId}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}
+                      >
+                        Open chat
+                      </Link>
+                    </div>
+                  )}
+                </div>
+                {a.status === 'COMPLETED' && a.canRate ? (
+                  <Button kind="secondary" size="sm" onClick={() => setRating(a)}>
+                    Rate {a.who.split(' ')[0]}
+                  </Button>
+                ) : (
+                  <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.07em', color: a.status === 'COMPLETED' ? 'var(--ink)' : 'var(--muted)' }}>
+                    {a.status}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {confirmSold && (
         <div onClick={() => setConfirmSold(null)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(17,17,17,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
