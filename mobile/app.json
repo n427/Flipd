@@ -30,7 +30,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#FFFFFF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
@@ -49,6 +49,7 @@
         "projectId": "d850616d-6890-4e7d-bc70-776ea84b55bc"
       }
     },
-    "owner": "n427s-team"
+    "owner": "n427s-team",
+    "backgroundColor": "#FFFFFF"
   }
 }

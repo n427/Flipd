@@ -79,8 +79,10 @@ export default function RootLayout() {
 
   // Hold on a cardinal splash until Figtree is ready — avoids a flash of the
   // system font on the first screen someone sees.
+  // Same white as the splash below, so the two frames are indistinguishable
+  // and there is no colour flash before the wordmark can be drawn.
   if (!fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: T.cardinal }} />;
+    return <View style={{ flex: 1, backgroundColor: T.bg }} />;
   }
 
   return (

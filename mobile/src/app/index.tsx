@@ -1,5 +1,5 @@
 import { Redirect } from 'expo-router';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text } from 'react-native';
 import { useSession } from '@/lib/session';
 import { T, F } from '@/lib/theme';
 
@@ -11,12 +11,14 @@ export default function Index() {
   // Signed in but the profile check hasn't landed yet — hold the splash rather
   // than routing to the feed and yanking the user into setup a moment later.
   if (loading || (session && onboarded === 'unknown')) {
+    // Plain white with the wordmark and nothing else. No spinner: the wait is
+    // usually a few hundred ms, and a spinner appearing and vanishing reads as
+    // jitter rather than progress.
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.cardinal, gap: 22 }}>
-        <Text style={{ fontFamily: F.black, fontSize: 52, color: '#fff', letterSpacing: -1.5 }}>
-          Flipd<Text style={{ color: T.gold }}>.</Text>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
+        <Text style={{ fontFamily: F.black, fontSize: 52, color: T.ink, letterSpacing: -1.5 }}>
+          Flipd<Text style={{ color: T.cardinal }}>.</Text>
         </Text>
-        <ActivityIndicator color="rgba(255,255,255,0.8)" />
       </View>
     );
   }
