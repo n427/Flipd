@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
 import { createListing, uploadListingPhotos, generateDescription } from '@/lib/listings';
 import { FormScroll } from '@/components/FormScroll';
+import { Field } from '@/components/Field';
 import { MapPreview } from '@/components/MapPreview';
 import { CATEGORIES, CAMPUS_SPOTS } from '@/lib/catalog';
 import { searchPlaces, placeDetails, PlaceHit } from '@/lib/places';
@@ -62,18 +63,16 @@ export default function Post() {
         Alert.alert('Permission needed', 'Allow photo access to add photos.');
         return;
       }
-      const remaining = MAX_PHOTOS - photos.length;
-      // Picking one at a time gives a native square crop step (allowsEditing).
-      // Multi-select can't crop, so single-select unlocks crop-on-add.
-      const res =
-        remaining === 1
-          ? await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsEditing: true, aspect: [1, 1] })
-          : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              quality: 0.8,
-              allowsMultipleSelection: true,
-              selectionLimit: remaining,
-            });
+      // Always single-select with allowsEditing so every photo gets the native
+      // square crop-and-zoom step. iOS ignores allowsEditing when
+      // allowsMultipleSelection is on, so multi-select silently skipped
+      // cropping and listings ended up with uncropped, off-centre photos.
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
       if (!res.canceled) setPhotos((p) => [...p, ...res.assets.map((a) => a.uri)].slice(0, MAX_PHOTOS));
     } catch {
       Alert.alert('Couldn’t open photos', 'Try again.');
@@ -264,15 +263,15 @@ export default function Post() {
 
         {/* Title */}
         <Text style={label}>Title</Text>
-        <TextInput
+        <Field
           value={title}
           onChangeText={(t) => setTitle(t.slice(0, MAX_TITLE))}
           onFocus={() => setFocused('title')}
           onBlur={() => setFocused(null)}
           placeholder="What are you selling?"
-          placeholderTextColor={T.muted}
           maxLength={MAX_TITLE}
-          style={[field, focused === 'title' && fieldFocus, { marginBottom: 6 }]}
+          containerStyle={{ marginBottom: 6 }}
+          style={[field, focused === 'title' && fieldFocus, { marginBottom: 0 }]}
         />
         <Text style={{ fontFamily: F.medium, fontSize: 11.5, color: T.muted, textAlign: 'right', marginBottom: 18 }}>
           {title.length}/{MAX_TITLE}
@@ -312,19 +311,19 @@ export default function Post() {
             </Text>
           </Pressable>
         </View>
-        <TextInput
+        <Field
           value={description}
           onChangeText={setDescription}
           onFocus={() => setFocused('desc')}
           onBlur={() => setFocused(null)}
           placeholder="Condition, pickup notes, why you’re selling…"
-          placeholderTextColor={T.muted}
           multiline
+          containerStyle={{ marginBottom: 22 }}
           style={[
             field,
             focused === 'desc' && fieldFocus,
             // Multiline overrides the single-line 50pt height/centering.
-            { height: 104, textAlignVertical: 'top', paddingTop: 14, paddingBottom: 14, fontSize: 15, lineHeight: 21, marginBottom: 22 },
+            { height: 104, textAlignVertical: 'top', paddingTop: 14, paddingBottom: 14, fontSize: 15, lineHeight: 21, marginBottom: 0 },
           ]}
         />
 

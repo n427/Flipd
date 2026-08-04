@@ -8,12 +8,13 @@ import { useSession } from '@/lib/session';
 import { fetchListing, updateListing, generateDescription } from '@/lib/listings';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FormScroll } from '@/components/FormScroll';
+import { Field } from '@/components/Field';
+import { MapPreview } from '@/components/MapPreview';
 import { CATEGORIES, CAMPUS_SPOTS } from '@/lib/catalog';
 import { searchPlaces, placeDetails, PlaceHit } from '@/lib/places';
 import { T, F, S } from '@/lib/theme';
 
-const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-const MAX_PHOTOS = 8;
+const MAX_PHOTOS = 6; // match the post screen
 
 export default function EditListingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -234,7 +235,13 @@ export default function EditListingScreen() {
 
         {/* Title / price / description */}
         <Text style={label}>Title</Text>
-        <TextInput value={title} onChangeText={setTitle} placeholder="What are you selling?" placeholderTextColor={T.muted} style={field} />
+        <Field
+          value={title}
+          onChangeText={setTitle}
+          placeholder="What are you selling?"
+          containerStyle={{ marginBottom: 20 }}
+          style={[field, { marginBottom: 0 }]}
+        />
 
         <Text style={label}>Price</Text>
         <TextInput
@@ -309,14 +316,10 @@ export default function EditListingScreen() {
             ))}
           </View>
         ) : null}
-        {coords && MAPS_KEY ? (
-          <Image
-            source={{
-              uri: `https://maps.googleapis.com/maps/api/staticmap?center=${coords.lat},${coords.lng}&zoom=16&size=600x200&scale=2&markers=color:red%7C${coords.lat},${coords.lng}&key=${MAPS_KEY}`,
-            }}
-            style={{ width: '100%', height: 130, borderRadius: 12, marginBottom: 12 }}
-            contentFit="cover"
-          />
+        {coords ? (
+          <View style={{ marginBottom: 12 }}>
+            <MapPreview lat={coords.lat} lng={coords.lng} height={130} label={locName} />
+          </View>
         ) : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
           {CAMPUS_SPOTS.map((s) => (
