@@ -168,8 +168,17 @@ export default function ThreadScreen() {
     if (res.canceled) return;
     const next: OutgoingAttachment[] = [];
     for (const asset of res.assets) {
+      // asset.mimeType can be missing OR a value the allow-list doesn't know
+      // (iOS reports HEIC oddly). Fall back on the asset's own kind rather
+      // than trusting the string, so a real photo is never refused.
+      const reported = asset.mimeType?.toLowerCase().split(';')[0].trim();
+      const isVideo = asset.type === 'video';
       const mimeType =
-        asset.mimeType ?? (asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
+        reported && (reported.startsWith('image/') || reported.startsWith('video/'))
+          ? reported
+          : isVideo
+            ? 'video/mp4'
+            : 'image/jpeg';
       // Same limits the server enforces, surfaced before the upload starts.
       const err = attachmentError(mimeType, asset.fileSize ?? 1, asset.duration ? asset.duration / 1000 : null);
       if (err) {

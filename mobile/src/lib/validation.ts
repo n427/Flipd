@@ -89,8 +89,18 @@ export const MAX_ATTACHMENTS_PER_MESSAGE = 10;
 export type AttachmentKind = 'image' | 'video';
 
 export function attachmentKind(mime: string): AttachmentKind | null {
-  if (IMAGE_MIME.includes(mime)) return 'image';
-  if (VIDEO_MIME.includes(mime)) return 'video';
+  // Normalize before matching. Pickers report types this list would otherwise
+  // reject outright: a parameter suffix ("image/jpeg; charset=..."), mixed
+  // case, or the common image/jpg spelling. A real photo failing the check
+  // reads to the user as "can't attach photos at all".
+  const m = mime.toLowerCase().split(';')[0].trim();
+  const normalized = m === 'image/jpg' ? 'image/jpeg' : m === 'video/mov' ? 'video/quicktime' : m;
+  if (IMAGE_MIME.includes(normalized)) return 'image';
+  if (VIDEO_MIME.includes(normalized)) return 'video';
+  // Unknown-but-plausible types still sort by prefix rather than being
+  // refused; the server enforces the real allow-list on upload.
+  if (normalized.startsWith('image/')) return 'image';
+  if (normalized.startsWith('video/')) return 'video';
   return null;
 }
 
