@@ -62,7 +62,7 @@ function BuyerReview({ userId }: { userId: string }) {
       .catch(() => { if (alive) { setReview(null); setLoading(false); } });
     return () => { alive = false; };
   }, [userId]);
-  return <div style={{ marginTop: 8 }}><SafetyCard review={review} loading={loading} /></div>;
+  return <SafetyCard review={review} loading={loading} />;
 }
 
 export default function RequestsPage() {
@@ -92,7 +92,7 @@ export default function RequestsPage() {
   };
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px 80px' }}>
+    <div style={{ maxWidth: 860, margin: '0 auto', padding: '36px 24px 80px' }}>
       <BackLink />
       <h1 style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 4px' }}>
         Requests
@@ -112,6 +112,7 @@ export default function RequestsPage() {
           borderRadius: 12,
           padding: 4,
           marginBottom: 22,
+          maxWidth: 320,
         }}
       >
         {([
@@ -165,63 +166,85 @@ export default function RequestsPage() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {requests.map((a) => (
-              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', border: '1px solid var(--rule)', borderRadius: 14, background: '#fff' }}>
-                <Avatar name={a.who} src={a.avatarUrl} size={44} tone="cream" />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)' }}>{a.who}</span>
+              <div
+                key={a.id}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                  padding: 18,
+                  border: '1px solid var(--rule)',
+                  borderRadius: 14,
+                  background: '#fff',
+                }}
+              >
+                {/* Identity row on top, content below, actions last. The old
+                    row layout centred the buttons against a column that the AI
+                    review made ~500px tall, so they floated mid-card. */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <Avatar name={a.who} src={a.avatarUrl} size={40} tone="cream" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)' }}>{a.who}</span>
                     {a.offer != null && (
                       <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 12.5, color: 'var(--accent)' }}>
                         offers ${a.offer.toLocaleString('en-US')}
                       </span>
                     )}
                   </div>
-                  <div className="t-meta" style={{ fontSize: 12.5, marginTop: 1 }}>
-                    {a.school || 'USC'} · asked {a.when} ago
+                    <div className="t-meta" style={{ fontSize: 12.5, marginTop: 2 }}>
+                      {a.school || 'USC'} · asked {a.when} ago
                     {a.status === 'PENDING' && timeLeftLabel(a.expiresAt) && (
                       <span style={{ color: 'var(--accent)', fontWeight: 600 }}> · {timeLeftLabel(a.expiresAt)}</span>
                     )}
                   </div>
-                  <TrustLine userId={a.counterpartId ?? ''} />
-                  {/* AI review of the buyer, at the moment of deciding.
-                      Advisory: it renders nothing if the fetch fails. */}
-                  {a.status === 'PENDING' && a.counterpartId && (
-                    <BuyerReview userId={a.counterpartId} />
-                  )}
-                  {/* The buyer's own words: the single biggest input to this
-                      decision, and for services the only way to know what is
-                      actually being asked for. */}
-                  {a.introMessage && (
-                    <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--surface)', borderRadius: 10, fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink-2)' }}>
+                    <TrustLine userId={a.counterpartId ?? ''} />
+                  </div>
+                </div>
+
+                {/* AI review of the buyer, at the moment of deciding.
+                    Advisory: it renders nothing if the fetch fails. */}
+                {a.status === 'PENDING' && a.counterpartId && (
+                  <BuyerReview userId={a.counterpartId} />
+                )}
+                {/* The buyer's own words: a quote, so it reads as something
+                    they said rather than another panel. */}
+                {a.introMessage && (
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ width: 2, borderRadius: 1, background: 'var(--rule)' }} />
+                    <div style={{ flex: 1, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)' }}>
                       {a.introMessage}
                     </div>
-                  )}
-                  <RequestTimeline status={a.status} />
+                  </div>
+                )}
+
+                <RequestTimeline status={a.status} />
+
+                {/* Actions sit at the bottom of the card, aligned right. */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
                   {(a.status === 'APPROVED' || a.status === 'COMPLETED') && a.threadId && (
-                    <div style={{ marginTop: 8 }}>
-                      <Link
-                        href={`/messages/${a.threadId}`}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}
-                      >
-                        Open chat
-                      </Link>
-                    </div>
+                    <Link
+                      href={`/messages/${a.threadId}`}
+                      style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--rule)', borderRadius: 8, padding: '7px 12px', fontWeight: 600, fontSize: 13, color: 'var(--ink)', textDecoration: 'none' }}
+                    >
+                      Open chat →
+                    </Link>
+                  )}
+                  {a.status === 'PENDING' ? (
+                    <>
+                      <Button kind="ghost" size="sm" onClick={() => setDeclining(a)}>Decline</Button>
+                      <Button kind="primary" size="sm" onClick={() => approve(a)}>Approve</Button>
+                    </>
+                  ) : a.status === 'APPROVED' ? (
+                    <Button kind="secondary" size="sm" onClick={() => store.respondReveal(a.id, 'complete')}>Mark completed</Button>
+                  ) : a.status === 'COMPLETED' && a.canRate ? (
+                    <Button kind="secondary" size="sm" onClick={() => setRating(a)}>Rate {a.who.split(' ')[0]}</Button>
+                  ) : (
+                    <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.07em', color: a.status === 'COMPLETED' ? 'var(--ink)' : 'var(--muted)' }}>
+                      {a.status}
+                    </span>
                   )}
                 </div>
-                {a.status === 'PENDING' ? (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <Button kind="primary" size="sm" onClick={() => approve(a)}>Approve</Button>
-                    <Button kind="ghost" size="sm" onClick={() => setDeclining(a)}>Decline</Button>
-                  </div>
-                ) : a.status === 'APPROVED' ? (
-                  <Button kind="secondary" size="sm" onClick={() => store.respondReveal(a.id, 'complete')}>Mark completed</Button>
-                ) : a.status === 'COMPLETED' && a.canRate ? (
-                  <Button kind="secondary" size="sm" onClick={() => setRating(a)}>Rate {a.who.split(' ')[0]}</Button>
-                ) : (
-                  <span style={{ fontFamily: 'var(--sans)', fontWeight: 700, fontSize: 10.5, letterSpacing: '0.07em', color: a.status === 'COMPLETED' ? 'var(--ink)' : 'var(--muted)' }}>
-                    {a.status}
-                  </span>
-                )}
               </div>
             ))}
           </div>
@@ -234,7 +257,7 @@ export default function RequestsPage() {
             {outgoing.map((a) => (
               <div
                 key={a.id}
-                style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', border: '1px solid var(--rule)', borderRadius: 14, background: '#fff' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 18, border: '1px solid var(--rule)', borderRadius: 14, background: '#fff' }}
               >
                 <Avatar name={a.who} src={a.avatarUrl} size={44} tone="cream" />
                 <div style={{ flex: 1, minWidth: 0 }}>
