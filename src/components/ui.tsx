@@ -12,8 +12,35 @@ export function Wordmark({ size = 22, onDark = false }: { size?: number; onDark?
       className={`wordmark ${onDark ? 'wordmark-on-dark' : ''}`}
       style={{ fontSize: size, lineHeight: 1, display: 'inline-flex', alignItems: 'baseline' }}
     >
-      flipd<span className="dot">.</span>
+      Flipd<span className="dot">.</span>
     </span>
+  );
+}
+
+// ── Back link ────────────────────────────────────────────────────────
+// Used at the top of pages reachable from Activity or Profile, so those views
+// are never dead ends. Takes an explicit href rather than history.back() so a
+// directly-opened or refreshed URL still has somewhere sane to go.
+export function BackLink({ href = '/feed', label = 'Back to feed' }: { href?: string; label?: string }) {
+  return (
+    <Link
+      href={href}
+      style={{
+        background: 'none',
+        border: 0,
+        padding: 0,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        color: 'var(--muted)',
+        fontFamily: 'var(--sans)',
+        fontSize: 13,
+        textDecoration: 'none',
+        marginBottom: 22,
+      }}
+    >
+      <Icon name="chevronLeft" size={14} /> {label}
+    </Link>
   );
 }
 
@@ -39,6 +66,10 @@ export function Avatar({
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontWeight: 600, fontSize: size * 0.4, letterSpacing: '0.02em', flexShrink: 0,
         overflow: 'hidden',
+        // Hairline ring so the avatar edge stays readable against a light
+        // photo or a white surface. Matches the mobile avatars (T.rule).
+        border: '1px solid var(--rule)',
+        boxSizing: 'border-box',
       }}
     >
       {src ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}

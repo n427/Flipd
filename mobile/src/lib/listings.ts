@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from './supabase';
 
@@ -29,10 +29,27 @@ export function priceLabel(price: number): string {
 // from public_profiles (the base profiles table is not readable for others
 // under RLS, so a listings->profiles embedded join returns null).
 export type FeedSort = 'recent' | 'price_low' | 'price_high';
+
+// Date range is a FILTER, not a sort: it narrows which listings come back, and
+// the sort then applies within that window. So "Price ↑ / past week" means the
+// cheapest listings posted in the last 7 days, not the cheapest overall.
+export type FeedRange = 'day' | 'week' | 'month' | 'all';
+
+// Days back from now. 'all' has no cutoff.
+const RANGE_DAYS: Record<Exclude<FeedRange, 'all'>, number> = { day: 1, week: 7, month: 30 };
+
+/** Cutoff timestamp for a range, or null when unbounded. */
+export function rangeSince(range: FeedRange | undefined): string | null {
+  if (!range || range === 'all') return null;
+  const days = RANGE_DAYS[range];
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
 export type FeedQuery = {
   query?: string;
   category?: string | null; // null/'all' → all categories
   sort?: FeedSort;
+  range?: FeedRange;
   blockedIds?: string[];
   limit?: number;
   offset?: number;
@@ -60,6 +77,9 @@ export async function fetchFeed(opts: FeedQuery = {}): Promise<{ listings: FeedL
   if (opts.blockedIds && opts.blockedIds.length) {
     q = q.not('seller_id', 'in', `(${opts.blockedIds.join(',')})`);
   }
+  // Applied before the sort, so price ordering ranks only in-window listings.
+  const since = rangeSince(opts.range);
+  if (since) q = q.gte('created_at', since);
 
   if (opts.sort === 'price_low') q = q.order('price', { ascending: true, nullsFirst: true });
   else if (opts.sort === 'price_high') q = q.order('price', { ascending: false, nullsFirst: false });
@@ -151,7 +171,7 @@ export async function uploadListingPhotos(localUris: string[], userId: string): 
   const urls: string[] = [];
   for (let i = 0; i < localUris.length; i++) {
     const uri = localUris[i];
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+    const base64 = await new File(uri).base64();
     const path = `${userId}/${i}-${Date.now()}.jpg`;
     const { error } = await supabase.storage
       .from('listing-photos')
@@ -217,12 +237,13 @@ export type MyProfile = {
   contact_phone: string | null;
   contact_email: string | null;
   notify_prefs: NotifyPrefs;
+  heard_from: string | null;
 };
 
 export async function fetchMyProfile(userId: string): Promise<MyProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, school_unit, class_year, bio, avatar_url, contact_instagram, contact_phone, contact_email, notify_prefs')
+    .select('id, display_name, school_unit, class_year, bio, avatar_url, contact_instagram, contact_phone, contact_email, notify_prefs, heard_from')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -548,9 +569,7 @@ export async function fetchUserListings(userId: string): Promise<FeedListing[]> 
 // mobile client (see web src/lib/supabase/authAny.ts).
 const API_BASE = 'https://www.flipdcampus.com';
 export async function generateDescription(title: string, category: string): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Not signed in.');
+  const token = await requireToken();
   const res = await fetch(`${API_BASE}/api/generate-description`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -562,6 +581,40 @@ export async function generateDescription(title: string, category: string): Prom
   }
   const body = await res.json();
   return body.description as string;
+}
+
+// Contact channels, in the order that decides the primary one. Mirrors
+// METHOD_ORDER in web src/lib/validation.ts — /api/me validates contact_method
+// against the same list.
+const METHOD_ORDER = ['instagram', 'phone', 'email'] as const;
+
+export type OnboardingInput = {
+  display_name: string;
+  class_year: string;
+  school_unit: string | null;
+  heard_from: string;
+  heard_from_detail: string | null;
+  contact_instagram: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+};
+
+// Finish onboarding. Goes through /api/me rather than a direct table write so
+// the server keeps enforcing the heard_from CHECK and its write-once rule —
+// a direct Supabase update would bypass both.
+export async function completeOnboarding(input: OnboardingInput): Promise<void> {
+  const token = await requireToken();
+  const contact_method =
+    METHOD_ORDER.find((m) => input[`contact_${m}` as keyof OnboardingInput]) ?? null;
+  const res = await fetch(`${API_BASE}/api/me`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ...input, contact_method }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Could not save (${res.status})`);
+  }
 }
 
 // Update the signed-in user's own profile (RLS profiles_update_own allows it).
@@ -592,9 +645,7 @@ export async function respondReveal(
   action: 'approve' | 'decline' | 'complete',
   markSold = false,
 ): Promise<void> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Not signed in.');
+  const token = await requireToken();
   const res = await fetch(`${API_BASE}/api/reveals/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -611,9 +662,7 @@ export async function respondReveal(
 // Returns the new public avatar URL. Do NOT set Content-Type — RN fills the
 // multipart boundary itself.
 export async function uploadAvatar(localUri: string): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Not signed in.');
+  const token = await requireToken();
   const ext = (localUri.split('.').pop() || 'jpg').toLowerCase();
   const form = new FormData();
   form.append('photo', {
@@ -670,12 +719,27 @@ export async function createReveal(
   return { ok: false, status: res.status, error: body.error || `Request failed (${res.status})` };
 }
 
-// Bearer token for the token-authed web listing routes.
-async function requireToken(): Promise<string> {
+// Bearer token for the token-authed web routes.
+//
+// getSession() hands back whatever is cached without necessarily refreshing it,
+// so an hour into a session the access token is expired and every API-backed
+// action (Fill with AI, delete, mark sold, edit) fails with 'unauthorized'
+// while direct Supabase queries keep working. Refresh when the token is
+// expired or nearly so.
+export async function requireToken(): Promise<string> {
   const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Not signed in.');
-  return token;
+  let session = data.session;
+  if (!session) throw new Error('Not signed in.');
+
+  // expires_at is epoch seconds. Refresh with a minute of headroom so a token
+  // can't expire in flight.
+  const expiresAt = session.expires_at ?? 0;
+  if (expiresAt * 1000 - Date.now() < 60_000) {
+    const { data: refreshed, error } = await supabase.auth.refreshSession();
+    if (error || !refreshed.session) throw new Error('Your session expired. Sign in again.');
+    session = refreshed.session;
+  }
+  return session.access_token;
 }
 
 // Permanently delete a listing you own. The server also cleans up its photos

@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/session';
 import { fetchSavedListings, FeedListing } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
-import { T, F } from '@/lib/theme';
+import { T, F, S } from '@/lib/theme';
 
 export default function Saved() {
   const router = useRouter();
@@ -56,28 +57,34 @@ export default function Saved() {
   }
 
   return (
-    <FlatList
-      data={listings}
-      keyExtractor={(l) => l.id}
-      numColumns={2}
-      style={{ backgroundColor: T.bg }}
-      contentContainerStyle={{ padding: 6, paddingTop: 56 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      ListHeaderComponent={
-        <Text style={{ fontFamily: F.black, fontSize: 24, color: T.ink, letterSpacing: -0.6, paddingHorizontal: 6, paddingBottom: 10 }}>
-          Saved
-        </Text>
-      }
-      ListEmptyComponent={
-        <View style={{ padding: 40, alignItems: 'center' }}>
-          <Text style={{ fontFamily: F.medium, color: T.muted, textAlign: 'center' }}>
-            Nothing saved yet. Tap the heart on a listing to keep it here.
+    <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <FlatList
+        data={listings}
+        keyExtractor={(l) => l.id}
+        numColumns={2}
+        style={{ backgroundColor: T.bg }}
+        contentContainerStyle={{
+          paddingHorizontal: S.gridGutter,
+          paddingTop: S.screenTop,
+          paddingBottom: S.screenBottom,
+        }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListHeaderComponent={
+          <Text style={{ fontFamily: F.black, fontSize: 24, color: T.ink, letterSpacing: -0.6, paddingHorizontal: 6, paddingBottom: 10 }}>
+            Saved
           </Text>
-        </View>
-      }
-      renderItem={({ item }) => (
-        <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}`)} />
-      )}
-    />
+        }
+        ListEmptyComponent={
+          <View style={{ padding: 40, alignItems: 'center' }}>
+            <Text style={{ fontFamily: F.medium, color: T.muted, textAlign: 'center' }}>
+              Nothing saved yet. Tap the heart on a listing to keep it here.
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}`)} />
+        )}
+      />
+    </SafeAreaView>
   );
 }

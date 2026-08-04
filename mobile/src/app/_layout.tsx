@@ -30,19 +30,27 @@ Notifications.setNotificationHandler({
 // -> sign-in. The index route ('/') handles the very first landing; this keeps
 // things in sync after sign-in / sign-out from any screen.
 function AuthWatcher() {
-  const { session, loading } = useSession();
+  const { session, loading, onboarded } = useSession();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
-    const group = segments[0]; // '(auth)' | '(tabs)' | undefined (index)
-    if (session && group === '(auth)') {
-      router.replace('/(tabs)/feed');
-    } else if (!session && group === '(tabs)') {
-      router.replace('/(auth)/sign-in');
+    const group = segments[0]; // '(auth)' | '(tabs)' | '(onboarding)' | undefined (index)
+    if (!session) {
+      if (group === '(tabs)' || group === '(onboarding)') router.replace('/(auth)/sign-in');
+      return;
     }
-  }, [session, loading, segments, router]);
+    // Signed in. Wait for the profile check before routing anywhere, so a new
+    // user never lands on the feed first.
+    if (onboarded === 'unknown') return;
+    if (onboarded === 'no') {
+      // New user: setup comes before the app, whichever way they got here.
+      if (group !== '(onboarding)') router.replace('/(onboarding)/setup');
+    } else if (group === '(auth)' || group === '(onboarding)') {
+      router.replace('/(tabs)/feed');
+    }
+  }, [session, loading, onboarded, segments, router]);
 
   // Tapping a reveal push (new request / approval) opens the Requests tab.
   useEffect(() => {

@@ -4,7 +4,7 @@
 // deferred opt-in: prefs carry the shape, nothing sends yet.
 import { admin } from './supabase/admin';
 
-export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry';
+export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message';
 
 type NotifyPrefs = Partial<Record<NotifyEvent, { email?: boolean; sms?: boolean; push?: boolean }>>;
 
@@ -104,7 +104,7 @@ export async function sendPush(
 
 const wrap = (body: string) =>
   `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#111;max-width:480px">
-    <p style="font-weight:800;font-size:18px;margin:0 0 16px">flipd<span style="color:#990000">.</span></p>
+    <p style="font-weight:800;font-size:18px;margin:0 0 16px">Flipd<span style="color:#990000">.</span></p>
     ${body}
     <p style="font-size:12px;color:#98a0a8;margin-top:24px">You can change notification settings in your Flipd profile.</p>
   </div>`;
@@ -123,16 +123,26 @@ export function newRequestEmail(buyerName: string, listingTitle: string) {
   };
 }
 
-// Event 2 — approved. Mutual-aware: lists every shared method, not just one. `contact` is the
-// output of resolveSharedContact (method -> value).
-export function sharedContactEmail(actorName: string, listingTitle: string, contact: Partial<Record<string, string>>) {
-  const labels: Record<string, string> = { instagram: 'Instagram', phone: 'Text', email: 'Email' };
-  const lines = Object.entries(contact)
-    .map(([m, v]) => `<p style="font-size:17px"><strong>${esc(labels[m] || m)}:</strong> ${esc(v as string)}</p>`)
-    .join('');
+// Event 2 — approved. Carries no contact details: the conversation lives in
+// Flipd now, so this email's job is to send the buyer back to the app.
+export function approvedEmail(actorName: string, listingTitle: string) {
   return {
-    subject: `${actorName} — you're connected on "${listingTitle}"`,
-    html: wrap(`<p>You're connected on <strong>${esc(listingTitle)}</strong>. Here's how to reach <strong>${esc(actorName)}</strong>:</p>${lines}<p>Reach out — they're expecting you.</p>`),
+    subject: `${actorName} approved your request for "${listingTitle}"`,
+    html: wrap(
+      `<p><strong>${esc(actorName)}</strong> approved your request on <strong>${esc(listingTitle)}</strong>.</p>
+       <p>Your conversation is open in Flipd. Head to your requests to pick up where you left off.</p>`,
+    ),
+  };
+}
+
+// A message arrived in an open thread.
+export function newMessageEmail(senderName: string, listingTitle: string) {
+  return {
+    subject: `${senderName} sent you a message about "${listingTitle}"`,
+    html: wrap(
+      `<p><strong>${esc(senderName)}</strong> messaged you about <strong>${esc(listingTitle)}</strong>.</p>
+       <p>Open Flipd to read it and reply.</p>`,
+    ),
   };
 }
 

@@ -66,7 +66,7 @@ export default function ProfileEditPage() {
         const fd = new FormData();
         fd.append('photo', photo.file, photo.file.name);
         const up = await fetch('/api/me/avatar', { method: 'POST', body: fd });
-        if (!up.ok) throw new Error('Photo upload failed — try a smaller image.');
+        if (!up.ok) throw new Error('Photo upload failed. Try a smaller image.');
       }
       const res = await fetch('/api/me', {
         method: 'PATCH',
@@ -85,12 +85,12 @@ export default function ProfileEditPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || 'Could not save — try again.');
+        throw new Error(body.error || 'Could not save. Try again.');
       }
       await store.refreshMe();
       router.push('/profile');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save — try again.');
+      setError(err instanceof Error ? err.message : 'Could not save. Try again.');
       setSaving(false);
     }
   };
@@ -109,7 +109,9 @@ export default function ProfileEditPage() {
             if (f) setPhoto({ file: f, url: URL.createObjectURL(f) });
             e.target.value = '';
           }} />
-          <button type="button" onClick={() => fileRef.current?.click()} aria-label="Change profile photo" style={{ width: 72, height: 72, borderRadius: '50%', border: avatarPreview ? 0 : '1.5px dashed var(--rule-strong)', background: 'var(--surface)', overflow: 'hidden', cursor: 'pointer', padding: 0, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* An uploaded photo keeps a solid ring (a dashed one reads as an empty
+              slot); the empty state stays dashed to invite a tap. */}
+          <button type="button" onClick={() => fileRef.current?.click()} aria-label="Change profile photo" style={{ width: 72, height: 72, borderRadius: '50%', border: avatarPreview ? '1.5px solid var(--rule-strong)' : '1.5px dashed var(--rule-strong)', background: 'var(--surface)', overflow: 'hidden', cursor: 'pointer', padding: 0, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {avatarPreview ? (
               <img src={avatarPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (

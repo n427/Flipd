@@ -6,7 +6,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { fetchFeed, FeedListing, priceLabel } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { T, F } from '@/lib/theme';
+import { T, F, S } from '@/lib/theme';
 
 // Event feed: recent campus activity (new listings). Distinct from the chat
 // tab (reveal requests). Opening it clears the bell dot.
@@ -55,7 +55,7 @@ export default function Notifications() {
       <FlatList
         data={items}
         keyExtractor={(l) => l.id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 }}
+        contentContainerStyle={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.cardinal} />}
         ListHeaderComponent={
           <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.7, marginBottom: 14 }}>

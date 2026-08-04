@@ -489,8 +489,8 @@ export function WebAppFeed({
 
 // ── Listing detail ──────────────────────────────────────────────────
 export function WebListingDetail({
-  store, listing, onBack, onReveal, preview = false,
-}: { store: FlipdStore; listing: Listing; onBack: () => void; onReveal: () => void; preview?: boolean }) {
+  store, listing, onBack, onReveal, preview = false, backLabel = 'Back to feed',
+}: { store: FlipdStore; listing: Listing; onBack: () => void; onReveal: () => void; preview?: boolean; backLabel?: string }) {
   const saved = preview ? false : store.isSaved(listing.id);
   const reveal = preview ? undefined : store.myRevealFor(listing.id);
   const latestReveal = preview ? undefined : store.latestRevealFor(listing.id);
@@ -744,7 +744,7 @@ export function WebListingDetail({
     <div style={{ padding: '24px 32px 64px', maxWidth: 1100, margin: '0 auto' }}>
       {!preview && (
       <button onClick={onBack} style={{ background: 'none', border: 0, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 13, marginBottom: 22 }}>
-        <Icon name="chevronLeft" size={14} /> Back to feed
+        <Icon name="chevronLeft" size={14} /> {backLabel}
       </button>
       )}
 

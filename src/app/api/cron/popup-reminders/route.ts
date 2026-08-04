@@ -3,10 +3,16 @@ import { admin } from '@/lib/supabase/admin';
 import { formatEventWindow } from '@/lib/validation';
 import { popupReminderEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
 
-// Secret-guarded sweep — an external scheduler must call this hourly with
+// Secret-guarded sweep — the scheduler calls this with
 // `Authorization: Bearer $CRON_SECRET` (CRON_SECRET must be set in the
 // environment). Emails each opted-in buyer once for popups starting within
 // the next 24h, then marks the reminder sent so it never double-sends.
+//
+// Runs once a day (see vercel.json): Vercel's Hobby plan caps crons at daily,
+// and the 24h lookahead means a single daily pass still catches every popup.
+// The tradeoff is timing, not coverage — a popup created after the day's run
+// gets its reminder on the next pass rather than within the hour. If the plan
+// ever moves to Pro, an hourly schedule tightens that up.
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get('authorization');

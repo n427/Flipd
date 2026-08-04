@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, Switch } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FormScroll } from '@/components/FormScroll';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
 import { fetchMyProfile, updateMyProfile, uploadAvatar, NotifyEvent, NotifyPrefs } from '@/lib/listings';
-import { T, F } from '@/lib/theme';
+import { T, F, S } from '@/lib/theme';
 
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
@@ -142,159 +143,171 @@ export default function EditProfile() {
   }
 
   return (
-    <FormScroll contentContainerStyle={{ padding: 20, paddingTop: 60, paddingBottom: 40 }}>
-      <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 20 }}>
-        Edit profile
-      </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}>
+        <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 20 }}>
+          Edit profile
+        </Text>
 
-      <View style={{ alignItems: 'center', marginBottom: 24 }}>
-        <Pressable onPress={pickAvatar} disabled={uploadingAvatar}>
-          {avatar ? (
-            <Image source={{ uri: avatar }} style={{ width: 96, height: 96, borderRadius: 48 }} contentFit="cover" />
-          ) : (
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+          <Pressable onPress={pickAvatar} disabled={uploadingAvatar}>
+            {avatar ? (
+              <Image
+                source={{ uri: avatar }}
+                // Outline keeps the avatar edge readable against a light photo
+                // and matches the ring on the empty state.
+                style={{ width: 96, height: 96, borderRadius: 48, borderWidth: 1, borderColor: T.rule }}
+                contentFit="cover"
+              />
+            ) : (
+              <View
+                style={{
+                  width: 96,
+                  height: 96,
+                  borderRadius: 48,
+                  backgroundColor: T.fieldbg,
+                  borderWidth: 1.5,
+                  borderColor: T.rule,
+                  borderStyle: 'dashed',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.muted }}>Add photo</Text>
+              </View>
+            )}
+            {uploadingAvatar ? (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: 48,
+                  backgroundColor: 'rgba(0,0,0,0.35)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <ActivityIndicator color="#fff" />
+              </View>
+            ) : null}
+          </Pressable>
+          <Pressable onPress={pickAvatar} disabled={uploadingAvatar} style={{ marginTop: 8 }}>
+            <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.cardinal }}>
+              {avatar ? 'Change photo' : 'Add a photo'}
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text style={label}>Name</Text>
+        <TextInput value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor={T.muted} style={field} />
+
+        <Text style={label}>Bio</Text>
+        <TextInput
+          value={bio}
+          onChangeText={setBio}
+          placeholder="A line about you"
+          placeholderTextColor={T.muted}
+          multiline
+          style={[field, { height: 80, textAlignVertical: 'top', paddingTop: 14 }]}
+        />
+
+        <Text style={label}>School</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          {UNITS.map((u) => (
+            <Pressable key={u} onPress={() => setUnit(u)} style={chip(unit === u)}>
+              <Text style={{ fontFamily: F.semibold, fontSize: 13, color: unit === u ? '#fff' : T.ink }}>{u}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={label}>Year</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          {YEARS.map((y) => (
+            <Pressable key={y} onPress={() => setYear(y)} style={chip(year === y)}>
+              <Text style={{ fontFamily: F.semibold, fontSize: 13, color: year === y ? '#fff' : T.ink }}>{y}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={label}>Contact methods</Text>
+        <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginBottom: 12, marginTop: -2, lineHeight: 19 }}>
+          Only shared with the other person when a request is approved. You pick which each time.
+        </Text>
+        <TextInput
+          value={instagram}
+          onChangeText={setInstagram}
+          placeholder="Instagram username"
+          placeholderTextColor={T.muted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={field}
+        />
+        <TextInput
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="Phone number"
+          placeholderTextColor={T.muted}
+          keyboardType="phone-pad"
+          style={field}
+        />
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Contact email"
+          placeholderTextColor={T.muted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          textContentType="emailAddress"
+          style={field}
+        />
+
+        <Text style={label}>Notifications</Text>
+        <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginBottom: 12, marginTop: -2, lineHeight: 19 }}>
+          Push and email for each event. On by default.
+        </Text>
+        <View style={{ marginBottom: 20, borderWidth: 1, borderColor: T.rule, borderRadius: 14, overflow: 'hidden' }}>
+          {NOTIFY_EVENTS.map((ev, i) => (
             <View
+              key={ev.id}
               style={{
-                width: 96,
-                height: 96,
-                borderRadius: 48,
-                backgroundColor: T.fieldbg,
+                flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 13,
+                paddingHorizontal: 15,
+                borderTopWidth: i === 0 ? 0 : 1,
+                borderTopColor: T.rule,
+                gap: 12,
               }}
             >
-              <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.muted }}>Add photo</Text>
+              <Text style={{ fontFamily: F.medium, fontSize: 14.5, color: T.ink, flex: 1 }}>{ev.label}</Text>
+              <Switch
+                value={eventOn(ev.id)}
+                onValueChange={(on) => setEvent(ev.id, on)}
+                trackColor={{ true: T.cardinal }}
+              />
             </View>
-          )}
-          {uploadingAvatar ? (
-            <View
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderRadius: 48,
-                backgroundColor: 'rgba(0,0,0,0.35)',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <ActivityIndicator color="#fff" />
-            </View>
-          ) : null}
+          ))}
+        </View>
+
+        {error ? <Text style={{ fontFamily: F.medium, color: T.danger, marginBottom: 8 }}>{error}</Text> : null}
+
+        <Pressable
+          onPress={save}
+          disabled={saving}
+          style={{ backgroundColor: T.cardinal, borderRadius: 14, paddingVertical: 17, alignItems: 'center', opacity: saving ? 0.7 : 1 }}
+        >
+          <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>{saving ? 'Saving…' : 'Save'}</Text>
         </Pressable>
-        <Pressable onPress={pickAvatar} disabled={uploadingAvatar} style={{ marginTop: 8 }}>
-          <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.cardinal }}>
-            {avatar ? 'Change photo' : 'Add a photo'}
-          </Text>
+        <Pressable onPress={() => router.back()} style={{ marginTop: 14, alignItems: 'center' }}>
+          <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
         </Pressable>
-      </View>
-
-      <Text style={label}>Name</Text>
-      <TextInput value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor={T.muted} style={field} />
-
-      <Text style={label}>Bio</Text>
-      <TextInput
-        value={bio}
-        onChangeText={setBio}
-        placeholder="A line about you"
-        placeholderTextColor={T.muted}
-        multiline
-        style={[field, { height: 80, textAlignVertical: 'top', paddingTop: 14 }]}
-      />
-
-      <Text style={label}>School</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-        {UNITS.map((u) => (
-          <Pressable key={u} onPress={() => setUnit(u)} style={chip(unit === u)}>
-            <Text style={{ fontFamily: F.semibold, fontSize: 13, color: unit === u ? '#fff' : T.ink }}>{u}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={label}>Year</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-        {YEARS.map((y) => (
-          <Pressable key={y} onPress={() => setYear(y)} style={chip(year === y)}>
-            <Text style={{ fontFamily: F.semibold, fontSize: 13, color: year === y ? '#fff' : T.ink }}>{y}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={label}>Contact methods</Text>
-      <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginBottom: 12, marginTop: -2, lineHeight: 19 }}>
-        Only shared with the other person when a request is approved — you pick which each time.
-      </Text>
-      <TextInput
-        value={instagram}
-        onChangeText={setInstagram}
-        placeholder="Instagram username"
-        placeholderTextColor={T.muted}
-        autoCapitalize="none"
-        autoCorrect={false}
-        style={field}
-      />
-      <TextInput
-        value={phone}
-        onChangeText={setPhone}
-        placeholder="Phone number"
-        placeholderTextColor={T.muted}
-        keyboardType="phone-pad"
-        style={field}
-      />
-      <TextInput
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Contact email"
-        placeholderTextColor={T.muted}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="email-address"
-        style={field}
-      />
-
-      <Text style={label}>Notifications</Text>
-      <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginBottom: 12, marginTop: -2, lineHeight: 19 }}>
-        Push and email for each event. On by default.
-      </Text>
-      <View style={{ marginBottom: 20, borderWidth: 1, borderColor: T.rule, borderRadius: 14, overflow: 'hidden' }}>
-        {NOTIFY_EVENTS.map((ev, i) => (
-          <View
-            key={ev.id}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingVertical: 13,
-              paddingHorizontal: 15,
-              borderTopWidth: i === 0 ? 0 : 1,
-              borderTopColor: T.rule,
-              gap: 12,
-            }}
-          >
-            <Text style={{ fontFamily: F.medium, fontSize: 14.5, color: T.ink, flex: 1 }}>{ev.label}</Text>
-            <Switch
-              value={eventOn(ev.id)}
-              onValueChange={(on) => setEvent(ev.id, on)}
-              trackColor={{ true: T.cardinal }}
-            />
-          </View>
-        ))}
-      </View>
-
-      {error ? <Text style={{ fontFamily: F.medium, color: T.danger, marginBottom: 8 }}>{error}</Text> : null}
-
-      <Pressable
-        onPress={save}
-        disabled={saving}
-        style={{ backgroundColor: T.cardinal, borderRadius: 14, paddingVertical: 17, alignItems: 'center', opacity: saving ? 0.7 : 1 }}
-      >
-        <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>{saving ? 'Saving…' : 'Save'}</Text>
-      </Pressable>
-      <Pressable onPress={() => router.back()} style={{ marginTop: 14, alignItems: 'center' }}>
-        <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
-      </Pressable>
-    </FormScroll>
+      </FormScroll>
+    </SafeAreaView>
   );
 }
 

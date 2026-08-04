@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
-import { effectiveRevealStatus, resolveSharedContact, type RevealStatus } from '@/lib/validation';
+import {
+  effectiveRevealStatus,
+  containsContactInfo,
+  CONTACT_BLOCKED_MESSAGE,
+  type RevealStatus,
+} from '@/lib/validation';
 import { newRequestEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail, wantsPush } from '@/lib/notify';
 
 type RevealRow = {
@@ -13,32 +18,35 @@ type RevealRow = {
   created_at: string;
   expires_at: string;
   offer: number | null;
-  buyer_contact: string[] | null;
+  intro_message: string | null;
+  decline_reason: string | null;
   resolved_at: string | null;
   seller_seen_at: string | null;
   buyer_seen_at: string | null;
   seller_dismissed_at: string | null;
   buyer_dismissed_at: string | null;
-  listing: { title: string; contact: string[]; archived: boolean } | null;
+  listing: { title: string; archived: boolean } | null;
   listing_title: string | null;
   buyer: ProfileRef | null;
   seller: ProfileRef | null;
+  thread: { id: string }[] | null;
 };
+// Contact columns are deliberately absent: contact details are never shared
+// between users now that conversations happen in-app. Phone and email are
+// notification destinations only.
 type ProfileRef = {
   id: string;
   display_name: string | null;
   school_unit: string | null;
   class_year: string | null;
   avatar_url: string | null;
-  contact_instagram: string | null;
-  contact_phone: string | null;
-  contact_email: string | null;
 };
 
-const SELECT = `id, listing_id, listing_title, buyer_id, seller_id, status, created_at, expires_at, offer, buyer_contact, resolved_at, seller_seen_at, buyer_seen_at, seller_dismissed_at, buyer_dismissed_at,
-  listing:listings(title, contact, archived),
-  buyer:profiles!reveal_requests_buyer_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email),
-  seller:profiles!reveal_requests_seller_id_fkey(id, display_name, school_unit, class_year, avatar_url, contact_instagram, contact_phone, contact_email)`;
+const SELECT = `id, listing_id, listing_title, buyer_id, seller_id, status, created_at, expires_at, offer, intro_message, decline_reason, resolved_at, seller_seen_at, buyer_seen_at, seller_dismissed_at, buyer_dismissed_at,
+  listing:listings(title, archived),
+  buyer:profiles!reveal_requests_buyer_id_fkey(id, display_name, school_unit, class_year, avatar_url),
+  seller:profiles!reveal_requests_seller_id_fkey(id, display_name, school_unit, class_year, avatar_url),
+  thread:message_threads(id)`;
 
 function toDto(row: RevealRow, viewerId: string, ratedRequestIds: Set<string> = new Set()) {
   const status = effectiveRevealStatus(row.status, row.expires_at);
@@ -69,27 +77,15 @@ function toDto(row: RevealRow, viewerId: string, ratedRequestIds: Set<string> = 
     dismissed: Boolean(isBuyer ? row.buyer_dismissed_at : row.seller_dismissed_at),
     // Either party may rate a completed transaction once.
     can_rate: status === 'completed' && !ratedRequestIds.has(row.id),
+    // What the buyer wrote when asking. This is what the seller approves on —
+    // a name and class year alone doesn't say whether they want the item.
+    intro_message: row.intro_message,
+    // Why a decline happened, when the seller picked a reason.
+    decline_reason: row.decline_reason,
+    // Present once approved: where the conversation lives. Replaces the
+    // contact payload this endpoint used to return.
+    thread_id: row.thread?.[0]?.id ?? null,
   };
-  // Both parties see the other's chosen contact once approved/completed.
-  // Only attach `contact` when at least one method resolves, so surfaces
-  // never render an empty "CONTACT" block for an approved-but-empty reveal.
-  if (status === 'approved' || status === 'completed') {
-    let shared: Partial<Record<'instagram' | 'phone' | 'email', string>> = {};
-    if (isBuyer && row.seller) {
-      shared = resolveSharedContact(row.listing?.contact ?? [], {
-        instagram: row.seller.contact_instagram,
-        phone: row.seller.contact_phone,
-        email: row.seller.contact_email,
-      });
-    } else if (!isBuyer && row.buyer) {
-      shared = resolveSharedContact(row.buyer_contact ?? [], {
-        instagram: row.buyer.contact_instagram,
-        phone: row.buyer.contact_phone,
-        email: row.buyer.contact_email,
-      });
-    }
-    if (Object.keys(shared).length > 0) dto.contact = shared;
-  }
   return dto;
 }
 
@@ -128,8 +124,26 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  const { listing_id, offer, buyer_contact } = await req.json().catch(() => ({}));
+  const { listing_id, offer, intro_message } = await req.json().catch(() => ({}));
   if (!listing_id) return NextResponse.json({ error: 'listing_id required' }, { status: 400 });
+
+  // The intro message is required: it's the whole basis for the seller's
+  // decision, and for services/food it's the only way they know what's being
+  // asked for.
+  const intro = typeof intro_message === 'string' ? intro_message.trim() : '';
+  if (!intro) {
+    return NextResponse.json({ error: 'Add a short message so the seller knows what you need.' }, { status: 400 });
+  }
+  if (intro.length > 600) {
+    return NextResponse.json({ error: 'Keep your message under 600 characters.' }, { status: 400 });
+  }
+  // Blocked, not redacted: silently stripping a buyer's message would leave
+  // them thinking the seller received something they didn't. Server-side is the
+  // source of truth here — the client runs the same check only for fast
+  // feedback, and a crafted request must not bypass it.
+  if (containsContactInfo(intro)) {
+    return NextResponse.json({ error: CONTACT_BLOCKED_MESSAGE }, { status: 422 });
+  }
   // Offers are optional; anything non-positive or non-numeric is simply no-offer.
   const parsedOffer = Number.isFinite(Number(offer)) && Number(offer) > 0 ? Math.round(Number(offer)) : null;
 
@@ -157,27 +171,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'You can’t send a request for this listing.' }, { status: 403 });
   }
 
-  // Validate the buyer's chosen methods against their stored profile values —
-  // never trust the client. Empty/absent list falls back to all stored methods.
-  const { data: buyerProfile } = await admin
-    .from('profiles')
-    .select('contact_instagram, contact_phone, contact_email')
-    .eq('id', user.id)
-    .single();
-  const buyerValues = {
-    instagram: buyerProfile?.contact_instagram ?? null,
-    phone: buyerProfile?.contact_phone ?? null,
-    email: buyerProfile?.contact_email ?? null,
-  };
-  // Only share what the buyer explicitly picked. If the client sent no
-  // selection (e.g. a stale tab from before the picker existed), share
-  // nothing rather than auto-exposing every stored method.
-  const requested: string[] = Array.isArray(buyer_contact) ? buyer_contact : [];
-  const buyerContact = Object.keys(resolveSharedContact(requested, buyerValues));
-
   const { data, error } = await admin
     .from('reveal_requests')
-    .insert({ listing_id, buyer_id: user.id, seller_id: listing.seller_id, offer: offerAmount, buyer_contact: buyerContact })
+    .insert({
+      listing_id,
+      buyer_id: user.id,
+      seller_id: listing.seller_id,
+      offer: offerAmount,
+      intro_message: intro,
+    })
     .select(SELECT)
     .single();
   if (error) {
@@ -203,7 +205,7 @@ export async function POST(req: NextRequest) {
   }
   // Push: same event, straight to the seller's device (respects the pref).
   if (wantsPush(sellerProfile?.notify_prefs, 'new_request'))
-    void sendPush(listing.seller_id, 'New contact request', `${buyerName} wants your contact for “${listingTitle}”.`, {
+    void sendPush(listing.seller_id, 'New request', `${buyerName} wants to talk about “${listingTitle}”.`, {
     type: 'new_request',
     reveal_id: row.id,
   });

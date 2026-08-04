@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, SectionList, Pressable, ActivityIndicator, RefreshControl, Alert, Linking, Modal, TextInput } from 'react-native';
+import { View, Text, SectionList, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert, Linking, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/session';
 import { fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest, SharedContact } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
-import { T, F } from '@/lib/theme';
+import { T, F, S } from '@/lib/theme';
 
 // Status → label + colors (badge).
 const STATUS: Record<string, { label: string; bg: string; fg: string }> = {
@@ -194,8 +195,9 @@ export default function Requests() {
       const { incoming, outgoing } = await fetchRequests(user.id);
       setIncoming(incoming);
       setOutgoing(outgoing);
-    } catch {
+    } catch (e) {
       setError(true);
+      if (__DEV__) console.warn('[requests] load failed:', e);
     }
   }, [user]);
 
@@ -328,46 +330,77 @@ export default function Requests() {
   ].filter((s) => s.data.length > 0);
 
   if (!sections.length) {
+    // Scrollable so pull-to-refresh actually works here — this used to be a
+    // plain View that told people to "pull to retry" with nothing to pull.
+    // A failed load also gets its own wording and a Retry button, rather than
+    // being indistinguishable from having no requests at all.
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg, padding: 32 }}>
-        <Text style={{ fontFamily: F.bold, fontSize: 17, color: T.ink, marginBottom: 6 }}>No requests yet</Text>
-        <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, textAlign: 'center' }}>
-          {error
-            ? 'Couldn’t load your requests. Pull to retry.'
-            : 'When you reveal contact on a listing, or someone requests yours, it shows up here.'}
-        </Text>
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          <Text style={{ fontFamily: F.bold, fontSize: 17, color: T.ink, marginBottom: 6 }}>
+            {error ? 'Couldn’t load your requests' : 'No requests yet'}
+          </Text>
+          <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, textAlign: 'center' }}>
+            {error
+              ? 'Check your connection, then pull down to refresh.'
+              : 'When you reveal contact on a listing, or someone requests yours, it shows up here.'}
+          </Text>
+          {error ? (
+            <Pressable
+              onPress={onRefresh}
+              style={{
+                marginTop: 16,
+                backgroundColor: T.cardinal,
+                borderRadius: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 24,
+              }}
+            >
+              <Text style={{ fontFamily: F.bold, color: '#fff' }}>Retry</Text>
+            </Pressable>
+          ) : null}
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
     <>
-      <SectionList
-        style={{ backgroundColor: T.bg }}
-        contentContainerStyle={{ padding: 16 }}
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        renderSectionHeader={({ section }) => (
-          <Text style={{ fontFamily: F.extrabold, fontSize: 15, color: T.ink, marginBottom: 10, marginTop: 8 }}>
-            {section.title}
-          </Text>
-        )}
-        renderItem={({ item, section }) => (
-          <Row
-            item={item}
-            onPress={() => router.push(`/(tabs)/listing/${item.listing_id}`)}
-            onRespond={
-              section.incoming
-                ? (action) => (action === 'approve' ? onApprove(item.id) : respond(item.id, 'decline'))
-                : undefined
-            }
-            onComplete={() => onComplete(item.id)}
-            onRate={() => openRate(item)}
-            busy={busyId === item.id}
-          />
-        )}
-      />
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <SectionList
+          style={{ backgroundColor: T.bg }}
+          contentContainerStyle={{
+            paddingHorizontal: S.gutter,
+            paddingTop: S.screenTop,
+            paddingBottom: S.screenBottom,
+          }}
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          renderSectionHeader={({ section }) => (
+            <Text style={{ fontFamily: F.extrabold, fontSize: 15, color: T.ink, marginBottom: 10, marginTop: 8 }}>
+              {section.title}
+            </Text>
+          )}
+          renderItem={({ item, section }) => (
+            <Row
+              item={item}
+              onPress={() => router.push(`/(tabs)/listing/${item.listing_id}`)}
+              onRespond={
+                section.incoming
+                  ? (action) => (action === 'approve' ? onApprove(item.id) : respond(item.id, 'decline'))
+                  : undefined
+              }
+              onComplete={() => onComplete(item.id)}
+              onRate={() => openRate(item)}
+              busy={busyId === item.id}
+            />
+          )}
+        />
+      </SafeAreaView>
 
       {/* Rating sheet */}
       <Modal visible={!!rateFor} animationType="slide" transparent onRequestClose={() => setRateFor(null)}>

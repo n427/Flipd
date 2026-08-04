@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
-import { getSessionUser } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/supabase/authAny';
 
-export async function GET() {
-  const user = await getSessionUser();
+export async function GET(req: NextRequest) {
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const { data } = await admin.from('profiles').select('*').eq('id', user.id).single();
   return NextResponse.json({ profile: data ?? null });
@@ -22,10 +22,10 @@ const HEARD_FROM = ['instagram', 'friend', 'flyer', 'class_club', 'other'];
 // Attribution describes the moment of signup, so it is captured once and never
 // revised — see the write-once guard in PATCH below.
 const WRITE_ONCE = ['heard_from', 'heard_from_detail'] as const;
-const NOTIFY_EVENTS = ['new_request', 'approval', 'reminder', 'expiry'];
+const NOTIFY_EVENTS = ['new_request', 'approval', 'reminder', 'expiry', 'new_message'];
 
 export async function PATCH(req: NextRequest) {
-  const user = await getSessionUser();
+  const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const body = await req.json().catch(() => ({}));
 
