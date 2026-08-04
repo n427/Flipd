@@ -203,6 +203,20 @@ describe('fillZoom', () => {
   });
 });
 
+describe('isUscEmail allow-list', () => {
+  // The three layers (this, mobile/src/lib/usc.ts, migration 022) must agree.
+  // If this drifts, sign-in fails at whichever layer is strictest.
+  it('permits the test address while USC deliverability is broken', () => {
+    expect(isUscEmail('nicolexzha@gmail.com')).toBe(true);
+    expect(isUscEmail('  NicoleXZha@Gmail.com  ')).toBe(true);
+  });
+
+  it('still rejects other non-USC addresses', () => {
+    expect(isUscEmail('someone@gmail.com')).toBe(false);
+    expect(isUscEmail('someone@ucla.edu')).toBe(false);
+  });
+});
+
 describe('findContactInfo', () => {
   // The filter exists so a buyer cannot paste their number into the intro
   // message and skip the approval gate. These are the ways people actually try.

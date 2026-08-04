@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -12,6 +12,8 @@ import {
   setListingArchived,
   createReveal,
   fetchSavedIds,
+  fetchSafetyReview,
+  SafetyReview,
   toggleSaved,
   ListingDetail,
   priceLabel,
@@ -20,7 +22,9 @@ import { findThreadForListing } from '@/lib/messages';
 import { T, F } from '@/lib/theme';
 import { containsContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
+import { SafetyCard } from '@/components/SafetyCard';
 import { MapPreview } from '@/components/MapPreview';
+import { Sheet, SheetGrabber } from '@/components/Sheet';
 
 const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -118,6 +122,10 @@ export default function ListingDetailScreen() {
 
   // --- Buyer reveal flow ---
   const [sheetOpen, setSheetOpen] = useState(false);
+  // AI review of the seller, fetched when the request sheet opens so the buyer
+  // reads it before committing. Advisory: null just renders nothing.
+  const [safety, setSafety] = useState<SafetyReview | null>(null);
+  const [safetyLoading, setSafetyLoading] = useState(false);
   const [intro, setIntro] = useState('');
   const [offer, setOffer] = useState('');
   const [sending, setSending] = useState(false);
@@ -132,6 +140,15 @@ export default function ListingDetailScreen() {
   const openSheet = () => {
     if (!user) return;
     setSheetOpen(true);
+    // Fetch once per open. Failures resolve to null and the card just doesn't
+    // render — a safety hint must never stand between someone and the flow.
+    if (listing?.seller_id) {
+      setSafetyLoading(true);
+      fetchSafetyReview(listing.seller_id, 'seller')
+        .then(setSafety)
+        .catch(() => setSafety(null))
+        .finally(() => setSafetyLoading(false));
+    }
   };
 
   const sendReveal = async () => {
@@ -357,15 +374,20 @@ export default function ListingDetailScreen() {
       </View>
 
       {/* Reveal request sheet */}
-      <Modal visible={sheetOpen} animationType="slide" transparent onRequestClose={() => setSheetOpen(false)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 36 }}>
+      <Sheet visible={sheetOpen} onClose={() => setSheetOpen(false)}>
+        <SheetGrabber />
+        <View>
+          <View>
             <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, letterSpacing: -0.4 }}>
               Message {listing.seller?.display_name?.split(' ')[0] || 'the seller'}
             </Text>
             <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6, lineHeight: 20 }}>
               They see your name, school, and year with your message, and have 72 hours to reply. Approving opens a chat here in Flipd.
             </Text>
+
+            <View style={{ marginTop: 14 }}>
+              <SafetyCard review={safety} loading={safetyLoading} />
+            </View>
 
             <TextInput
               value={intro}
@@ -444,7 +466,7 @@ export default function ListingDetailScreen() {
             </Pressable>
           </View>
         </View>
-      </Modal>
+      </Sheet>
     </ScrollView>
   );
 }

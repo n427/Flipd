@@ -821,3 +821,26 @@ export async function updateListing(id: string, input: EditListing): Promise<voi
     throw new Error(body.error || `Update failed (${res.status})`);
   }
 }
+
+// AI safety review of the person on the other side of a request. `role` is what
+// THEY are: a buyer asks about the 'seller' before sending, a seller asks about
+// the 'buyer' before approving.
+export type SafetyReview = {
+  verdict: 'looks_good' | 'mixed' | 'thin';
+  summary: string;
+  signals: string[];
+};
+
+export async function fetchSafetyReview(
+  userId: string,
+  role: 'seller' | 'buyer',
+): Promise<SafetyReview | null> {
+  const token = await requireToken();
+  const res = await fetch(`${API_BASE}/api/safety?user=${userId}&role=${role}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  // Advisory only — a failure here must never block the transaction.
+  if (!res.ok) return null;
+  const body = await res.json().catch(() => ({}));
+  return (body.review as SafetyReview) ?? null;
+}

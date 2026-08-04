@@ -13,6 +13,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { fetchFeed, fetchBlockedIds, FeedListing, FeedSort, FeedRange } from '@/lib/listings';
@@ -373,21 +374,9 @@ export default function Feed() {
 
       {/* Range picker. A custom sheet rather than a native picker so it matches
           the rest of the app on both platforms. */}
-      <Modal visible={rangeOpen} animationType="fade" transparent onRequestClose={() => setRangeOpen(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' }} onPress={() => setRangeOpen(false)} />
-        <View
-          style={{
-            backgroundColor: '#fff',
-            borderTopLeftRadius: 22,
-            borderTopRightRadius: 22,
-            paddingHorizontal: 20,
-            paddingTop: 10,
-            paddingBottom: 34,
-          }}
-        >
-          <View
-            style={{ alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: T.rule, marginBottom: 16 }}
-          />
+      <Sheet visible={rangeOpen} onClose={() => setRangeOpen(false)} contentStyle={{ paddingHorizontal: 20 }}>
+        <SheetGrabber />
+        <View>
           <Text style={{ fontFamily: F.extrabold, fontSize: 18, color: T.ink, letterSpacing: -0.3, marginBottom: 12 }}>
             Show listings from
           </Text>
@@ -417,7 +406,7 @@ export default function Feed() {
             );
           })}
         </View>
-      </Modal>
+      </Sheet>
     </SafeAreaView>
   );
 }

@@ -48,8 +48,17 @@ export function fillZoom(
   return Math.min(max, Math.round(eased * 20) / 20);
 }
 
+// TEMP TEST ALLOW-LIST: USC's Proofpoint filter silently drops the auth
+// emails, so this one address is allowed through for testing while USC
+// deliverability is sorted. Mirrors TEST_ALLOW in mobile/src/lib/usc.ts and
+// the allow-list in migration 022_usc_test_allowlist.sql — all three have to
+// agree, or sign-in fails at whichever layer is strictest.
+// Remove from all three once USC email delivery works.
+const TEST_ALLOW = new Set(['nicolexzha@gmail.com']);
+
 export function isUscEmail(email: string): boolean {
   const e = email.trim().toLowerCase();
+  if (TEST_ALLOW.has(e)) return true;
   return /^[^\s@]+@usc\.edu$/.test(e);
 }
 
