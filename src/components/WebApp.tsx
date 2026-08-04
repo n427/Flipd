@@ -116,9 +116,6 @@ export function WebAppHeader({
             <span style={{ minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{pendingCount}</span>
           )}
         </a>
-        <a href="/messages" style={{ textDecoration: 'none', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>
-          Messages
-        </a>
         <button onClick={onBell} aria-label="Notifications" style={{ background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
           <Icon name="bell" size={18} color="var(--ink)" />
           {unreadCount > 0 && (
@@ -264,7 +261,7 @@ function ActivityRow({
         {a.status === 'APPROVED' && a.threadId && (
           <div style={{ marginTop: 8 }}>
             <Link
-              href={`/messages/${a.threadId}`}
+              href="/requests"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}
             >
               <Icon name="chat" size={13} /> Open chat
@@ -588,7 +585,7 @@ export function WebListingDetail({
     ) : reveal?.status === 'APPROVED' && reveal.threadId ? (
       <div>
         <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 12 }}>YOUR CHAT</div>
-        <Link href={`/messages/${reveal.threadId}`} style={{ textDecoration: 'none' }}>
+        <Link href="/requests" style={{ textDecoration: 'none' }}>
           <Button kind="primary" full size="lg" icon="chat">Open chat</Button>
         </Link>
       </div>
@@ -610,7 +607,7 @@ export function WebListingDetail({
           {/* An open conversation outranks the request CTA: someone who
               already has a thread wants to get back into it, not start over. */}
           {reveal?.threadId ? (
-            <Link href={`/messages/${reveal.threadId}`} style={{ textDecoration: 'none', display: full ? 'block' : undefined }}>
+            <Link href="/requests" style={{ textDecoration: 'none', display: full ? 'block' : undefined }}>
               <Button kind="primary" full={full} size="lg" icon="chat">Open chat</Button>
             </Link>
           ) : reveal?.status === 'PENDING' ? (

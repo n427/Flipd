@@ -144,9 +144,6 @@ export function Thread({ threadId }: { threadId: string }) {
 
   return (
     <div style={{ padding: '20px 20px 0', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 222px)' }}>
-      <Link href="/messages" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none', marginBottom: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <Icon name="chevronLeft" size={14} /> All messages
-      </Link>
 
       {/* Pinned listing header: the subject of the conversation is never
           ambiguous, and it's the way back to the post. */}

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, Button, BackLink } from '@/components/ui';
 import { RequestTimeline, RatingModal } from '@/components/WebApp';
+import { Thread } from '@/components/Thread';
 import { SafetyCard, type SafetyReview } from '@/components/SafetyCard';
 import { useStore } from '@/lib/store-context';
 import { timeLeftLabel, swapCountLabel } from '@/lib/validation';
@@ -75,6 +76,9 @@ export default function RequestsPage() {
   // relevant at a time, and stacking meant scrolling past every received
   // request to reach the ones you sent.
   const [tab, setTab] = React.useState<'received' | 'sent'>('received');
+  // The conversation shown in the right pane. Chat lives here rather than on
+  // its own page: approving a request and talking about it are the same task.
+  const [openThread, setOpenThread] = React.useState<string | null>(null);
   const incoming = store.activity.filter((a) => a.dir === 'in');
   // Requests you sent. Mobile shows these in a second section; on web they had
   // nowhere to live, so a buyer could not see what they had asked for.
@@ -88,7 +92,9 @@ export default function RequestsPage() {
   // point of approving is to start talking.
   const approve = async (a: ActivityItem) => {
     const result = await store.respondReveal(a.id, 'approve');
-    if (typeof result === 'string') router.push(`/messages/${result}`);
+    // Open the conversation beside the list rather than navigating away, so
+    // the seller stays in the queue they were working through.
+    if (typeof result === 'string') setOpenThread(result);
   };
 
   return (
@@ -97,10 +103,12 @@ export default function RequestsPage() {
       <h1 style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 4px' }}>
         Requests
       </h1>
-      <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 28px' }}>
+      <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 24px' }}>
         Requests you have received and sent. Approving opens a chat here in Flipd.
       </p>
 
+      <div className="messages-split">
+        <div>
       {/* Segmented control, matching the app. Counts sit in the label so an
           empty tab is obvious without switching to it. */}
       <div
@@ -222,6 +230,25 @@ export default function RequestsPage() {
 
                 {/* Actions sit at the bottom of the card, aligned right. */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                  {(a.status === 'APPROVED' || a.status === 'COMPLETED') && a.threadId && (
+                    <button
+                      onClick={() => setOpenThread(a.threadId!)}
+                      style={{
+                        marginRight: 'auto',
+                        border: '1px solid var(--rule)',
+                        background: a.threadId === openThread ? 'var(--surface)' : '#fff',
+                        borderRadius: 8,
+                        padding: '7px 12px',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--sans)',
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: 'var(--ink)',
+                      }}
+                    >
+                      {a.threadId === openThread ? 'Chat open' : 'Open chat'}
+                    </button>
+                  )}
                   {a.status === 'PENDING' ? (
                     <>
                       <Button kind="ghost" size="sm" onClick={() => setDeclining(a)}>Decline</Button>
@@ -284,6 +311,24 @@ export default function RequestsPage() {
           </div>
         </div>
       )}
+
+        </div>
+
+        {/* Conversation pane. Approving selects the new thread here, and any
+            approved request can be reopened from its card. */}
+        <section className={openThread ? 'messages-pane' : 'messages-pane messages-pane-empty'}>
+          {openThread ? (
+            <Thread threadId={openThread} />
+          ) : (
+            <div style={{ textAlign: 'center', padding: '0 24px' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>No conversation open</div>
+              <div className="t-meta" style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>
+                Approve a request, or open the chat on one you already approved.
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
 
       {declining && (
         <div onClick={() => setDeclining(null)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(17,17,17,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
