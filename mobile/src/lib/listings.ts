@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from './supabase';
 
@@ -151,7 +151,7 @@ export async function uploadListingPhotos(localUris: string[], userId: string): 
   const urls: string[] = [];
   for (let i = 0; i < localUris.length; i++) {
     const uri = localUris[i];
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+    const base64 = await new File(uri).base64();
     const path = `${userId}/${i}-${Date.now()}.jpg`;
     const { error } = await supabase.storage
       .from('listing-photos')
@@ -217,12 +217,13 @@ export type MyProfile = {
   contact_phone: string | null;
   contact_email: string | null;
   notify_prefs: NotifyPrefs;
+  heard_from: string | null;
 };
 
 export async function fetchMyProfile(userId: string): Promise<MyProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, school_unit, class_year, bio, avatar_url, contact_instagram, contact_phone, contact_email, notify_prefs')
+    .select('id, display_name, school_unit, class_year, bio, avatar_url, contact_instagram, contact_phone, contact_email, notify_prefs, heard_from')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -562,6 +563,42 @@ export async function generateDescription(title: string, category: string): Prom
   }
   const body = await res.json();
   return body.description as string;
+}
+
+// Contact channels, in the order that decides the primary one. Mirrors
+// METHOD_ORDER in web src/lib/validation.ts — /api/me validates contact_method
+// against the same list.
+const METHOD_ORDER = ['instagram', 'phone', 'email'] as const;
+
+export type OnboardingInput = {
+  display_name: string;
+  class_year: string;
+  school_unit: string | null;
+  heard_from: string;
+  heard_from_detail: string | null;
+  contact_instagram: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+};
+
+// Finish onboarding. Goes through /api/me rather than a direct table write so
+// the server keeps enforcing the heard_from CHECK and its write-once rule —
+// a direct Supabase update would bypass both.
+export async function completeOnboarding(input: OnboardingInput): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Not signed in.');
+  const contact_method =
+    METHOD_ORDER.find((m) => input[`contact_${m}` as keyof OnboardingInput]) ?? null;
+  const res = await fetch(`${API_BASE}/api/me`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ...input, contact_method }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Could not save (${res.status})`);
+  }
 }
 
 // Update the signed-in user's own profile (RLS profiles_update_own allows it).
