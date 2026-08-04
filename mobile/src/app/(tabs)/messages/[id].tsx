@@ -28,6 +28,7 @@ import {
 } from '@/lib/messages';
 import { attachmentError, MAX_ATTACHMENTS_PER_MESSAGE } from '@/lib/validation';
 import { priceLabel } from '@/lib/listings';
+import { SkeletonChat } from '@/components/Skeleton';
 import { T, F, S } from '@/lib/theme';
 
 function timeLabel(iso: string) {
@@ -75,18 +76,34 @@ const BUBBLE_W = 220;
 const MAX_H = 320;
 
 function ChatImage({ uri, width, height }: { uri: string; width: number | null; height: number | null }) {
-  // expo-image can measure the file itself, so an unknown ratio resolves once
-  // the image loads rather than staying cropped.
+  // expo-image measures the file itself, so a photo whose dimensions were
+  // never stored still resolves to its true ratio once loaded.
   const [ratio, setRatio] = useState<number | null>(width && height ? width / height : null);
-  const h = ratio ? Math.min(BUBBLE_W / ratio, MAX_H) : BUBBLE_W;
+
+  // Scale to the photo's own proportions. A tall photo gets a narrower bubble
+  // rather than a clamped height: capping height alone forced portrait shots
+  // into a short, wide box, which is what made them look cropped.
+  let w = BUBBLE_W;
+  let h = BUBBLE_W;
+  if (ratio) {
+    h = BUBBLE_W / ratio;
+    if (h > MAX_H) {
+      h = MAX_H;
+      w = MAX_H * ratio;
+    }
+  }
+
   return (
     <Image
       source={{ uri }}
-      style={{ width: BUBBLE_W, height: h, borderRadius: 12, backgroundColor: T.fieldbg }}
+      style={{ width: w, height: h, borderRadius: 12, backgroundColor: T.fieldbg }}
+      // 'cover' only while the ratio is unknown, where the box is square and
+      // cover avoids letterboxing. Once known, the box matches the photo, so
+      // contain and cover agree and nothing is cut off.
       contentFit={ratio ? 'contain' : 'cover'}
       onLoad={(e) => {
-        const { width: w, height: hh } = e.source ?? {};
-        if (!ratio && w && hh) setRatio(w / hh);
+        const { width: w2, height: h2 } = e.source ?? {};
+        if (!ratio && w2 && h2) setRatio(w2 / h2);
       }}
     />
   );
@@ -238,7 +255,7 @@ export default function ThreadScreen() {
   if (state === 'loading') {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop }}>
+        <View style={{ flex: 1, paddingHorizontal: S.gutter, paddingTop: S.screenTop }}>
           <Pressable
             onPress={() => goBackTo('/(tabs)/requests')}
             hitSlop={10}
@@ -247,6 +264,7 @@ export default function ThreadScreen() {
             <Ionicons name="chevron-back" size={20} color={T.muted} />
             <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.muted }}>Back</Text>
           </Pressable>
+          <SkeletonChat />
         </View>
       </SafeAreaView>
     );

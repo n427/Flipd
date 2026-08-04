@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, Scrol
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { goBack } from '@/lib/nav';
 import { supabase } from '@/lib/supabase';
 import { VERIFY_HELP, SUPPORT_EMAIL } from '@/lib/legal';
@@ -13,7 +13,6 @@ const RESEND_SECONDS = 30;
 
 export default function Verify() {
   const { email } = useLocalSearchParams<{ email: string }>();
-  const router = useRouter();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');

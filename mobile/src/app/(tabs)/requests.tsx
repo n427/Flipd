@@ -9,6 +9,7 @@ import { useSession } from '@/lib/session';
 import { fetchSafetyReview, SafetyReview, fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest } from '@/lib/listings';
 import { fetchThreads, ThreadSummary } from '@/lib/messages';
 import { useUnread } from '@/lib/unread';
+import { SkeletonRows } from '@/components/Skeleton';
 import { T, F, S } from '@/lib/theme';
 
 // Status → label + colors (badge).
@@ -145,9 +146,9 @@ function Row({
                 color: T.cardinal,
               }}
             >
-              {thread?.last_message ? 'Open chat' : 'Open chat · no messages yet'}
+              {thread?.last_message_at ? 'Open chat' : 'Open chat · no messages yet'}
             </Text>
-            {thread?.last_message ? (
+            {thread?.last_message?.trim() ? (
               <Text
                 numberOfLines={1}
                 style={{
@@ -401,9 +402,11 @@ export default function Requests() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop }}>
+          <SkeletonRows count={4} />
+        </View>
+      </SafeAreaView>
     );
   }
 

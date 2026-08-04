@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FormScroll } from '@/components/FormScroll';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { } from 'expo-router';
 import { goBackTo } from '@/lib/nav';
 import { EdgeSwipeBack } from '@/components/EdgeSwipeBack';
 import { useSession } from '@/lib/session';
@@ -23,7 +23,6 @@ const NOTIFY_EVENTS: { id: NotifyEvent; label: string }[] = [
 ];
 
 export default function EditProfile() {
-  const router = useRouter();
   const { user } = useSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

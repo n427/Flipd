@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { fetchFeed, FeedListing, priceLabel } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SkeletonRows } from '@/components/Skeleton';
 import { T, F, S } from '@/lib/theme';
 
 // Event feed: recent campus activity (new listings). Distinct from the chat
@@ -44,9 +45,11 @@ export default function Notifications() {
 
   if (state === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop }}>
+          <SkeletonRows count={4} />
+        </View>
+      </SafeAreaView>
     );
   }
 
