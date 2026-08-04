@@ -105,12 +105,27 @@ export default function ThreadScreen() {
     if (!id) return;
     try {
       const { thread, messages: rows } = await fetchThread(id);
+      // A slow response for the thread we just left must not overwrite this
+      // one. Expo Router reuses this component across ids, so both requests
+      // resolve into the same instance.
+      if (thread.id !== id) return;
       setHead(thread);
       setMessages(rows);
       setState('ready');
     } catch {
       setState('error');
     }
+  }, [id]);
+
+  // Clear on thread change, before the fetch resolves. Without this the
+  // previous conversation stays on screen (state === 'ready') until the new
+  // one lands, which reads as the chat being slow to switch.
+  useEffect(() => {
+    setHead(null);
+    setMessages([]);
+    setState('loading');
+    setDraft('');
+    setPending([]);
   }, [id]);
 
   useEffect(() => {

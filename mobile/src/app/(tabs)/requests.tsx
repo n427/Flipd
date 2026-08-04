@@ -7,6 +7,7 @@ import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { SafetyCard } from '@/components/SafetyCard';
 import { useSession } from '@/lib/session';
 import { fetchSafetyReview, SafetyReview, fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest } from '@/lib/listings';
+import { fetchThreads, ThreadSummary } from '@/lib/messages';
 import { useUnread } from '@/lib/unread';
 import { T, F, S } from '@/lib/theme';
 
@@ -226,6 +227,10 @@ export default function Requests() {
   // both replace native Alerts, which felt out of place in the app.
   const [completing, setCompleting] = useState<RevealRequest | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Open conversations get their own section: a chat outlives the request that
+  // created it, so burying it inside the originating row hides it once that
+  // row scrolls away.
+  const [threads, setThreads] = useState<ThreadSummary[]>([]);
   // AI review of the person who sent an incoming request, so a seller can
   // check who is asking before approving.
   const [reviewing, setReviewing] = useState<RevealRequest | null>(null);
@@ -249,9 +254,14 @@ export default function Requests() {
     if (!user) return;
     try {
       setError(false);
-      const { incoming, outgoing } = await fetchRequests(user.id);
+      const [{ incoming, outgoing }, rows] = await Promise.all([
+        fetchRequests(user.id),
+        // Advisory: a failed thread fetch must not blank the request list.
+        fetchThreads().catch(() => [] as ThreadSummary[]),
+      ]);
       setIncoming(incoming);
       setOutgoing(outgoing);
+      setThreads(rows);
     } catch (e) {
       setError(true);
       if (__DEV__) console.warn('[requests] load failed:', e);
@@ -365,13 +375,15 @@ export default function Requests() {
   }
 
   const sections = [
-    { title: 'People who want to talk', data: incoming, incoming: true },
-    { title: 'Requests you sent', data: outgoing, incoming: false },
+    { title: 'Chats', data: [] as RevealRequest[], incoming: false, chats: threads },
+    { title: 'People who want to talk', data: incoming, incoming: true, chats: [] },
+    { title: 'Requests you sent', data: outgoing, incoming: false, chats: [] },
   ]
-    .filter((s) => s.data.length > 0)
+    .filter((s) => s.data.length > 0 || s.chats.length > 0)
     .map((s) => ({
       ...s,
-      total: s.data.length,
+      total: s.chats.length || s.data.length,
+      chats: expanded[s.title] ? s.chats : s.chats.slice(0, PREVIEW_COUNT),
       data: expanded[s.title] ? s.data : s.data.slice(0, PREVIEW_COUNT),
     }));
 
@@ -426,6 +438,49 @@ export default function Requests() {
           sections={sections}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          renderSectionFooter={({ section }) =>
+            section.chats.length ? (
+              <View style={{ gap: 10, marginBottom: 10 }}>
+                {section.chats.map((t) => (
+                  <Pressable
+                    key={t.id}
+                    onPress={() => router.push(`/(tabs)/messages/${t.id}`)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      backgroundColor: '#fff',
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderColor: T.rule,
+                      padding: 14,
+                    }}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {t.unread ? (
+                          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: T.cardinal }} />
+                        ) : null}
+                        <Text
+                          numberOfLines={1}
+                          style={{ flex: 1, fontFamily: t.unread ? F.extrabold : F.bold, fontSize: 15, color: T.ink }}
+                        >
+                          {t.counterpart?.display_name || 'Flipd member'}
+                        </Text>
+                      </View>
+                      <Text numberOfLines={1} style={{ fontFamily: F.medium, fontSize: 12.5, color: T.muted, marginTop: 2 }}>
+                        {t.listing_title || 'A listing'}
+                      </Text>
+                      <Text numberOfLines={1} style={{ fontFamily: F.regular, fontSize: 13.5, color: T.muted, marginTop: 4 }}>
+                        {t.last_message || 'No messages yet'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={17} color={T.muted} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : null
+          }
           renderSectionHeader={({ section }) => (
             <View
               style={{
