@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, SectionList, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert, Linking, Modal, TextInput } from 'react-native';
+import { View, Text, SectionList, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/session';
-import { fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest, SharedContact } from '@/lib/listings';
+import { fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
 import { T, F, S } from '@/lib/theme';
 
@@ -26,35 +26,12 @@ function Badge({ status }: { status: string }) {
   );
 }
 
-// The other party's shared contact, shown once approved. Each row deep-links
-// to the right app (Instagram / dialer / mail) when tapped.
-function ContactBlock({ contact }: { contact: SharedContact }) {
-  const rows: { icon: keyof typeof Ionicons.glyphMap; value: string; href: string }[] = [];
-  if (contact.instagram) {
-    const handle = contact.instagram.replace(/^@/, '');
-    rows.push({ icon: 'logo-instagram', value: `@${handle}`, href: `https://instagram.com/${handle}` });
-  }
-  if (contact.phone) rows.push({ icon: 'call-outline', value: contact.phone, href: `tel:${contact.phone}` });
-  if (contact.email) rows.push({ icon: 'mail-outline', value: contact.email, href: `mailto:${contact.email}` });
-  if (rows.length === 0) return null;
-  return (
-    <View style={{ borderTopWidth: 1, borderTopColor: T.rule, paddingHorizontal: 16, paddingVertical: 12, gap: 10 }}>
-      <Text style={{ fontFamily: F.bold, fontSize: 11, color: T.muted, letterSpacing: 0.6, textTransform: 'uppercase' }}>
-        Contact
-      </Text>
-      {rows.map((r) => (
-        <Pressable
-          key={r.href}
-          onPress={() => Linking.openURL(r.href)}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
-        >
-          <Ionicons name={r.icon} size={17} color={T.cardinal} />
-          <Text style={{ fontFamily: F.semibold, fontSize: 14.5, color: T.cardinal }}>{r.value}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
+// Offered when declining. Matches DECLINE_REASONS in the reveals API.
+const DECLINE_REASONS = [
+  { id: 'bad_timing', label: 'Bad timing' },
+  { id: 'already_sold', label: 'Already sold' },
+  { id: 'not_enough_info', label: 'Not enough info' },
+] as const;
 
 function Row({
   item,
@@ -62,10 +39,12 @@ function Row({
   onRespond,
   onComplete,
   onRate,
+  onOpenChat,
   busy,
 }: {
   item: RevealRequest;
   onPress: () => void;
+  onOpenChat?: (threadId: string) => void;
   // Present only on incoming rows the current user can act on.
   onRespond?: (action: 'approve' | 'decline') => void;
   onComplete?: () => void;
@@ -114,7 +93,34 @@ function Row({
         <Badge status={item.status} />
       </Pressable>
 
-      {item.contact ? <ContactBlock contact={item.contact} /> : null}
+      {/* The buyer's own words: the basis for the seller's decision, and for
+          services the only way to know what is actually being asked for. */}
+      {item.intro_message ? (
+        <View style={{ borderTopWidth: 1, borderTopColor: T.rule, paddingHorizontal: 16, paddingVertical: 12 }}>
+          <Text style={{ fontFamily: F.regular, fontSize: 14, lineHeight: 20, color: '#333' }}>
+            {item.intro_message}
+          </Text>
+        </View>
+      ) : null}
+
+      {item.thread_id ? (
+        <Pressable
+          onPress={() => onOpenChat?.(item.thread_id!)}
+          style={{
+            borderTopWidth: 1,
+            borderTopColor: T.rule,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <Ionicons name="chatbubble-outline" size={16} color={T.cardinal} />
+          <Text style={{ flex: 1, fontFamily: F.bold, fontSize: 14.5, color: T.cardinal }}>Open chat</Text>
+          <Ionicons name="chevron-forward" size={16} color={T.muted} />
+        </Pressable>
+      ) : null}
 
       {canRespond ? (
         <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: T.rule }}>
@@ -220,18 +226,18 @@ export default function Requests() {
   // Seller approves or declines an incoming reveal. Approving shares contact
   // both ways (the server emails both parties). Reload so the badge updates.
   const respond = useCallback(
-    async (id: string, action: 'approve' | 'decline', markSold = false) => {
+    async (id: string, action: 'approve' | 'decline', declineReason?: string, markSold = false) => {
       setBusyId(id);
       try {
-        await respondReveal(id, action, markSold);
+        await respondReveal(id, action, markSold, declineReason);
         await load();
         refreshBadge();
         if (action === 'approve') {
           Alert.alert(
             markSold ? 'Approved & marked sold' : 'Approved',
             markSold
-              ? 'You each got the other’s contact. The listing is now archived and other pending requests were declined.'
-              : 'You each got the other’s contact. It’s shown on this request.',
+              ? 'Your chat is open. The listing is now archived and other pending requests were declined.'
+              : 'Your chat is open. Tap Open chat on this request to start talking.',
           );
         }
       } catch (e) {
@@ -249,8 +255,8 @@ export default function Requests() {
     (id: string) => {
       Alert.alert('Approve this request?', 'Share contact info with this buyer.', [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Approve only', onPress: () => respond(id, 'approve', false) },
-        { text: 'Approve & mark sold', style: 'destructive', onPress: () => respond(id, 'approve', true) },
+        { text: 'Approve only', onPress: () => respond(id, 'approve', undefined, false) },
+        { text: 'Approve & mark sold', style: 'destructive', onPress: () => respond(id, 'approve', undefined, true) },
       ]);
     },
     [respond],
@@ -283,6 +289,7 @@ export default function Requests() {
 
   // --- Rating sheet ---
   const [rateFor, setRateFor] = useState<RevealRequest | null>(null);
+  const [declining, setDeclining] = useState<RevealRequest | null>(null);
   const [score, setScore] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [savingRating, setSavingRating] = useState(false);
@@ -391,16 +398,64 @@ export default function Requests() {
               onPress={() => router.push(`/(tabs)/listing/${item.listing_id}?from=requests`)}
               onRespond={
                 section.incoming
-                  ? (action) => (action === 'approve' ? onApprove(item.id) : respond(item.id, 'decline'))
+                  ? (action) => (action === 'approve' ? onApprove(item.id) : setDeclining(item))
                   : undefined
               }
               onComplete={() => onComplete(item.id)}
               onRate={() => openRate(item)}
+              onOpenChat={(threadId) => router.push(`/(tabs)/messages/${threadId}`)}
               busy={busyId === item.id}
             />
           )}
         />
       </SafeAreaView>
+
+      {/* Decline sheet — a reason is optional, so declining stays one tap. */}
+      <Modal visible={!!declining} animationType="slide" transparent onRequestClose={() => setDeclining(null)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 36 }}>
+            <Text style={{ fontFamily: F.extrabold, fontSize: 19, color: T.ink, letterSpacing: -0.3 }}>
+              Decline {declining?.counterpart?.display_name?.split(' ')[0] || 'this request'}?
+            </Text>
+            <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6, lineHeight: 20 }}>
+              Adding a reason is optional, and it helps them know whether to try again.
+            </Text>
+            {DECLINE_REASONS.map((r) => (
+              <Pressable
+                key={r.id}
+                onPress={async () => {
+                  const target = declining;
+                  setDeclining(null);
+                  if (target) await respond(target.id, 'decline', r.id);
+                }}
+                style={{
+                  marginTop: 10,
+                  borderWidth: 1,
+                  borderColor: T.rule,
+                  borderRadius: 12,
+                  paddingVertical: 13,
+                  paddingHorizontal: 15,
+                }}
+              >
+                <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>{r.label}</Text>
+              </Pressable>
+            ))}
+            <Pressable
+              onPress={async () => {
+                const target = declining;
+                setDeclining(null);
+                if (target) await respond(target.id, 'decline');
+              }}
+              style={{ marginTop: 14, alignItems: 'center' }}
+            >
+              <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Decline without a reason</Text>
+            </Pressable>
+            <Pressable onPress={() => setDeclining(null)} style={{ marginTop: 12, alignItems: 'center' }}>
+              <Text style={{ fontFamily: F.medium, color: T.ink, fontSize: 14.5 }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* Rating sheet */}
       <Modal visible={!!rateFor} animationType="slide" transparent onRequestClose={() => setRateFor(null)}>

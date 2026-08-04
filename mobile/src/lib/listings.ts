@@ -352,7 +352,6 @@ export type RevealCounterpart = {
 
 // Contact methods shared once a request is approved/completed. Only the methods
 // each side actually offered are present.
-export type SharedContact = { instagram?: string; phone?: string; email?: string };
 
 export type RevealRequest = {
   id: string;
@@ -362,8 +361,12 @@ export type RevealRequest = {
   listing_id: string;
   listing_title: string | null;
   counterpart: RevealCounterpart | null;
-  // Present only when approved/completed — the contact you're owed.
-  contact?: SharedContact;
+  // What the buyer wrote when asking: the basis for the seller's decision.
+  intro_message?: string | null;
+  decline_reason?: string | null;
+  // Present once approved. Contact details are never exchanged now — the
+  // conversation happens in-app and this points at it.
+  thread_id?: string | null;
   // Sellers: an unseen incoming request. Buyers: an unseen resolution.
   unread?: boolean;
   // Completed and the viewer hasn't left their rating yet.
@@ -567,7 +570,7 @@ export async function fetchUserListings(userId: string): Promise<FeedListing[]> 
 // Generate a listing description via the web API (server-side Anthropic key).
 // Sends the user's Supabase access token so the route can authenticate the
 // mobile client (see web src/lib/supabase/authAny.ts).
-const API_BASE = 'https://www.flipdcampus.com';
+export const API_BASE = 'https://www.flipdcampus.com';
 export async function generateDescription(title: string, category: string): Promise<string> {
   const token = await requireToken();
   const res = await fetch(`${API_BASE}/api/generate-description`, {
@@ -644,12 +647,13 @@ export async function respondReveal(
   id: string,
   action: 'approve' | 'decline' | 'complete',
   markSold = false,
+  declineReason?: string | null,
 ): Promise<void> {
   const token = await requireToken();
   const res = await fetch(`${API_BASE}/api/reveals/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ action, mark_sold: markSold }),
+    body: JSON.stringify({ action, mark_sold: markSold, decline_reason: declineReason ?? null }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -682,37 +686,20 @@ export async function uploadAvatar(localUri: string): Promise<string> {
   return (await res.json()).avatar_url as string;
 }
 
-// The buyer's own stored contact methods, so the reveal sheet can offer only
-// the ones they've actually filled in. Reading your own profile row is allowed
-// by RLS. Keys match what the reveal API expects in buyer_contact.
-export type MyContactMethods = { instagram?: string; phone?: string; email?: string };
-export async function fetchMyContactMethods(userId: string): Promise<MyContactMethods> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('contact_instagram, contact_phone, contact_email')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error) throw error;
-  const out: MyContactMethods = {};
-  if (data?.contact_instagram) out.instagram = data.contact_instagram;
-  if (data?.contact_phone) out.phone = data.contact_phone;
-  if (data?.contact_email) out.email = data.contact_email;
-  return out;
-}
-
-// Buyer requests the seller's contact. methods = which of the buyer's OWN
-// contact methods to share back (mutual reveal). offer is optional. Returns the
-// server's error code so the UI can special-case 'already requested'.
+// Buyer asks about a listing. introMessage is required: it's what the seller
+// approves on, and for services it's the only way they know what's being asked.
+// The server rejects contact details in it with a 422, so the UI runs the same
+// check first for fast feedback.
 export async function createReveal(
   listingId: string,
-  methods: string[],
+  introMessage: string,
   offer: number | null,
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const token = await requireToken();
   const res = await fetch(`${API_BASE}/api/reveals`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ listing_id: listingId, buyer_contact: methods, offer }),
+    body: JSON.stringify({ listing_id: listingId, intro_message: introMessage, offer }),
   });
   if (res.ok) return { ok: true };
   const body = await res.json().catch(() => ({}));

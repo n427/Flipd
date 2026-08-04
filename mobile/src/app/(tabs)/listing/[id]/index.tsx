@@ -10,25 +10,19 @@ import {
   fetchListing,
   deleteListing,
   setListingArchived,
-  fetchMyContactMethods,
   createReveal,
   fetchSavedIds,
   toggleSaved,
-  MyContactMethods,
   ListingDetail,
   priceLabel,
 } from '@/lib/listings';
+import { findThreadForListing } from '@/lib/messages';
 import { T, F } from '@/lib/theme';
+import { containsContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
 import { MapPreview } from '@/components/MapPreview';
 
 const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-
-const METHOD_META: Record<keyof MyContactMethods, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  instagram: { label: 'Instagram', icon: 'logo-instagram' },
-  phone: { label: 'Phone', icon: 'call-outline' },
-  email: { label: 'Email', icon: 'mail-outline' },
-};
 
 export default function ListingDetailScreen() {
   // `from` records which tab opened this listing, so back returns there
@@ -71,6 +65,8 @@ export default function ListingDetailScreen() {
       }
       setListing(l);
       setState('ready');
+      // Non-blocking: a failed lookup leaves the CTA as "Message seller".
+      findThreadForListing(String(id)).then(setThreadId);
     } catch {
       setState('error');
     }
@@ -122,54 +118,41 @@ export default function ListingDetailScreen() {
 
   // --- Buyer reveal flow ---
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [myMethods, setMyMethods] = useState<MyContactMethods | null>(null);
-  const [picked, setPicked] = useState<Set<keyof MyContactMethods>>(new Set());
+  const [intro, setIntro] = useState('');
   const [offer, setOffer] = useState('');
   const [sending, setSending] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
 
-  const openSheet = async () => {
+  // Same check the server runs. Here it only buys fast feedback: the API
+  // rejects independently with a 422.
+  const introBlocked = containsContactInfo(intro);
+  const canSend = intro.trim().length > 0 && !introBlocked && intro.length <= 600;
+
+  const openSheet = () => {
     if (!user) return;
     setSheetOpen(true);
-    if (myMethods === null) {
-      try {
-        const m = await fetchMyContactMethods(user.id);
-        setMyMethods(m);
-        // Preselect everything the buyer has — sharing all is the common intent.
-        setPicked(new Set(Object.keys(m) as (keyof MyContactMethods)[]));
-      } catch {
-        // Fall back to the empty state (add-contact CTA) instead of spinning.
-        setMyMethods({});
-      }
-    }
   };
 
-  const toggle = (k: keyof MyContactMethods) =>
-    setPicked((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
-    });
-
   const sendReveal = async () => {
-    if (!listing) return;
+    if (!listing || !canSend) return;
     setSending(true);
     try {
       const parsedOffer = parseInt(offer, 10);
       const res = await createReveal(
         listing.id,
-        Array.from(picked),
+        intro.trim(),
         Number.isFinite(parsedOffer) && parsedOffer > 0 ? parsedOffer : null,
       );
       if (res.ok) {
         setSheetOpen(false);
+        setIntro('');
         setRequested(true);
-        Alert.alert('Request sent', 'The seller will get an email. If they approve, you’ll each get the other’s contact.');
+        Alert.alert('Request sent', 'The seller has 72 hours to reply. If they approve, your chat opens right here in Flipd.');
       } else if (res.status === 409) {
         setSheetOpen(false);
         setRequested(true);
-        Alert.alert('Already requested', 'You’ve already asked for this seller’s contact.');
+        Alert.alert('Already asked', 'You already have a request on this listing.');
       } else {
         Alert.alert('Could not send', res.error);
       }
@@ -349,19 +332,21 @@ export default function ListingDetailScreen() {
           </View>
         ) : (
           <>
+            {/* An open conversation outranks the request CTA: someone who
+                already has a thread wants back into it, not to start over. */}
             <Pressable
-              onPress={requested ? undefined : openSheet}
-              disabled={requested}
+              onPress={threadId ? () => router.push(`/(tabs)/messages/${threadId}`) : requested ? undefined : openSheet}
+              disabled={!threadId && requested}
               style={{
-                backgroundColor: requested ? T.fieldbg : T.cardinal,
+                backgroundColor: !threadId && requested ? T.fieldbg : T.cardinal,
                 borderRadius: 14,
                 paddingVertical: 17,
                 alignItems: 'center',
                 marginTop: 24,
               }}
             >
-              <Text style={{ fontFamily: F.bold, color: requested ? T.muted : '#fff', fontSize: 16 }}>
-                {requested ? 'Request sent' : 'Reveal Contact'}
+              <Text style={{ fontFamily: F.bold, color: !threadId && requested ? T.muted : '#fff', fontSize: 16 }}>
+                {threadId ? 'Open chat' : requested ? 'Request sent' : 'Message seller'}
               </Text>
             </Pressable>
             <Text style={{ fontFamily: F.regular, color: T.muted, fontSize: 12.5, textAlign: 'center', marginTop: 8 }}>
@@ -376,113 +361,83 @@ export default function ListingDetailScreen() {
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
           <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 36 }}>
             <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, letterSpacing: -0.4 }}>
-              Request contact
+              Message {listing.seller?.display_name?.split(' ')[0] || 'the seller'}
             </Text>
             <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6, lineHeight: 20 }}>
-              Choose which of your contact methods to share back. The seller only sees them if they approve.
+              They see your name, school, and year with your message, and have 72 hours to reply. Approving opens a chat here in Flipd.
             </Text>
 
-            {myMethods === null ? (
-              <ActivityIndicator color={T.cardinal} style={{ marginVertical: 28 }} />
-            ) : Object.keys(myMethods).length === 0 ? (
-              <View style={{ marginTop: 20 }}>
-                <Text style={{ fontFamily: F.medium, fontSize: 14.5, color: T.ink, lineHeight: 21 }}>
-                  Add a contact method first so the seller can reach you back.
-                </Text>
-                <Pressable
-                  onPress={() => {
-                    setSheetOpen(false);
-                    router.push('/(tabs)/edit-profile');
-                  }}
-                  style={{ backgroundColor: T.cardinal, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 18 }}
-                >
-                  <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 15 }}>Add contact info</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <>
-                <View style={{ gap: 10, marginTop: 18 }}>
-                  {(Object.keys(myMethods) as (keyof MyContactMethods)[]).map((k) => {
-                    const on = picked.has(k);
-                    const meta = METHOD_META[k];
-                    return (
-                      <Pressable
-                        key={k}
-                        onPress={() => toggle(k)}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 12,
-                          borderWidth: 1.5,
-                          borderColor: on ? T.cardinal : T.rule,
-                          backgroundColor: on ? '#FDF2F2' : '#fff',
-                          borderRadius: 14,
-                          paddingVertical: 13,
-                          paddingHorizontal: 15,
-                        }}
-                      >
-                        <Ionicons name={meta.icon} size={20} color={on ? T.cardinal : T.muted} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.ink }}>{meta.label}</Text>
-                          <Text numberOfLines={1} style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginTop: 1 }}>
-                            {myMethods[k]}
-                          </Text>
-                        </View>
-                        <Ionicons
-                          name={on ? 'checkmark-circle' : 'ellipse-outline'}
-                          size={22}
-                          color={on ? T.cardinal : T.rule}
-                        />
-                      </Pressable>
-                    );
-                  })}
-                </View>
+            <TextInput
+              value={intro}
+              onChangeText={(t) => setIntro(t.slice(0, 700))}
+              placeholder="Say what you're after and when you could meet."
+              placeholderTextColor={T.muted}
+              multiline
+              style={{
+                marginTop: 16,
+                minHeight: 96,
+                borderWidth: 1,
+                borderColor: introBlocked ? T.danger : T.rule,
+                borderRadius: 12,
+                backgroundColor: T.fieldbg,
+                padding: 12,
+                fontFamily: F.regular,
+                fontSize: 15,
+                color: T.ink,
+                textAlignVertical: 'top',
+              }}
+            />
+            {/* Blocked rather than silently stripped: a buyer who thinks their
+                number went through would wait forever for a text. */}
+            <Text
+              style={{
+                fontFamily: F.regular,
+                fontSize: 12.5,
+                color: introBlocked ? T.danger : T.muted,
+                marginTop: 6,
+                lineHeight: 18,
+              }}
+            >
+              {introBlocked ? CONTACT_BLOCKED_MESSAGE : `${intro.length}/600`}
+            </Text>
 
-                {listing.negotiable ? (
-                  <View style={{ marginTop: 16 }}>
-                    <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.ink, marginBottom: 8 }}>Your offer (optional)</Text>
-                    <TextInput
-                      value={offer}
-                      onChangeText={(t) => setOffer(t.replace(/\D/g, ''))}
-                      placeholder={`Asking ${priceLabel(listing.price)}`}
-                      placeholderTextColor={T.muted}
-                      keyboardType="number-pad"
-                      style={{
-                        backgroundColor: T.fieldbg,
-                        borderRadius: 14,
-                        paddingHorizontal: 16,
-                        paddingVertical: 14,
-                        fontFamily: F.medium,
-                        fontSize: 15,
-                        color: T.ink,
-                      }}
-                    />
-                  </View>
-                ) : null}
+            {listing.negotiable && !listing.event_start ? (
+              <TextInput
+                value={offer}
+                onChangeText={(t) => setOffer(t.replace(/[^0-9]/g, '').slice(0, 6))}
+                placeholder="Your offer (optional)"
+                placeholderTextColor={T.muted}
+                keyboardType="number-pad"
+                style={{
+                  marginTop: 12,
+                  borderWidth: 1,
+                  borderColor: T.rule,
+                  borderRadius: 12,
+                  backgroundColor: T.fieldbg,
+                  padding: 13,
+                  fontFamily: F.medium,
+                  fontSize: 15,
+                  color: T.ink,
+                }}
+              />
+            ) : null}
 
-                <Pressable
-                  onPress={sendReveal}
-                  disabled={sending || picked.size === 0}
-                  style={{
-                    backgroundColor: T.cardinal,
-                    borderRadius: 14,
-                    paddingVertical: 16,
-                    alignItems: 'center',
-                    marginTop: 20,
-                    opacity: sending || picked.size === 0 ? 0.5 : 1,
-                  }}
-                >
-                  <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>
-                    {sending ? 'Sending…' : 'Send request'}
-                  </Text>
-                </Pressable>
-                {picked.size === 0 ? (
-                  <Text style={{ fontFamily: F.regular, fontSize: 12.5, color: T.muted, textAlign: 'center', marginTop: 8 }}>
-                    Pick at least one method to share.
-                  </Text>
-                ) : null}
-              </>
-            )}
+            <Pressable
+              onPress={sendReveal}
+              disabled={sending || !canSend}
+              style={{
+                marginTop: 16,
+                backgroundColor: T.cardinal,
+                borderRadius: 12,
+                paddingVertical: 14,
+                alignItems: 'center',
+                opacity: sending || !canSend ? 0.5 : 1,
+              }}
+            >
+              <Text style={{ fontFamily: F.bold, fontSize: 15.5, color: '#fff' }}>
+                {sending ? 'Sending…' : 'Send request'}
+              </Text>
+            </Pressable>
 
             <Pressable onPress={() => setSheetOpen(false)} style={{ marginTop: 14, alignItems: 'center' }}>
               <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>

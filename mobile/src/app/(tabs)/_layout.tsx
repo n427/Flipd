@@ -113,6 +113,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="listing/[id]/edit" options={{ href: null }} />
       <Tabs.Screen name="u/[id]" options={{ href: null }} />
       <Tabs.Screen name="edit-profile" options={{ href: null }} />
+      <Tabs.Screen name="messages/index" options={{ href: null }} />
+      <Tabs.Screen name="messages/[id]" options={{ href: null }} />
       <Tabs.Screen name="terms" options={{ href: null }} />
       <Tabs.Screen name="privacy" options={{ href: null }} />
       <Tabs.Screen name="support" options={{ href: null }} />
