@@ -224,7 +224,7 @@ export default function Requests() {
     setRefreshing(false);
   }, [load]);
 
-  // Seller approves or declines an incoming reveal. Approving shares contact
+  // Seller approves or declines an incoming request. Approving opens a chat
   // both ways (the server emails both parties). Reload so the badge updates.
   const respond = useCallback(
     async (id: string, action: 'approve' | 'decline', declineReason?: string, markSold = false) => {
@@ -254,7 +254,7 @@ export default function Requests() {
   // listing and declines everyone else waiting on it.
   const onApprove = useCallback(
     (id: string) => {
-      Alert.alert('Approve this request?', 'Share contact info with this buyer.', [
+      Alert.alert('Approve this request?', 'This opens a conversation with them in Flipd.', [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Approve only', onPress: () => respond(id, 'approve', undefined, false) },
         { text: 'Approve & mark sold', style: 'destructive', onPress: () => respond(id, 'approve', undefined, true) },
@@ -333,7 +333,7 @@ export default function Requests() {
   }
 
   const sections = [
-    { title: 'People who want your contact', data: incoming, incoming: true },
+    { title: 'People who want to talk', data: incoming, incoming: true },
     { title: 'Requests you sent', data: outgoing, incoming: false },
   ].filter((s) => s.data.length > 0);
 
@@ -354,7 +354,7 @@ export default function Requests() {
           <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, textAlign: 'center' }}>
             {error
               ? 'Check your connection, then pull down to refresh.'
-              : 'When you reveal contact on a listing, or someone requests yours, it shows up here.'}
+              : 'When you message a seller, or someone asks about your listing, it shows up here.'}
           </Text>
           {error ? (
             <Pressable

@@ -40,6 +40,7 @@ const scrollTo = (id: string) =>
 function Nav() {
   return (
     <header
+      className="landing-nav"
       style={{
         position: 'sticky', top: 0, zIndex: 20,
         display: 'flex', alignItems: 'center', gap: 28,
@@ -60,6 +61,7 @@ function Nav() {
           key={l.id}
           href={`#${l.id}`}
           onClick={(e) => { e.preventDefault(); scrollTo(l.id); }}
+          className="landing-nav-link"
           style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-2)', textDecoration: 'none' }}
         >
           {l.label}
@@ -82,7 +84,7 @@ function HeroAppVisual() {
     { price: '$7', title: 'Matcha drinks', img: 'https://picsum.photos/seed/flipd-matcha/400/400' },
   ];
   const floatCard = (t: typeof tiles[number], dur: string) => (
-    <div className="card" style={{ width: 168, animation: `drift ${dur} ease-in-out infinite`, boxShadow: 'var(--shadow-strong)' }}>
+    <div className="card hero-float" style={{ width: 168, animation: `drift ${dur} ease-in-out infinite`, boxShadow: 'var(--shadow-strong)' }}>
       <img src={t.img} alt="" style={{ width: '100%', height: 96, objectFit: 'cover', display: 'block' }} />
       <div style={{ padding: '8px 12px 12px' }}>
         <div style={{ fontWeight: 800, fontSize: 14 }}>{t.price}</div>
@@ -91,17 +93,17 @@ function HeroAppVisual() {
     </div>
   );
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28, padding: '56px 24px 0', animation: 'riseIn 1s cubic-bezier(.2,.7,.3,1) both 500ms' }}>
+    <div className="hero-visual" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28, padding: '56px 24px 0', animation: 'riseIn 1s cubic-bezier(.2,.7,.3,1) both 500ms' }}>
       <div style={{ display: 'none' }} className="hide-sm" />
       {floatCard(tiles[2], '5.4s')}
-      <div className="card" style={{ width: 300, boxShadow: 'var(--shadow-strong)' }}>
+      <div className="card hero-phone" style={{ width: 300, boxShadow: 'var(--shadow-strong)' }}>
         <div style={{ padding: '14px 16px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Wordmark size={17} />
           <Icon name="search" size={15} color="var(--ink)" />
         </div>
         <div style={{ display: 'flex', gap: 6, padding: '0 16px 12px' }}>
           {['All', 'Food', 'Services'].map((c, i) => (
-            <span key={c} style={{ fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: i === 0 ? 'var(--ink)' : 'var(--surface)', color: i === 0 ? '#fff' : 'var(--ink-2)' }}>{c}</span>
+            <span key={c} className="hero-chip" style={{ fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: i === 0 ? 'var(--ink)' : 'var(--surface)', color: i === 0 ? '#fff' : 'var(--ink-2)' }}>{c}</span>
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px 18px' }}>
@@ -121,7 +123,7 @@ function HeroAppVisual() {
 
 function Hero() {
   return (
-    <section style={{ textAlign: 'center', padding: '84px 24px 96px', overflow: 'hidden' }}>
+    <section className="landing-hero" style={{ textAlign: 'center', padding: '84px 24px 96px', overflow: 'hidden' }}>
       <div style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 100ms', fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>
         The USC Marketplace
       </div>
@@ -152,10 +154,10 @@ function HowItWorks() {
     { n: '3', title: 'Request Contact', body: 'The seller reviews your profile & reviews and has 72 hours to approve. Then you connect and meet up.' },
   ];
   return (
-    <section id="how" style={{ padding: '96px 24px', background: 'var(--surface)', scrollMarginTop: 60 }}>
+    <section id="how" className="landing-section" style={{ padding: '96px 24px', background: 'var(--surface)', scrollMarginTop: 60 }}>
       <div style={{ maxWidth: 980, margin: '0 auto' }}>
         <Reveal>
-          <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', textAlign: 'center', margin: '0 0 48px' }}>
+          <h2 className="landing-h2" style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', textAlign: 'center', margin: '0 0 48px' }}>
             Three simple steps
           </h2>
         </Reveal>
@@ -259,10 +261,10 @@ function Categories() {
     { icon: 'housing', label: 'Housing', sub: 'sublets · roommates' },
   ];
   return (
-    <section id="categories" style={{ padding: '96px 24px', scrollMarginTop: 60 }}>
+    <section id="categories" className="landing-section" style={{ padding: '96px 24px', scrollMarginTop: 60 }}>
       <div style={{ maxWidth: 980, margin: '0 auto' }}>
         <Reveal>
-          <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', textAlign: 'center', margin: '0 0 48px' }}>
+          <h2 className="landing-h2" style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', textAlign: 'center', margin: '0 0 48px' }}>
             Whatever campus is selling.
           </h2>
         </Reveal>
@@ -291,10 +293,10 @@ function Trust() {
     { stat: '72h', label: 'seller approval window' },
   ];
   return (
-    <section id="trust" style={{ padding: '96px 24px', background: 'var(--ink)', color: '#fff', scrollMarginTop: 60 }}>
+    <section id="trust" className="landing-section" style={{ padding: '96px 24px', background: 'var(--ink)', color: '#fff', scrollMarginTop: 60 }}>
       <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
         <Reveal>
-          <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', margin: '0 0 16px' }}>
+          <h2 className="landing-h2" style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', margin: '0 0 16px' }}>
             Trust &amp; safety is our<br />whole product
           </h2>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', maxWidth: 520, margin: '0 auto 48px', lineHeight: 1.6 }}>
@@ -305,7 +307,7 @@ function Trust() {
           {stats.map((s, i) => (
             <Reveal key={s.label} delay={i * 100}>
               <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 16, padding: '28px 20px' }}>
-                <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.03em' }}>{s.stat}</div>
+                <div className="trust-stat" style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.03em' }}>{s.stat}</div>
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>{s.label}</div>
               </div>
             </Reveal>
@@ -357,7 +359,7 @@ function JoinCTA() {
   };
 
   return (
-    <section id="join" style={{ padding: '110px 24px', textAlign: 'center', scrollMarginTop: 60 }}>
+    <section id="join" className="landing-section" style={{ padding: '110px 24px', textAlign: 'center', scrollMarginTop: 60 }}>
       <Reveal>
         <h2 style={{ fontSize: 'clamp(30px, 5vw, 44px)', fontWeight: 800, letterSpacing: '-0.04em', margin: '0 0 12px' }}>
           Got an @usc.edu email?<br />You're already in.
@@ -427,7 +429,7 @@ function JoinCTA() {
 
 function Footer() {
   return (
-    <footer style={{ padding: '28px 32px', borderTop: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, fontSize: 12, color: 'var(--muted)' }}>
+    <footer className="landing-footer" style={{ padding: '28px 32px', borderTop: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, fontSize: 12, color: 'var(--muted)' }}>
       <Wordmark size={15} />
       <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
         <a href="/terms" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Terms</a>
