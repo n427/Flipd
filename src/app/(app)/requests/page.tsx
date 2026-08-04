@@ -1,11 +1,12 @@
 'use client';
 
-// Seller inbox: incoming reveal requests grouped by listing. Approve reveals
-// your stored contact method to that buyer; decline closes just their request.
+// One inbox: conversations plus the requests that create them. Splitting these
+// across two pages meant an approved request lived in one place and its chat in
+// another, which is the same thing at two stages.
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Avatar, Button, BackLink } from '@/components/ui';
+import { Avatar, Button } from '@/components/ui';
 import { RequestTimeline, RatingModal } from '@/components/WebApp';
 import { SafetyCard, type SafetyReview } from '@/components/SafetyCard';
 import { useStore } from '@/lib/store-context';
@@ -19,6 +20,101 @@ const DECLINE_REASONS = [
   { id: 'already_sold', label: 'Already sold' },
   { id: 'not_enough_info', label: 'Not enough info' },
 ] as const;
+
+const sectionHeading: React.CSSProperties = {
+  fontWeight: 800,
+  fontSize: 16,
+  letterSpacing: '-0.02em',
+  color: 'var(--ink)',
+  margin: '0 0 14px',
+};
+
+type ThreadRow = {
+  id: string;
+  listing_title: string;
+  listing_photo: string | null;
+  counterpart: { id: string; display_name: string | null; avatar_url: string | null } | null;
+  last_message: string | null;
+  last_message_at: string | null;
+  unread: boolean;
+};
+
+function timeAgo(iso: string | null) {
+  if (!iso) return '';
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+// Conversations, newest activity first. Lives here rather than on its own page
+// so an approved request and its chat are one glance apart.
+function ThreadList() {
+  const [threads, setThreads] = React.useState<ThreadRow[] | null>(null);
+  React.useEffect(() => {
+    let alive = true;
+    fetch('/api/threads')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) setThreads(d?.threads ?? []); })
+      .catch(() => { if (alive) setThreads([]); });
+    return () => { alive = false; };
+  }, []);
+
+  if (threads === null) {
+    return <div style={{ padding: '30px 0', color: 'var(--muted)', fontSize: 13 }}>Loading…</div>;
+  }
+  if (threads.length === 0) {
+    return (
+      <div style={{ padding: '40px 20px', textAlign: 'center', border: '1px solid var(--rule)', borderRadius: 14 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>No conversations yet</div>
+        <div className="t-meta" style={{ fontSize: 12.5, marginTop: 6, lineHeight: 1.5 }}>
+          Ask about a listing, and once the seller approves you can talk here.
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={{ border: '1px solid var(--rule)', borderRadius: 14, overflow: 'hidden' }}>
+      {threads.map((t, i) => (
+        <Link
+          key={t.id}
+          href={`/messages/${t.id}`}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '13px 14px', textDecoration: 'none', color: 'inherit',
+            borderTop: i > 0 ? '1px solid var(--rule)' : 0,
+          }}
+        >
+          <Avatar name={t.counterpart?.display_name ?? '?'} src={t.counterpart?.avatar_url ?? undefined} size={40} tone="cream" />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ fontWeight: t.unread ? 800 : 600, fontSize: 14.5, color: 'var(--ink)' }}>
+                {t.counterpart?.display_name ?? 'Flipd member'}
+              </span>
+              <span className="t-meta" style={{ fontSize: 11.5, marginLeft: 'auto' }}>{timeAgo(t.last_message_at)}</span>
+            </div>
+            <div className="t-meta" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {t.listing_title}
+            </div>
+            {t.last_message && (
+              <div style={{
+                fontSize: 13, marginTop: 1,
+                color: t.unread ? 'var(--ink)' : 'var(--muted)',
+                fontWeight: t.unread ? 600 : 400,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {t.last_message}
+              </div>
+            )}
+          </div>
+          {t.unread && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />}
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 // Trust signals for the seller's decision. Swap counts read more honestly than
 // a star average early on, so the rating never appears on its own.
@@ -89,29 +185,38 @@ export default function RequestsPage() {
   };
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px 80px' }}>
-      <BackLink />
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 32px 80px' }}>
       <h1 style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em', color: 'var(--ink)', margin: '0 0 4px' }}>
         Requests
       </h1>
-      <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 28px' }}>
-        Requests you have received and sent. Approving opens a chat here in Flipd.
+      <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 26px' }}>
+        Your conversations, and the requests waiting on a reply.
       </p>
 
-      {byListing.size > 0 && (
-        <h2 style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 14px' }}>
-          People who want to talk
-        </h2>
-      )}
+      {/* Conversations lead: an open chat is live, a request is only a maybe.
+          The grid collapses to one column under 900px. */}
+      <div className="inbox-grid">
+        <section>
+          <h2 style={sectionHeading}>Conversations</h2>
+          <ThreadList />
+        </section>
 
-      {byListing.size === 0 && outgoing.length === 0 && (
-        <div style={{ padding: '70px 0', textAlign: 'center' }}>
-          <div className="t-h3" style={{ color: 'var(--ink)' }}>No requests yet</div>
-          <div className="t-meta" style={{ fontSize: 12.5, marginTop: 6 }}>
-            When you request contact on a listing, or someone requests yours, it shows up here.
-          </div>
-        </div>
-      )}
+        <section>
+          {byListing.size === 0 && outgoing.length === 0 ? (
+            <>
+              <h2 style={sectionHeading}>Requests</h2>
+              <div style={{ padding: '40px 20px', textAlign: 'center', border: '1px solid var(--rule)', borderRadius: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>No requests yet</div>
+                <div className="t-meta" style={{ fontSize: 12.5, marginTop: 6, lineHeight: 1.5 }}>
+                  When you message a seller, or someone asks about your listing, it shows up here.
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {byListing.size > 0 && (
+            <h2 style={sectionHeading}>People who want to talk</h2>
+          )}
 
       {[...byListing.entries()].map(([listingId, requests]) => (
         <div key={listingId} style={{ marginBottom: 28 }}>
@@ -127,7 +232,7 @@ export default function RequestsPage() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {requests.map((a) => (
-              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', border: '1px solid var(--rule)', borderRadius: 14, background: '#fff' }}>
+              <div key={a.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 15px', border: '1px solid var(--rule)', borderRadius: 14, background: '#fff' }}>
                 <Avatar name={a.who} src={a.avatarUrl} size={44} tone="cream" />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -171,7 +276,7 @@ export default function RequestsPage() {
                   )}
                 </div>
                 {a.status === 'PENDING' ? (
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                     <Button kind="primary" size="sm" onClick={() => approve(a)}>Approve</Button>
                     <Button kind="ghost" size="sm" onClick={() => setDeclining(a)}>Decline</Button>
                   </div>
@@ -199,7 +304,7 @@ export default function RequestsPage() {
             {outgoing.map((a) => (
               <div
                 key={a.id}
-                style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', border: '1px solid var(--rule)', borderRadius: 14, background: '#fff' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 15px', border: '1px solid var(--rule)', borderRadius: 14, background: '#fff' }}
               >
                 <Avatar name={a.who} src={a.avatarUrl} size={44} tone="cream" />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -244,6 +349,8 @@ export default function RequestsPage() {
           </div>
         </div>
       )}
+        </section>
+      </div>
 
       {confirmSold && (
         <div onClick={() => setConfirmSold(null)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(17,17,17,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>

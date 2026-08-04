@@ -116,9 +116,6 @@ export function WebAppHeader({
             <span style={{ minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{pendingCount}</span>
           )}
         </a>
-        <a href="/messages" style={{ textDecoration: 'none', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>
-          Messages
-        </a>
         <button onClick={onBell} aria-label="Notifications" style={{ background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
           <Icon name="bell" size={18} color="var(--ink)" />
           {unreadCount > 0 && (
@@ -1619,7 +1616,7 @@ function EmptyState({ icon, title, sub }: { icon: string; title: string; sub: st
 export function WebProfile({
   store, onListing, onApprove, onDecline, onEdit,
 }: { store: FlipdStore; onListing: (l: Listing) => void; onApprove: (id: string) => void; onDecline: (id: string) => void; onEdit: () => void }) {
-  const [tab, setTab] = React.useState<'listings' | 'past' | 'saved' | 'activity' | 'reviews'>('listings');
+  const [tab, setTab] = React.useState<'listings' | 'past' | 'saved' | 'reviews'>('listings');
   const displayName = store.me?.display_name ?? 'Your profile';
   const avatarName = store.me?.display_name ?? 'Me';
   const [rating, setRating] = React.useState<ActivityItem | null>(null);
@@ -1666,7 +1663,6 @@ export function WebProfile({
             { id: 'listings', label: 'My Listings', count: store.pendingCount || null },
             { id: 'past', label: 'Past Listings', count: store.pastListings.length },
             { id: 'saved', label: 'Saved', count: store.savedListings.length },
-            { id: 'activity', label: 'Activity', count: store.pendingCount || null },
             { id: 'reviews', label: 'Reviews', count: summary.count || null },
           ] as const).map((t) => {
             const active = tab === t.id;
@@ -1715,17 +1711,6 @@ export function WebProfile({
               {store.savedListings.map((l) => <ListingCard key={l.id} listing={l} href={`/listing/${l.id}`} />)}
             </div>
           ))}
-        {tab === 'activity' && (
-          store.activity.length === 0 ? (
-            <EmptyState icon="bell" title="No activity yet" sub="Reveal requests you send and receive show up here." />
-          ) : (
-            <div>
-              {store.activity.map((a, i) => (
-                <ActivityRow key={a.id} a={a} onApprove={onApprove} onDecline={onDecline} onRate={setRating} last={i === store.activity.length - 1} />
-              ))}
-            </div>
-          )
-        )}
         {tab === 'reviews' && (
           summary.reviews.length === 0 ? (
             <EmptyState icon="star" title="No reviews yet" sub="After a completed sale, the other party can leave you a rating." />
