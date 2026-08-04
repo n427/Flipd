@@ -91,6 +91,24 @@ function fallbackReview(s: ProfileSignals, role: 'seller' | 'buyer'): SafetyRevi
   };
 }
 
+/** Whole days since the account was created, or null if unknown. */
+function accountAgeDays(iso: string | null): number | null {
+  if (!iso) return null;
+  const ms = Date.now() - new Date(iso).getTime();
+  return Number.isFinite(ms) ? Math.max(0, Math.floor(ms / 86_400_000)) : null;
+}
+
+/** Human phrasing for account age, used in both the prompt and the bullets. */
+function ageLabel(days: number | null): string {
+  if (days === null) return 'unknown';
+  if (days < 1) return 'today';
+  if (days === 1) return '1 day ago';
+  if (days < 30) return `${days} days ago`;
+  if (days < 60) return 'about a month ago';
+  if (days < 365) return `about ${Math.round(days / 30)} months ago`;
+  return days < 730 ? 'over a year ago' : `over ${Math.floor(days / 365)} years ago`;
+}
+
 /** Plain factual bullets — no interpretation, safe to show either way. */
 function describe(s: ProfileSignals): string[] {
   const out: string[] = [];
@@ -98,6 +116,7 @@ function describe(s: ProfileSignals): string[] {
     [s.school_unit, s.class_year].filter(Boolean).join(' · ') || 'No school or year on their profile',
   );
   out.push(s.has_avatar ? 'Has a profile photo' : 'No profile photo');
+  out.push(`Joined ${ageLabel(accountAgeDays(s.member_since))}`);
   const done = s.completed_as_buyer + s.completed_as_seller;
   out.push(done === 0 ? 'No completed transactions yet' : `${done} completed transaction${done === 1 ? '' : 's'}`);
   if (s.rating_count > 0 && s.rating_avg !== null) {
@@ -144,11 +163,20 @@ Base the verdict only on profile completeness and transaction history:
 - mixed: some signal but notable gaps
 - thin: little to go on, typically a new account
 
+Account age matters: an account created in the last few days with no history is
+thin regardless of how complete the profile looks, because anyone can fill in a
+profile instantly. An older account with a track record is stronger evidence.
+Do not treat a new account as suspicious on its own, though - every real
+student is new once, and the whole marketplace is a few months old.
+
 Facts:
 - Name given: ${signals.display_name ?? 'none'}
 - School: ${signals.school_unit ?? 'not provided'}
 - Class year: ${signals.class_year ?? 'not provided'}
 - Profile photo: ${signals.has_avatar ? 'yes' : 'no'}
+- Account created: ${ageLabel(accountAgeDays(signals.member_since))}${
+    accountAgeDays(signals.member_since) !== null ? ` (${accountAgeDays(signals.member_since)} days ago)` : ''
+  }
 - Completed transactions: ${signals.completed_as_buyer + signals.completed_as_seller}
 - Ratings: ${signals.rating_count} (${signals.rating_avg?.toFixed(1) ?? 'none'} average)
 

@@ -12,9 +12,9 @@ import { GESTURES_SUPPORTED } from '@/lib/gestures';
  */
 export function EdgeSwipeBack({ onBack, children }: { onBack: () => void; children: ReactNode }) {
   if (GESTURES_SUPPORTED) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- must stay lazy; a static import crashes Expo Go
-    const { EdgeSwipeBackGesture } =
-      require('./EdgeSwipeBackGesture') as typeof import('./EdgeSwipeBackGesture');
+    // Must stay lazy: a static import crashes Expo Go.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EdgeSwipeBackGesture } = require('./EdgeSwipeBackGesture') as typeof import('./EdgeSwipeBackGesture');
     return <EdgeSwipeBackGesture onBack={onBack}>{children}</EdgeSwipeBackGesture>;
   }
   return <View style={{ flex: 1 }}>{children}</View>;

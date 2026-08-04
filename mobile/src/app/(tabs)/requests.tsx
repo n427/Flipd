@@ -4,12 +4,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
+import { SafetyCard } from '@/components/SafetyCard';
 import { useSession } from '@/lib/session';
-import { fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest } from '@/lib/listings';
+import { fetchSafetyReview, SafetyReview, fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
 import { T, F, S } from '@/lib/theme';
 
 // Status → label + colors (badge).
+// Rows shown per section before "See all".
+const PREVIEW_COUNT = 2;
+
 const STATUS: Record<string, { label: string; bg: string; fg: string }> = {
   pending: { label: 'Pending', bg: '#FFF3D6', fg: '#8A6D1A' },
   approved: { label: 'Approved', bg: '#E4F3E7', fg: '#1E6B33' },
@@ -38,6 +42,7 @@ function Row({
   item,
   onPress,
   onRespond,
+  onReview,
   onComplete,
   onRate,
   onOpenChat,
@@ -46,6 +51,8 @@ function Row({
   item: RevealRequest;
   onPress: () => void;
   onOpenChat?: (threadId: string) => void;
+  // Incoming rows only: open the AI review of whoever is asking.
+  onReview?: () => void;
   // Present only on incoming rows the current user can act on.
   onRespond?: (action: 'approve' | 'decline') => void;
   onComplete?: () => void;
@@ -123,6 +130,24 @@ function Row({
         </Pressable>
       ) : null}
 
+      {canRespond && onReview ? (
+        <Pressable
+          onPress={onReview}
+          style={{
+            borderTopWidth: 1,
+            borderTopColor: T.rule,
+            paddingVertical: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+          }}
+        >
+          <Ionicons name="sparkles-outline" size={14} color={T.cardinal} />
+          <Text style={{ fontFamily: F.bold, fontSize: 13.5, color: T.cardinal }}>Review profile</Text>
+        </Pressable>
+      ) : null}
+
       {canRespond ? (
         <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: T.rule }}>
           <Pressable
@@ -194,6 +219,27 @@ export default function Requests() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Each section previews PREVIEW_COUNT rows until "See all" is tapped. Keyed
+  // by section title so the two expand independently.
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // AI review of the person who sent an incoming request, so a seller can
+  // check who is asking before approving.
+  const [reviewing, setReviewing] = useState<RevealRequest | null>(null);
+  const [review, setReview] = useState<SafetyReview | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+
+  const openReview = useCallback((item: RevealRequest) => {
+    setReviewing(item);
+    setReview(null);
+    const id = item.counterpart?.id;
+    if (!id) return;
+    setReviewLoading(true);
+    // The counterparty on an incoming request is the buyer.
+    fetchSafetyReview(id, 'buyer')
+      .then(setReview)
+      .catch(() => setReview(null))
+      .finally(() => setReviewLoading(false));
+  }, []);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -335,7 +381,13 @@ export default function Requests() {
   const sections = [
     { title: 'People who want to talk', data: incoming, incoming: true },
     { title: 'Requests you sent', data: outgoing, incoming: false },
-  ].filter((s) => s.data.length > 0);
+  ]
+    .filter((s) => s.data.length > 0)
+    .map((s) => ({
+      ...s,
+      total: s.data.length,
+      data: expanded[s.title] ? s.data : s.data.slice(0, PREVIEW_COUNT),
+    }));
 
   if (!sections.length) {
     // Scrollable so pull-to-refresh actually works here — this used to be a
@@ -389,9 +441,28 @@ export default function Requests() {
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           renderSectionHeader={({ section }) => (
-            <Text style={{ fontFamily: F.extrabold, fontSize: 15, color: T.ink, marginBottom: 10, marginTop: 8 }}>
-              {section.title}
-            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 10,
+                marginTop: 8,
+              }}
+            >
+              <Text style={{ fontFamily: F.extrabold, fontSize: 15, color: T.ink }}>{section.title}</Text>
+              {/* Only offer it when the preview is actually hiding something. */}
+              {section.total > PREVIEW_COUNT ? (
+                <Pressable
+                  onPress={() => setExpanded((e) => ({ ...e, [section.title]: !e[section.title] }))}
+                  hitSlop={8}
+                >
+                  <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.cardinal }}>
+                    {expanded[section.title] ? 'Show less' : `See all ${section.total}`}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           )}
           renderItem={({ item, section }) => (
             <Row
@@ -402,6 +473,7 @@ export default function Requests() {
                   ? (action) => (action === 'approve' ? onApprove(item.id) : setDeclining(item))
                   : undefined
               }
+              onReview={section.incoming ? () => openReview(item) : undefined}
               onComplete={() => onComplete(item.id)}
               onRate={() => openRate(item)}
               onOpenChat={(threadId) => router.push(`/(tabs)/messages/${threadId}`)}
@@ -410,6 +482,41 @@ export default function Requests() {
           )}
         />
       </SafeAreaView>
+
+      {/* AI review of whoever sent an incoming request. Read-only: the
+          Approve/Decline buttons stay on the row itself. */}
+      <Sheet visible={!!reviewing} onClose={() => setReviewing(null)}>
+        <SheetGrabber />
+        <View>
+          <Text style={{ fontFamily: F.extrabold, fontSize: 19, color: T.ink, letterSpacing: -0.3 }}>
+            {reviewing?.counterpart?.display_name || 'This Trojan'}
+          </Text>
+          <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6, lineHeight: 20 }}>
+            {[reviewing?.counterpart?.school_unit, reviewing?.counterpart?.class_year]
+              .filter(Boolean)
+              .join(' · ') || 'No school or year on their profile'}
+          </Text>
+
+          <View style={{ marginTop: 16 }}>
+            <SafetyCard review={review} loading={reviewLoading} />
+          </View>
+
+          {reviewing?.intro_message ? (
+            <View style={{ marginTop: 14 }}>
+              <Text style={{ fontFamily: F.bold, fontSize: 12, color: T.muted, letterSpacing: 0.5, marginBottom: 6 }}>
+                THEIR MESSAGE
+              </Text>
+              <Text style={{ fontFamily: F.regular, fontSize: 14.5, color: T.ink, lineHeight: 21 }}>
+                {reviewing.intro_message}
+              </Text>
+            </View>
+          ) : null}
+
+          <Pressable onPress={() => setReviewing(null)} style={{ marginTop: 20, alignItems: 'center' }}>
+            <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Close</Text>
+          </Pressable>
+        </View>
+      </Sheet>
 
       {/* Decline sheet — a reason is optional, so declining stays one tap. */}
       <Sheet visible={!!declining} onClose={() => setDeclining(null)}>
