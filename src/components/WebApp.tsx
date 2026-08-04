@@ -8,6 +8,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Icon } from './Icon';
 import { LocationPicker } from './LocationPicker';
+import { SafetyCard, type SafetyReview } from './SafetyCard';
 import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, Pill, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { classYearLabel, filterListings, formatPostedDate, photoCropStyle, useFlipdStore, type FlipdStore } from '@/lib/store';
@@ -1783,6 +1784,20 @@ export function RevealModal({ listing, me, onClose, onContinue }: { listing: Lis
   const [offerText, setOfferText] = React.useState('');
   const [intro, setIntro] = React.useState('');
   const [touched, setTouched] = React.useState(false);
+  const [safety, setSafety] = React.useState<SafetyReview | null>(null);
+  const [safetyLoading, setSafetyLoading] = React.useState(true);
+
+  // Advisory only: a failed or slow review must never block sending, so this
+  // never gates the Send button and a null result renders nothing.
+  React.useEffect(() => {
+    let alive = true;
+    setSafetyLoading(true);
+    fetch(`/api/safety?user=${listing.seller.id}&role=seller`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) { setSafety(d?.review ?? null); setSafetyLoading(false); } })
+      .catch(() => { if (alive) { setSafety(null); setSafetyLoading(false); } });
+    return () => { alive = false; };
+  }, [listing.seller.id]);
   // Only sellers who marked the listing "open to offers" accept them.
   const canOffer = !!listing.negotiable && !listing.eventStart;
   const firstName = listing.seller.name.split(' ')[0];
@@ -1810,18 +1825,16 @@ export function RevealModal({ listing, me, onClose, onContinue }: { listing: Lis
 
   return (
     <ModalScrim onClose={onClose}>
-      <div style={{ background: '#fff', borderRadius: 8, padding: 0, width: 460, overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.18)', fontFamily: 'var(--sans)' }}>
-        <div style={{ background: 'var(--ink)', color: '#fff', padding: '28px 28px', display: 'flex', alignItems: 'center', gap: 14, position: 'relative' }}>
-          <Icon name="shield" size={26} color="#fff" />
-          <div className="t-eyebrow" style={{ color: '#fff', fontSize: 14, letterSpacing: '0.2em' }}>SEND A REQUEST</div>
-        </div>
-        <div style={{ padding: '24px 28px' }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 0, width: 460, overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.18)', fontFamily: 'var(--sans)' }}>
+        <div style={{ padding: '26px 28px 24px' }}>
           <h2 style={{ fontWeight: 800, fontSize: 24, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 10px' }}>
             Message <em style={{ color: 'var(--accent)', fontStyle: 'normal' }}>{firstName}</em>
           </h2>
           <p className="t-body" style={{ fontSize: 13.5, margin: '0 0 16px' }}>
             {firstName} sees your <strong>name</strong>, <strong>school</strong>, and <strong>year</strong> with your message, and has 72 hours to reply. Approving opens a chat right here in Flipd.
           </p>
+
+          <SafetyCard review={safety} loading={safetyLoading} />
 
           <label className="field-label">Your message</label>
           <textarea

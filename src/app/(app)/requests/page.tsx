@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, Button, BackLink } from '@/components/ui';
 import { RequestTimeline, RatingModal } from '@/components/WebApp';
+import { SafetyCard, type SafetyReview } from '@/components/SafetyCard';
 import { useStore } from '@/lib/store-context';
 import { timeLeftLabel, swapCountLabel } from '@/lib/validation';
 import type { ActivityItem } from '@/lib/types';
@@ -49,6 +50,21 @@ function TrustLine({ userId }: { userId: string }) {
   );
 }
 
+// The counterparty on an incoming request is the buyer.
+function BuyerReview({ userId }: { userId: string }) {
+  const [review, setReview] = React.useState<SafetyReview | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    let alive = true;
+    fetch(`/api/safety?user=${userId}&role=buyer`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) { setReview(d?.review ?? null); setLoading(false); } })
+      .catch(() => { if (alive) { setReview(null); setLoading(false); } });
+    return () => { alive = false; };
+  }, [userId]);
+  return <div style={{ marginTop: 8 }}><SafetyCard review={review} loading={loading} /></div>;
+}
+
 export default function RequestsPage() {
   const router = useRouter();
   const store = useStore();
@@ -57,6 +73,9 @@ export default function RequestsPage() {
   const [rating, setRating] = React.useState<ActivityItem | null>(null);
 
   const incoming = store.activity.filter((a) => a.dir === 'in');
+  // Requests you sent. Mobile shows these in a second section; on web they had
+  // nowhere to live, so a buyer could not see what they had asked for.
+  const outgoing = store.activity.filter((a) => a.dir === 'out');
   const byListing = new Map<string, ActivityItem[]>();
   for (const a of incoming) {
     byListing.set(a.listingId, [...(byListing.get(a.listingId) ?? []), a]);
@@ -79,7 +98,13 @@ export default function RequestsPage() {
         Buyers who asked for your contact. Approving shares the contact method from your profile with that buyer.
       </p>
 
-      {byListing.size === 0 && (
+      {byListing.size > 0 && (
+        <h2 style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 14px' }}>
+          People who want to talk
+        </h2>
+      )}
+
+      {byListing.size === 0 && outgoing.length === 0 && (
         <div style={{ padding: '70px 0', textAlign: 'center' }}>
           <div className="t-h3" style={{ color: 'var(--ink)' }}>No requests yet</div>
           <div className="t-meta" style={{ fontSize: 12.5, marginTop: 6 }}>
@@ -120,6 +145,11 @@ export default function RequestsPage() {
                     )}
                   </div>
                   <TrustLine userId={a.counterpartId ?? ''} />
+                  {/* AI review of the buyer, at the moment of deciding.
+                      Advisory: it renders nothing if the fetch fails. */}
+                  {a.status === 'PENDING' && a.counterpartId && (
+                    <BuyerReview userId={a.counterpartId} />
+                  )}
                   {/* The buyer's own words: the single biggest input to this
                       decision, and for services the only way to know what is
                       actually being asked for. */}
