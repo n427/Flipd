@@ -222,6 +222,10 @@ export default function Requests() {
   // Each section previews PREVIEW_COUNT rows until "See all" is tapped. Keyed
   // by section title so the two expand independently.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Confirmation sheet for completing a deal, and an inline error line —
+  // both replace native Alerts, which felt out of place in the app.
+  const [completing, setCompleting] = useState<RevealRequest | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   // AI review of the person who sent an incoming request, so a seller can
   // check who is asking before approving.
   const [reviewing, setReviewing] = useState<RevealRequest | null>(null);
@@ -273,22 +277,17 @@ export default function Requests() {
   // Seller approves or declines an incoming request. Approving opens a chat
   // both ways (the server emails both parties). Reload so the badge updates.
   const respond = useCallback(
-    async (id: string, action: 'approve' | 'decline', declineReason?: string, markSold = false) => {
+    async (id: string, action: 'approve' | 'decline', declineReason?: string) => {
       setBusyId(id);
+      setActionError(null);
       try {
-        await respondReveal(id, action, markSold, declineReason);
+        await respondReveal(id, action, false, declineReason);
         await load();
         refreshBadge();
-        if (action === 'approve') {
-          Alert.alert(
-            markSold ? 'Approved & marked sold' : 'Approved',
-            markSold
-              ? 'Your chat is open. The listing is now archived and other pending requests were declined.'
-              : 'Your chat is open. Tap Open chat on this request to start talking.',
-          );
-        }
       } catch (e) {
-        Alert.alert('Could not update', e instanceof Error ? e.message : 'Try again.');
+        // Inline, not a native alert: the row's own status is the confirmation,
+        // so an error only needs to be visible, not blocking.
+        setActionError(e instanceof Error ? e.message : 'Could not update. Try again.');
       } finally {
         setBusyId(null);
       }
@@ -296,43 +295,30 @@ export default function Requests() {
     [load, refreshBadge],
   );
 
-  // Approve taps ask whether this closes the sale, since that also archives the
-  // listing and declines everyone else waiting on it.
-  const onApprove = useCallback(
-    (id: string) => {
-      Alert.alert('Approve this request?', 'This opens a conversation with them in Flipd.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Approve only', onPress: () => respond(id, 'approve', undefined, false) },
-        { text: 'Approve & mark sold', style: 'destructive', onPress: () => respond(id, 'approve', undefined, true) },
-      ]);
-    },
-    [respond],
-  );
+  // One tap. Approving just opens the chat, so there is nothing to confirm —
+  // marking a listing sold is a separate, deliberate action on the listing
+  // itself rather than a branch hidden inside Approve.
+  const onApprove = useCallback((id: string) => respond(id, 'approve'), [respond]);
 
   // Close out an approved deal. Once completed, both parties can rate.
-  const onComplete = useCallback(
-    (id: string) => {
-      Alert.alert('Mark this deal complete?', 'You’ll both be able to leave a rating.', [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Mark complete',
-          onPress: async () => {
-            setBusyId(id);
-            try {
-              await respondReveal(id, 'complete');
-              await load();
-              refreshBadge();
-            } catch (e) {
-              Alert.alert('Could not update', e instanceof Error ? e.message : 'Try again.');
-            } finally {
-              setBusyId(null);
-            }
-          },
-        },
-      ]);
-    },
-    [load, refreshBadge],
-  );
+  const onComplete = useCallback((item: RevealRequest) => setCompleting(item), []);
+
+  const confirmComplete = useCallback(async () => {
+    const item = completing;
+    if (!item) return;
+    setCompleting(null);
+    setBusyId(item.id);
+    setActionError(null);
+    try {
+      await respondReveal(item.id, 'complete');
+      await load();
+      refreshBadge();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not update. Try again.');
+    } finally {
+      setBusyId(null);
+    }
+  }, [completing, load, refreshBadge]);
 
   // --- Rating sheet ---
   const [rateFor, setRateFor] = useState<RevealRequest | null>(null);
@@ -474,7 +460,7 @@ export default function Requests() {
                   : undefined
               }
               onReview={section.incoming ? () => openReview(item) : undefined}
-              onComplete={() => onComplete(item.id)}
+              onComplete={() => onComplete(item)}
               onRate={() => openRate(item)}
               onOpenChat={(threadId) => router.push(`/(tabs)/messages/${threadId}`)}
               busy={busyId === item.id}
@@ -482,6 +468,37 @@ export default function Requests() {
           )}
         />
       </SafeAreaView>
+
+      {actionError ? (
+        <Pressable onPress={() => setActionError(null)} style={{ marginHorizontal: S.gutter, marginBottom: 10 }}>
+          <View style={{ backgroundColor: '#F3E4E4', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 }}>
+            <Text style={{ fontFamily: F.medium, fontSize: 13.5, color: T.danger }}>{actionError}</Text>
+          </View>
+        </Pressable>
+      ) : null}
+
+      {/* Completing archives nothing but does unlock ratings both ways, so it
+          still deserves a confirm — just an in-app one. */}
+      <Sheet visible={!!completing} onClose={() => setCompleting(null)}>
+        <SheetGrabber />
+        <View>
+          <Text style={{ fontFamily: F.extrabold, fontSize: 19, color: T.ink, letterSpacing: -0.3 }}>
+            Mark this deal complete?
+          </Text>
+          <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6, lineHeight: 20 }}>
+            You&apos;ll both be able to leave a rating.
+          </Text>
+          <Pressable
+            onPress={confirmComplete}
+            style={{ marginTop: 20, backgroundColor: T.cardinal, borderRadius: 14, paddingVertical: 15, alignItems: 'center' }}
+          >
+            <Text style={{ fontFamily: F.bold, fontSize: 15.5, color: '#fff' }}>Mark complete</Text>
+          </Pressable>
+          <Pressable onPress={() => setCompleting(null)} style={{ marginTop: 14, alignItems: 'center' }}>
+            <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
+          </Pressable>
+        </View>
+      </Sheet>
 
       {/* AI review of whoever sent an incoming request. Read-only: the
           Approve/Decline buttons stay on the row itself. */}

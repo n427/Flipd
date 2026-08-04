@@ -29,7 +29,11 @@ type RevealRow = {
   listing_title: string | null;
   buyer: ProfileRef | null;
   seller: ProfileRef | null;
-  thread: { id: string }[] | null;
+  // message_threads.request_id is UNIQUE, so PostgREST embeds this as a single
+  // object, not an array. Typing it as an array made `thread[0]` compile while
+  // always evaluating to undefined, so thread_id was silently null on every
+  // request and no Open chat link ever appeared.
+  thread: { id: string } | { id: string }[] | null;
 };
 // Contact columns are deliberately absent: contact details are never shared
 // between users now that conversations happen in-app. Phone and email are
@@ -84,7 +88,7 @@ function toDto(row: RevealRow, viewerId: string, ratedRequestIds: Set<string> = 
     decline_reason: row.decline_reason,
     // Present once approved: where the conversation lives. Replaces the
     // contact payload this endpoint used to return.
-    thread_id: row.thread?.[0]?.id ?? null,
+    thread_id: (Array.isArray(row.thread) ? row.thread[0]?.id : row.thread?.id) ?? null,
   };
   return dto;
 }
