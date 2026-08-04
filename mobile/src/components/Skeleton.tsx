@@ -92,16 +92,24 @@ export function SkeletonChat() {
   // Mirrors the real bubbles: your side is cardinal-tinted and right-aligned,
   // theirs is the neutral fill on the left. A uniformly gray stack reads as a
   // loading bar; this reads as a conversation that has not painted yet.
+  // Enough rows to reach the composer on a tall screen: a list that stops
+  // halfway down looks like it finished loading with two messages.
   const rows: { mine: boolean; width: DimensionValue; height: number }[] = [
     { mine: false, width: '58%', height: 34 },
     { mine: true, width: '44%', height: 34 },
     { mine: false, width: '70%', height: 54 },
     { mine: true, width: '38%', height: 34 },
     { mine: false, width: '52%', height: 34 },
-    { mine: true, width: '62%', height: 34 },
+    { mine: true, width: '62%', height: 44 },
+    { mine: false, width: '46%', height: 34 },
+    { mine: true, width: '55%', height: 34 },
+    { mine: false, width: '64%', height: 44 },
   ];
   return (
-    <View style={{ flex: 1, gap: 10, justifyContent: 'flex-end', paddingBottom: 12 }}>
+    // Flows from the top like the real message list. flex-end pinned every
+    // bubble to the bottom of the screen, which read as a condensed clump
+    // under an empty page rather than a thread mid-load.
+    <View style={{ flex: 1, gap: 12, paddingTop: 4 }}>
       {rows.map((r, i) => (
         <Animated.View
           key={i}

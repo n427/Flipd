@@ -119,41 +119,27 @@ function Row({
             paddingVertical: 11,
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 10,
+            gap: 8,
           }}
         >
-          {/* Unread takes the dot's place, so the row never jumps width. */}
+          {/* One line: the message itself is the affordance, so the row reads
+              as "• I want ur shirt >" rather than a label stacked above a
+              preview. The dot only occupies space when unread. */}
           {thread?.unread ? (
-            <View style={{ width: 16, alignItems: 'center' }}>
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: T.cardinal }} />
-            </View>
-          ) : (
-            <Ionicons name="chatbubble-outline" size={16} color={T.cardinal} />
-          )}
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text
-              style={{
-                fontFamily: thread?.unread ? F.extrabold : F.bold,
-                fontSize: 14.5,
-                color: T.cardinal,
-              }}
-            >
-              {thread?.last_message_at ? 'Open chat' : 'Open chat · no messages yet'}
-            </Text>
-            {thread?.last_message?.trim() ? (
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontFamily: thread.unread ? F.medium : F.regular,
-                  fontSize: 13,
-                  color: thread.unread ? T.ink : T.muted,
-                  marginTop: 3,
-                }}
-              >
-                {thread.last_message}
-              </Text>
-            ) : null}
-          </View>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: T.cardinal }} />
+          ) : null}
+          <Text
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              fontFamily: thread?.unread ? F.bold : F.regular,
+              fontSize: 14,
+              color: thread?.last_message?.trim() ? (thread.unread ? T.ink : T.muted) : T.muted,
+            }}
+          >
+            {thread?.last_message?.trim() ||
+              (thread?.last_message_at ? 'Photo' : 'Start the conversation')}
+          </Text>
           <Ionicons name="chevron-forward" size={16} color={T.muted} />
         </Pressable>
       ) : null}
