@@ -189,7 +189,7 @@ export default function Setup() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-      <FormScroll contentContainerStyle={{ paddingHorizontal: 24, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}>
+      <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}>
         <Text style={{ fontFamily: F.black, fontSize: 22, color: T.ink, letterSpacing: -0.9 }}>
           Flipd<Text style={{ color: T.gold }}>.</Text>
         </Text>
@@ -202,13 +202,13 @@ export default function Setup() {
             <View style={{ alignItems: 'center', marginBottom: 24 }}>
               <Pressable onPress={pickAvatar} disabled={uploading}>
                 {avatar ? (
-                  <Image source={{ uri: avatar }} style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: T.rule }} contentFit="cover" />
+                  <Image source={{ uri: avatar }} style={{ width: 96, height: 96, borderRadius: 48, borderWidth: 1, borderColor: T.rule }} contentFit="cover" />
                 ) : (
                   <View
                     style={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: 40,
+                      width: 96,
+                      height: 96,
+                      borderRadius: 48,
                       backgroundColor: T.fieldbg,
                       borderWidth: 1.5,
                       borderColor: T.rule,
@@ -228,7 +228,7 @@ export default function Setup() {
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      borderRadius: 40,
+                      borderRadius: 48,
                       backgroundColor: 'rgba(0,0,0,0.35)',
                       alignItems: 'center',
                       justifyContent: 'center',

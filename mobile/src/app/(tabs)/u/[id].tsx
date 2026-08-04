@@ -181,7 +181,9 @@ export default function PublicProfile() {
         numColumns={2}
         style={{ backgroundColor: T.bg }}
         contentContainerStyle={{
-          paddingHorizontal: S.gridGutter,
+          // 10 + each card's own 6pt margin = a 16pt edge, matching every
+          // other screen's gutter. gridGutter (6) put cards at 12pt.
+          paddingHorizontal: 10,
           paddingTop: S.screenTop,
           paddingBottom: S.screenBottom,
         }}

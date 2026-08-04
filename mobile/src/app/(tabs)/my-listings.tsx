@@ -74,7 +74,11 @@ export default function MyListings() {
         keyExtractor={(l) => l.id}
         numColumns={2}
         style={{ backgroundColor: T.bg }}
-        contentContainerStyle={{ paddingHorizontal: S.gridGutter, paddingBottom: S.screenBottom }}
+        contentContainerStyle={{
+          // 10 + the card's own 6pt margin = 16pt, matching the header row above.
+          paddingHorizontal: 10,
+          paddingBottom: S.screenBottom,
+        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={{ padding: 40, alignItems: 'center' }}>
