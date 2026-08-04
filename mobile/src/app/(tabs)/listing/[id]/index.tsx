@@ -61,9 +61,24 @@ export default function ListingDetailScreen() {
     }
   };
 
+  // Expo Router reuses this component for every /listing/<id>, so state
+  // survives the navigation: without this the previous listing stays on screen
+  // (state === 'ready') until the new fetch lands, which reads as a flicker
+  // through the wrong post. Clearing on id change shows the loader instead.
+  useEffect(() => {
+    setListing(null);
+    setState('loading');
+    setThreadId(null);
+    setSafety(null);
+    setSheetOpen(false);
+  }, [id]);
+
   const load = useCallback(async () => {
     try {
       const l = await fetchListing(String(id));
+      // The route component is reused across ids, so a slow response for a
+      // previous listing can land after we've already moved on. Ignore it.
+      if (String(l?.id ?? '') !== String(id)) return;
       if (!l) {
         setState('notfound');
         return;

@@ -9,9 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -32,17 +33,60 @@ function timeLabel(iso: string) {
   return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
-// expo-video needs a player instance per source, so video attachments render
-// through their own component rather than inline in the message map.
-function VideoAttachment({ uri }: { uri: string }) {
-  const player = useVideoPlayer(uri);
+// expo-video is a NATIVE module: it does not exist in the Expo Go binary, and a
+// static import would crash this whole screen there — taking the entire
+// conversation with it, not just video playback.
+//
+// So it is required lazily and only in a dev/production build. In Expo Go a
+// video renders as a tappable card that opens in the system player instead.
+// Text, photos, and sending all keep working.
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+let VideoModule: typeof import('expo-video') | null = null;
+if (!IS_EXPO_GO) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    VideoModule = require('expo-video');
+  } catch {
+    // Older build without the module: fall back to the link card.
+    VideoModule = null;
+  }
+}
+
+function NativeVideo({ uri }: { uri: string }) {
+  // Non-null: only rendered when VideoModule loaded.
+  const player = VideoModule!.useVideoPlayer(uri);
+  const View_ = VideoModule!.VideoView;
   return (
-    <VideoView
+    <View_
       player={player}
       style={{ width: 220, height: 220, borderRadius: 12, backgroundColor: '#000' }}
       contentFit="cover"
       nativeControls
     />
+  );
+}
+
+function VideoAttachment({ uri }: { uri: string }) {
+  if (VideoModule) return <NativeVideo uri={uri} />;
+  return (
+    <Pressable
+      onPress={() => Linking.openURL(uri)}
+      style={{
+        width: 220,
+        height: 124,
+        borderRadius: 12,
+        backgroundColor: T.fieldbg,
+        borderWidth: 1,
+        borderColor: T.rule,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+      }}
+    >
+      <Ionicons name="play-circle" size={30} color={T.cardinal} />
+      <Text style={{ fontFamily: F.semibold, fontSize: 13, color: T.ink }}>Play video</Text>
+    </Pressable>
   );
 }
 
