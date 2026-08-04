@@ -67,6 +67,30 @@ function NativeVideo({ uri }: { uri: string }) {
   );
 }
 
+// Photos render at their own aspect ratio, bounded so a very tall image can't
+// take over the thread. Falls back to a square only when the dimensions are
+// unknown (older rows never stored them), which is the previous behaviour.
+const BUBBLE_W = 220;
+const MAX_H = 320;
+
+function ChatImage({ uri, width, height }: { uri: string; width: number | null; height: number | null }) {
+  // expo-image can measure the file itself, so an unknown ratio resolves once
+  // the image loads rather than staying cropped.
+  const [ratio, setRatio] = useState<number | null>(width && height ? width / height : null);
+  const h = ratio ? Math.min(BUBBLE_W / ratio, MAX_H) : BUBBLE_W;
+  return (
+    <Image
+      source={{ uri }}
+      style={{ width: BUBBLE_W, height: h, borderRadius: 12, backgroundColor: T.fieldbg }}
+      contentFit={ratio ? 'contain' : 'cover'}
+      onLoad={(e) => {
+        const { width: w, height: hh } = e.source ?? {};
+        if (!ratio && w && hh) setRatio(w / hh);
+      }}
+    />
+  );
+}
+
 function VideoAttachment({ uri }: { uri: string }) {
   if (VideoModule) return <NativeVideo uri={uri} />;
   return (
@@ -315,12 +339,7 @@ export default function ThreadScreen() {
                 <View style={{ gap: 6, marginBottom: item.body ? 6 : 0, alignItems: item.mine ? 'flex-end' : 'flex-start' }}>
                   {item.attachments.map((a) =>
                     a.url == null ? null : a.kind === 'image' ? (
-                      <Image
-                        key={a.id}
-                        source={{ uri: a.url }}
-                        style={{ width: 220, height: 220, borderRadius: 12 }}
-                        contentFit="cover"
-                      />
+                      <ChatImage key={a.id} uri={a.url} width={a.width} height={a.height} />
                     ) : (
                       <VideoAttachment key={a.id} uri={a.url} />
                     ),
