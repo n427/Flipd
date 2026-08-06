@@ -4,7 +4,7 @@
 // deferred opt-in: prefs carry the shape, nothing sends yet.
 import { admin } from './supabase/admin';
 
-export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message';
+export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message' | 'popup_reminder' | 'listing_match';
 
 // `app` is what the preference UI writes for push. `push` is the older key
 // from before in-app notifications had a name in the UI; it is still honoured
@@ -22,6 +22,14 @@ export function wantsEmail(prefs: unknown, event: NotifyEvent): boolean {
 export function wantsPush(prefs: unknown, event: NotifyEvent): boolean {
   const p = (prefs ?? {}) as NotifyPrefs;
   return p[event]?.app !== false && p[event]?.push !== false;
+}
+
+// SMS defaults OFF — the inverse of email and push. A text nobody asked for is
+// the fastest way to get a sender filtered by carriers, and an opt-out default
+// would contradict what consent means. Only an explicit `true` enables it.
+export function wantsSms(prefs: unknown, event: NotifyEvent): boolean {
+  const p = (prefs ?? {}) as NotifyPrefs;
+  return p[event]?.sms === true;
 }
 
 // The delivery address is the auth account's verified USC email — not the
