@@ -67,6 +67,39 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
   }
 }
 
+// SMS, provider-agnostic. Deliberately shaped like sendEmail: with nothing
+// configured the send is logged instead, so the whole notification path is
+// testable before a provider account exists.
+//
+// The endpoint is an env var, not a constant, so choosing a provider in Step 3
+// of the spec is a configuration change rather than a code change — and there
+// is no fake URL sitting in the source pretending to be wired up.
+//
+// Callers must gate on wantsSms() AND the profile's verified/consent
+// timestamps. This function does not check consent; it only delivers.
+export async function sendSms(to: string, body: string): Promise<void> {
+  const key = process.env.SMS_API_KEY;
+  const url = process.env.SMS_API_URL;
+  if (!key) {
+    console.log(`[notify] (no SMS_API_KEY — would send) to=${to} body="${body}"`);
+    return;
+  }
+  if (!url) {
+    console.log(`[notify] (no SMS provider configured — would send) to=${to} body="${body}"`);
+    return;
+  }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: process.env.SMS_FROM || '', to, body }),
+    });
+    if (!res.ok) console.error('[notify] sms failed', res.status, await res.text());
+  } catch (err) {
+    console.error('[notify] sms error', err);
+  }
+}
+
 // Push via Expo's push service. Best-effort: no tokens (or the table not yet
 // migrated) means a quiet no-op — never blocks the request. Expo dedupes and
 // routes to APNs/FCM for us, so we just POST the messages.
