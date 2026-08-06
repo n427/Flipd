@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - `wantsSms` defaults **OFF**. `wantsEmail` and `wantsPush` default ON; SMS must not follow that pattern.
-- `sendSms` logs instead of sending when no provider key is set — mirroring `sendEmail` with no `RESEND_API_KEY`.
+- `sendSms` logs instead of sending unless **both** `SMS_API_KEY` and `SMS_API_URL` are set — mirroring `sendEmail` with no `RESEND_API_KEY`. No provider endpoint is hardcoded; the URL is configuration.
 - Exactly **one** scheduled job. Do not add a second cron entry anywhere.
 - Producers must be isolated: a throwing producer cannot prevent another from running.
 - The sweep decides **what is due**, never **what time it is** — safe to run at any frequency, twice, or late.
@@ -117,11 +117,12 @@ git commit -m "feat(notify): wantsSms (default off) and listing_match event"
 
 **Files:**
 - Modify: `src/lib/notify.ts` — add `sendSms` after `sendEmail` (currently ends at line 60)
+- Modify: `.env.local.example` — document the three SMS keys
 - Test: `src/lib/notify.test.ts` (append)
 
 **Interfaces:**
 - Consumes: nothing from Task 1 at runtime; same file.
-- Produces: `sendSms(to: string, body: string): Promise<void>`. Never throws. Reads `SMS_API_KEY` and `SMS_FROM` from the environment.
+- Produces: `sendSms(to: string, body: string): Promise<void>`. Never throws. Reads `SMS_API_KEY`, `SMS_API_URL`, and `SMS_FROM` from the environment; logs instead of sending unless both `SMS_API_KEY` and `SMS_API_URL` are set.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -157,14 +158,58 @@ describe('sendSms', () => {
     expect(log).toHaveBeenCalledWith(expect.stringContaining('no SMS_API_KEY'));
   });
 
+  it('logs and does not call the network when a key is set but no URL is', async () => {
+    process.env.SMS_API_KEY = 'test-key';
+    delete process.env.SMS_API_URL;
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    await sendSms('+13105550123', 'hi');
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('no SMS provider configured'));
+  });
+
+  it('posts to the configured URL when both are set', async () => {
+    process.env.SMS_API_KEY = 'test-key';
+    process.env.SMS_API_URL = 'https://sms.test/v1/send';
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{}', { status: 200 }));
+
+    await sendSms('+13105550123', 'hi');
+
+    expect(fetchSpy).toHaveBeenCalledWith('https://sms.test/v1/send', expect.anything());
+  });
+
   it('never throws when the provider call fails', async () => {
     process.env.SMS_API_KEY = 'test-key';
+    process.env.SMS_API_URL = 'https://sms.test/v1/send';
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network down'));
 
     await expect(sendSms('+13105550123', 'hi')).resolves.toBeUndefined();
   });
 });
+```
+
+The `beforeEach`/`afterEach` above must save, clear, and restore **`SMS_API_URL`** alongside `SMS_API_KEY`, so these cases can't leak into each other:
+
+```ts
+  const realKey = process.env.SMS_API_KEY;
+  const realUrl = process.env.SMS_API_URL;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    delete process.env.SMS_API_KEY;
+    delete process.env.SMS_API_URL;
+  });
+  afterEach(() => {
+    if (realKey === undefined) delete process.env.SMS_API_KEY;
+    else process.env.SMS_API_KEY = realKey;
+    if (realUrl === undefined) delete process.env.SMS_API_URL;
+    else process.env.SMS_API_URL = realUrl;
+  });
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -177,21 +222,25 @@ Expected: FAIL — `sendSms is not a function`.
 In `src/lib/notify.ts`, after `sendEmail`:
 
 ```ts
-// SMS, provider-agnostic. Deliberately shaped like sendEmail: with no key set
-// the send is logged instead, so the whole notification path is testable before
-// a provider account exists. Swapping providers is a change to this function
-// body only — no caller knows which service is behind it.
+// SMS, provider-agnostic. Deliberately shaped like sendEmail: with nothing
+// configured the send is logged instead, so the whole notification path is
+// testable before a provider account exists.
+//
+// The endpoint is an env var, not a constant, so choosing a provider in Step 3
+// of the spec is a configuration change rather than a code change — and there
+// is no fake URL sitting in the source pretending to be wired up.
 //
 // Callers must gate on wantsSms() AND the profile's verified/consent
 // timestamps. This function does not check consent; it only delivers.
 export async function sendSms(to: string, body: string): Promise<void> {
   const key = process.env.SMS_API_KEY;
-  if (!key) {
-    console.log(`[notify] (no SMS_API_KEY — would send) to=${to} body="${body}"`);
+  const url = process.env.SMS_API_URL;
+  if (!key || !url) {
+    console.log(`[notify] (no SMS provider configured — would send) to=${to} body="${body}"`);
     return;
   }
   try {
-    const res = await fetch('https://api.example-sms-provider.com/v1/messages', {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: process.env.SMS_FROM || '', to, body }),
@@ -203,7 +252,15 @@ export async function sendSms(to: string, body: string): Promise<void> {
 }
 ```
 
-Note: the URL is a deliberate stand-in. Step 3 of the spec (the SMS subsystem) picks the real provider and replaces this line. Until then no key is set in any environment, so this branch never executes.
+Also add the two new keys to `.env.local.example` so the shape is discoverable:
+
+```
+SMS_API_KEY=
+SMS_API_URL=
+SMS_FROM=
+```
+
+The request body shape (`{from, to, body}`) is a reasonable default that Step 3 adjusts to whichever provider is chosen. What matters here is that no environment has these vars set, so the send branch stays dormant.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -504,20 +561,11 @@ git commit -m "refactor(cron): popup reminders become a sweep producer at /api/c
 
 **Interfaces:**
 - Consumes: the `/api/cron/sweep` route from Task 4.
-- Produces: a pg_cron job named `flipd-sweep-hourly`.
+- Produces: `supabase/migrations/031_sweep_schedule.sql`, which when applied creates a pg_cron job named `flipd-sweep-hourly`.
 
-- [ ] **Step 1: Store the two secrets in Supabase Vault**
+**Scope note:** this task writes and commits files only. Creating the Vault secrets, applying the migration to the hosted project, and confirming the first run all require Supabase dashboard access and a wall-clock wait — they are in the Operator Runbook at the end of this plan and are **not** part of this task. Do not attempt them, and do not treat the task as incomplete for not having done them.
 
-In the Supabase dashboard SQL editor, run once (values are **not** committed):
-
-```sql
-select vault.create_secret('https://www.flipdcampus.com', 'app_url');
-select vault.create_secret('<the CRON_SECRET value from Vercel>', 'cron_secret');
-```
-
-Verify: `select name from vault.decrypted_secrets;` lists both.
-
-- [ ] **Step 2: Write the migration**
+- [ ] **Step 1: Write the migration**
 
 Create `supabase/migrations/031_sweep_schedule.sql`:
 
@@ -552,7 +600,7 @@ select cron.schedule(
 );
 ```
 
-- [ ] **Step 3: Remove the Vercel cron**
+- [ ] **Step 2: Remove the Vercel cron**
 
 Replace `vercel.json` entirely with:
 
@@ -562,30 +610,17 @@ Replace `vercel.json` entirely with:
 
 The only key it held was `crons`. Leaving the daily entry would run a second scheduler against the same endpoint — harmless because the sent-flags make it idempotent, but it hides which scheduler is actually live.
 
-- [ ] **Step 4: Apply the migration and verify the job exists**
+- [ ] **Step 3: Verify both files are well-formed**
 
-Run the migration against the project, then in the SQL editor:
-
-```sql
-select jobname, schedule, active from cron.job where jobname = 'flipd-sweep-hourly';
+```bash
+node -e "JSON.parse(require('fs').readFileSync('vercel.json','utf8')); console.log('vercel.json parses')"
+test -f supabase/migrations/031_sweep_schedule.sql && echo "migration present"
+npx tsc --noEmit && echo "types ok"
 ```
 
-Expected: one row, `0 * * * *`, `active = true`.
+Expected: all three lines print. There is no unit test for this task — it produces SQL and config, not code paths. Correctness is verified by the Operator Runbook below, against the real project.
 
-- [ ] **Step 5: Verify the job actually fires**
-
-After the next hour boundary:
-
-```sql
-select status, return_message, start_time
-from cron.job_run_details
-where jobname = 'flipd-sweep-hourly'
-order by start_time desc limit 3;
-```
-
-Expected: `status = 'succeeded'`. A `401` in `return_message` means the Vault `cron_secret` doesn't match Vercel's `CRON_SECRET`.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add vercel.json supabase/migrations/031_sweep_schedule.sql
@@ -594,16 +629,49 @@ git commit -m "feat(sweep): hourly pg_cron schedule, drop the vercel daily cron"
 
 ---
 
+## Operator Runbook (human, after Task 5)
+
+These three steps need Supabase dashboard access and a wall-clock wait, so they sit outside the task loop. Until they are done the sweep is **not scheduled** — and because Task 4 deletes the old route while Task 5 removes the Vercel cron, popup reminders are paused in the gap. Run these promptly after the branch merges.
+
+**1. Create the Vault secrets** (SQL editor, values never committed):
+
+```sql
+select vault.create_secret('https://www.flipdcampus.com', 'app_url');
+select vault.create_secret('<the CRON_SECRET value from Vercel>', 'cron_secret');
+select name from vault.decrypted_secrets;   -- expect both listed
+```
+
+**2. Apply the migration, then confirm the job exists:**
+
+```sql
+select jobname, schedule, active from cron.job where jobname = 'flipd-sweep-hourly';
+```
+
+Expected: one row, `0 * * * *`, `active = true`.
+
+**3. After the next hour boundary, confirm it fires:**
+
+```sql
+select status, return_message, start_time
+from cron.job_run_details
+where jobname = 'flipd-sweep-hourly'
+order by start_time desc limit 3;
+```
+
+Expected: `status = 'succeeded'`. A `401` in `return_message` means the Vault `cron_secret` doesn't match Vercel's `CRON_SECRET`. A DNS or connection error means `app_url` is wrong.
+
+---
+
 ## Verification
 
 After all five tasks:
 
-- `npx vitest run` — all tests pass (12 new: 7 in `notify.test.ts`, 5 in `sweep/index.test.ts`)
+- `npx vitest run` — all tests pass (14 new: 9 in `notify.test.ts`, 5 in `sweep/index.test.ts`)
 - `npx tsc --noEmit` — exits 0
 - `GET /api/cron/sweep` without auth → `401`; with the secret → `{"ok":true,"counts":{"reminders":N},"errors":[]}`
 - `GET /api/cron/popup-reminders` → `404`
 - `cron.job` has exactly one Flipd row; `vercel.json` has no `crons` key
-- **No user-visible change:** a popup reminder that would have gone out today still goes out today
+- **No user-visible change once the Operator Runbook is done.** Between merge and runbook completion, reminders are paused — the old route is gone and the new schedule isn't live yet
 
 ## Out of Scope for This Plan
 
