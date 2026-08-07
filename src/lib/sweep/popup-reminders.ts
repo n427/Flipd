@@ -3,10 +3,15 @@ import { formatEventWindow } from '@/lib/validation';
 import { popupReminderEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
 import type { Producer } from './index';
 
-// Unchanged from the old /api/cron/popup-reminders route: emails each opted-in
-// buyer once for popups starting within the next 24h, then marks the reminder
-// sent. The two-stage 24h/1h split is a later step; this move is behavior-
-// preserving on purpose so the scheduler swap can be verified in isolation.
+// Moved from the old /api/cron/popup-reminders route, carrying one deliberate
+// fix: the pref check below now reads 'popup_reminder' instead of 'reminder'.
+// The old route sent popupReminderEmail (a popup starting soon) but gated it
+// on 'reminder', which actually governs "your request is expiring soon" — a
+// separate, independently-settable toggle. That meant the popup-reminder
+// setting never did anything, and turning off expiry reminders silently
+// killed popup reminders too. Everything else — the 24h lookahead and the
+// single reminded_at flag — is unchanged; the two-stage 24h/1h split is a
+// later step.
 async function run(): Promise<Record<string, number>> {
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
