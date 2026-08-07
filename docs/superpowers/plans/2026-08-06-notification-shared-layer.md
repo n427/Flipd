@@ -649,16 +649,53 @@ select jobname, schedule, active from cron.job where jobname = 'flipd-sweep-hour
 
 Expected: one row, `0 * * * *`, `active = true`.
 
-**3. After the next hour boundary, confirm it fires:**
+**3. After the next hour boundary, confirm it fires — and that the HTTP call actually succeeded:**
+
+`net.http_get` only *queues* the request; pg_net delivers the response asynchronously into
+`net._http_response`. That means `cron.job_run_details.status` turns `'succeeded'` as soon as
+pg_cron has queued the request — it can **never** show a 401 or any other HTTP failure. Checking
+`job_run_details` alone only proves the job *fired*, not that the sweep endpoint responded
+correctly, so treat it as a first-pass sanity check, not proof of success.
+
+First, confirm the job fired. Note `cron.job_run_details` has no `jobname` column — filter by
+`jobid` via a subquery on `cron.job`:
 
 ```sql
-select status, return_message, start_time
+select jobid, status, start_time
 from cron.job_run_details
-where jobname = 'flipd-sweep-hourly'
-order by start_time desc limit 3;
+where jobid = (select jobid from cron.job where jobname = 'flipd-sweep-hourly')
+order by start_time desc
+limit 3;
 ```
 
-Expected: `status = 'succeeded'`. A `401` in `return_message` means the Vault `cron_secret` doesn't match Vercel's `CRON_SECRET`. A DNS or connection error means `app_url` is wrong.
+Expected: one row per hour boundary, `status = 'succeeded'`. Again, this only means pg_cron
+queued the HTTP request — it says nothing about the response. Continue to the next query.
+
+Then check the real result in `net._http_response`. pg_cron does not preserve the request id that
+`net.http_get` returns, so there is no column to join on directly — correlate by time instead.
+This cron job is the only caller of `net.http_get` in this project, so the response row created
+just after the job's `start_time` above is the one that matters:
+
+```sql
+select id, status_code, error_msg, created
+from net._http_response
+where created >= (
+  select start_time
+  from cron.job_run_details
+  where jobid = (select jobid from cron.job where jobname = 'flipd-sweep-hourly')
+  order by start_time desc
+  limit 1
+)
+order by created asc
+limit 1;
+```
+
+Expected: `status_code = 200`.
+- `status_code = 401` means the Vault `cron_secret` doesn't match Vercel's `CRON_SECRET`.
+- A null `status_code` with a non-null `error_msg` (timeout, or a DNS/connect failure) means
+  either `app_url` is wrong, or the request exceeded the 30s timeout — e.g. a Vercel cold start
+  stacked with the route's own work (a per-row profile query, an `auth.admin.getUserById` call,
+  and a Resend POST).
 
 ---
 

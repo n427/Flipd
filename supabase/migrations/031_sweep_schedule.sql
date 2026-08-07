@@ -22,7 +22,12 @@ select cron.schedule(
     headers := jsonb_build_object(
       'Authorization',
       'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
-    )
+    ),
+    -- net.http_get defaults timeout_milliseconds to 1000, which is far too short to cover a
+    -- Vercel cold start plus the route's own work (a per-row profile query, a Supabase
+    -- auth.admin.getUserById call, and a Resend POST). Without this the request is aborted
+    -- before the route can finish.
+    timeout_milliseconds := 30000
   );
   $$
 );
