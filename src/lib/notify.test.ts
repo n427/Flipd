@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { wantsSms, wantsEmail, wantsPush, sendSms } from './notify';
+import { wantsSms, wantsEmail, wantsPush, sendSms, popupReminderEmail } from './notify';
 
 describe('wantsSms', () => {
   it('defaults OFF when no preference is stored', () => {
@@ -88,5 +88,28 @@ describe('sendSms', () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network down'));
 
     await expect(sendSms('+13105550123', 'hi')).resolves.toBeUndefined();
+  });
+});
+
+describe('popupReminderEmail', () => {
+  it('frames the 24h notice as upcoming, not imminent', () => {
+    const { subject, html } = popupReminderEmail('Taco popup', 'Sat 2-4pm', '24h');
+    expect(subject).toMatch(/tomorrow/i);
+    expect(subject).not.toMatch(/hour/i);
+    expect(html).toContain('Taco popup');
+    expect(html).toContain('Sat 2-4pm');
+  });
+
+  it('frames the 1h notice as imminent', () => {
+    const { subject, html } = popupReminderEmail('Taco popup', 'Sat 2-4pm', '1h');
+    expect(subject).toMatch(/hour|soon|starting/i);
+    expect(subject).not.toMatch(/tomorrow/i);
+    expect(html).toContain('Taco popup');
+  });
+
+  it('gives the two stages different subjects', () => {
+    const a = popupReminderEmail('Taco popup', 'Sat 2-4pm', '24h').subject;
+    const b = popupReminderEmail('Taco popup', 'Sat 2-4pm', '1h').subject;
+    expect(a).not.toEqual(b);
   });
 });

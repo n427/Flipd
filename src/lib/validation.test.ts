@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveRevealStatus, isUscEmail, timeLeftLabel, resolveSharedContact, primaryMethod, parseCoords, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom, CAMPUS_SPOTS, findContactInfo, containsContactInfo, attachmentKind, attachmentError, isSendableMessage, swapCountLabel } from './validation';
+import { effectiveRevealStatus, isUscEmail, timeLeftLabel, resolveSharedContact, primaryMethod, parseCoords, parseEventWindow, formatEventWindow, formatEventStart, shouldHintZoom, fillZoom, CAMPUS_SPOTS, findContactInfo, containsContactInfo, attachmentKind, attachmentError, isSendableMessage, swapCountLabel } from './validation';
 
 describe('isUscEmail', () => {
   it('accepts usc.edu addresses case-insensitively', () => {
@@ -117,6 +117,19 @@ describe('formatEventWindow', () => {
     const label = formatEventWindow(w.start, w.end);
     expect(label).toContain('Jul 24');
     expect(label).toMatch(/7.*11/); // 7 … 11
+  });
+});
+
+describe('formatEventStart', () => {
+  it('shows the date and start time with no dash or range', () => {
+    const w = parseEventWindow('2026-07-24', '19:00', '23:00')!;
+    const label = formatEventStart(w.start);
+    expect(label).toContain('Jul 24');
+    expect(label).toMatch(/7:00/);
+    expect(label).not.toContain('–');
+  });
+  it('returns an empty string for an unparseable input', () => {
+    expect(formatEventStart('not-a-date')).toBe('');
   });
 });
 
