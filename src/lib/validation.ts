@@ -146,6 +146,17 @@ export function formatEventWindow(startIso: string, endIso: string): string {
   return `${day} · ${t(s)} – ${t(e)}`;
 }
 
+// Human label for a start time only, no range: "Fri, Aug 9 · 3:00 PM". For
+// callers that only have (or only trust) event_start — pairing it with a
+// synthesized end time would read as a bug ("3:00 PM – 3:00 PM").
+export function formatEventStart(startIso: string): string {
+  const s = new Date(startIso);
+  if (Number.isNaN(s.getTime())) return '';
+  const day = s.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const t = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${day} · ${t(s)}`;
+}
+
 // ── Intro-message contact filter ─────────────────────────────────────
 // Buyers attach a short intro message to a reveal request. Without a filter
 // they paste a phone number into it and skip the approval gate entirely, which
@@ -266,4 +277,19 @@ export function swapCountLabel(asBuyer: number, asSeller: number): string {
   const total = asBuyer + asSeller;
   if (total === 0) return 'New to Flipd';
   return `${total} completed swap${total === 1 ? '' : 's'} on Flipd`;
+}
+
+// ── Profile links ────────────────────────────────────────────────────
+// Prefer the handle so a profile URL reads as /u/flipd.team rather than a raw
+// UUID. Handles are optional and unique; the id stays a valid fallback, and
+// the API resolves either form so older links keep working.
+export function profilePath(who: { id: string; handle?: string | null }): string {
+  return `/u/${encodeURIComponent(who.handle || who.id)}`;
+}
+
+// Every "Open chat" in the app lands on the conversations tab with the thread
+// already open, rather than a separate full-page route. /messages/<id> still
+// works for deep links from email.
+export function conversationHref(threadId: string): string {
+  return `/requests?tab=conversations&thread=${threadId}`;
 }

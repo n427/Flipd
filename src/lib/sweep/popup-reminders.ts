@@ -1,5 +1,5 @@
 import { admin } from '@/lib/supabase/admin';
-import { formatEventWindow } from '@/lib/validation';
+import { formatEventStart, formatEventWindow } from '@/lib/validation';
 import { popupReminderEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
 import { dueReminders, type ReminderListing, type ReminderRow } from './due-reminders';
 import type { Producer } from './index';
@@ -68,10 +68,13 @@ async function run(): Promise<Record<string, number>> {
     if (!d.suppress && wantsEmail(prefsById.get(d.user_id), 'popup_reminder')) {
       const to = await verifiedEmailFor(d.user_id);
       if (to) {
-        // event_end is nullable in the schema (see store.ts's same guard);
-        // falling back to event_start keeps the label sane instead of
-        // rejecting a listing that never got an end time.
-        const when = formatEventWindow(listing.event_start, listing.event_end ?? listing.event_start);
+        // event_end is nullable independently of event_start (see the same
+        // guard in store.ts). Synthesizing an equal end time would render as
+        // "3:00 PM – 3:00 PM" in the email, which reads as a bug to the
+        // recipient — so a missing end time gets its own start-only label.
+        const when = listing.event_end
+          ? formatEventWindow(listing.event_start, listing.event_end)
+          : formatEventStart(listing.event_start);
         const { subject, html } = popupReminderEmail(listing.title, when, d.stage);
         await sendEmail(to, subject, html);
         sent++;
