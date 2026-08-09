@@ -4,7 +4,7 @@
 // deferred opt-in: prefs carry the shape, nothing sends yet.
 import { admin } from './supabase/admin';
 
-export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message';
+export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message' | 'popup_reminder' | 'listing_match';
 
 // `app` is what the preference UI writes for push. `push` is the older key
 // from before in-app notifications had a name in the UI; it is still honoured
@@ -22,6 +22,14 @@ export function wantsEmail(prefs: unknown, event: NotifyEvent): boolean {
 export function wantsPush(prefs: unknown, event: NotifyEvent): boolean {
   const p = (prefs ?? {}) as NotifyPrefs;
   return p[event]?.app !== false && p[event]?.push !== false;
+}
+
+// SMS defaults OFF — the inverse of email and push. A text nobody asked for is
+// the fastest way to get a sender filtered by carriers, and an opt-out default
+// would contradict what consent means. Only an explicit `true` enables it.
+export function wantsSms(prefs: unknown, event: NotifyEvent): boolean {
+  const p = (prefs ?? {}) as NotifyPrefs;
+  return p[event]?.sms === true;
 }
 
 // The delivery address is the auth account's verified USC email — not the
@@ -56,6 +64,39 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     if (!res.ok) console.error('[notify] send failed', res.status, await res.text());
   } catch (err) {
     console.error('[notify] send error', err);
+  }
+}
+
+// SMS, provider-agnostic. Deliberately shaped like sendEmail: with nothing
+// configured the send is logged instead, so the whole notification path is
+// testable before a provider account exists.
+//
+// The endpoint is an env var, not a constant, so choosing a provider in Step 3
+// of the spec is a configuration change rather than a code change — and there
+// is no fake URL sitting in the source pretending to be wired up.
+//
+// Callers must gate on wantsSms() AND the profile's verified/consent
+// timestamps. This function does not check consent; it only delivers.
+export async function sendSms(to: string, body: string): Promise<void> {
+  const key = process.env.SMS_API_KEY;
+  const url = process.env.SMS_API_URL;
+  if (!key) {
+    console.log(`[notify] (no SMS_API_KEY — would send) to=${to} body="${body}"`);
+    return;
+  }
+  if (!url) {
+    console.log(`[notify] (no SMS provider configured — would send) to=${to} body="${body}"`);
+    return;
+  }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: process.env.SMS_FROM || '', to, body }),
+    });
+    if (!res.ok) console.error('[notify] sms failed', res.status, await res.text());
+  } catch (err) {
+    console.error('[notify] sms error', err);
   }
 }
 
