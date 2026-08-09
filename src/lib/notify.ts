@@ -32,6 +32,25 @@ export function wantsSms(prefs: unknown, event: NotifyEvent): boolean {
   return p[event]?.sms === true;
 }
 
+export type SmsProfile = {
+  phone_verified_at: string | null;
+  sms_consent_at: string | null;
+  notify_prefs: unknown;
+};
+
+// Three independent gates, all required. Owning a number is not agreeing to be
+// texted, and agreeing to be texted is not agreeing to every event — so these
+// can never collapse into one flag. A missing profile fails closed: the caller
+// could not prove consent, which is the same as not having it.
+export function canSms(profile: SmsProfile | null | undefined, event: NotifyEvent): boolean {
+  if (!profile) return false;
+  return (
+    profile.phone_verified_at != null &&
+    profile.sms_consent_at != null &&
+    wantsSms(profile.notify_prefs, event)
+  );
+}
+
 // The delivery address is the auth account's verified USC email — not the
 // editable contact_email profile field.
 export async function verifiedEmailFor(userId: string): Promise<string | null> {
@@ -80,12 +99,16 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
 export async function sendSms(to: string, body: string): Promise<void> {
   const key = process.env.SMS_API_KEY;
   const url = process.env.SMS_API_URL;
+  // Never log `body` — unlike sendEmail's subject, an SMS body can carry a
+  // one-time verification code, and with no provider configured in any
+  // environment right now this line runs on every send. The log should record
+  // that a message went out, not what it said, so only the length is here.
   if (!key) {
-    console.log(`[notify] (no SMS_API_KEY — would send) to=${to} body="${body}"`);
+    console.log(`[notify] (no SMS_API_KEY — would send) to=${to} bodyLength=${body.length}`);
     return;
   }
   if (!url) {
-    console.log(`[notify] (no SMS provider configured — would send) to=${to} body="${body}"`);
+    console.log(`[notify] (no SMS provider configured — would send) to=${to} bodyLength=${body.length}`);
     return;
   }
   try {
