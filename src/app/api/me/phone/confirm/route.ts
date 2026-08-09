@@ -34,11 +34,22 @@ export async function POST(req: NextRequest) {
 
   if (hashCode(code.trim(), user.id) !== row.code_hash) {
     // Count the failure before answering, so a burst of guesses cannot outrun
-    // the increment.
-    await admin
+    // the increment. The update is conditioned on the attempts value just
+    // read (optimistic concurrency): without that guard, N concurrent guesses
+    // all read the same row.attempts and all write the same +1, so N guesses
+    // cost a single attempt and MAX_ATTEMPTS stops bounding anything. Zero
+    // rows updated means another request already claimed this attempt first —
+    // refuse outright rather than retry, since a burst of parallel guesses is
+    // exactly what the cap exists to stop.
+    const { data: bumped } = await admin
       .from('phone_verifications')
       .update({ attempts: row.attempts + 1 })
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .eq('attempts', row.attempts)
+      .select('attempts');
+    if (!bumped || bumped.length === 0) {
+      return NextResponse.json({ error: 'Too many attempts. Request a new code.' }, { status: 429 });
+    }
     return NextResponse.json({ error: 'That code is not right.' }, { status: 400 });
   }
 

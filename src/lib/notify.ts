@@ -99,12 +99,16 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
 export async function sendSms(to: string, body: string): Promise<void> {
   const key = process.env.SMS_API_KEY;
   const url = process.env.SMS_API_URL;
+  // Never log `body` — unlike sendEmail's subject, an SMS body can carry a
+  // one-time verification code, and with no provider configured in any
+  // environment right now this line runs on every send. The log should record
+  // that a message went out, not what it said, so only the length is here.
   if (!key) {
-    console.log(`[notify] (no SMS_API_KEY — would send) to=${to} body="${body}"`);
+    console.log(`[notify] (no SMS_API_KEY — would send) to=${to} bodyLength=${body.length}`);
     return;
   }
   if (!url) {
-    console.log(`[notify] (no SMS provider configured — would send) to=${to} body="${body}"`);
+    console.log(`[notify] (no SMS provider configured — would send) to=${to} bodyLength=${body.length}`);
     return;
   }
   try {
