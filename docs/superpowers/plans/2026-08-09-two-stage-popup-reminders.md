@@ -155,8 +155,13 @@ function row(over: Partial<ReminderRow> = {}): ReminderRow {
   };
 }
 
-/** Opted in `hoursBeforeStart` before the event begins. */
+/**
+ * Opted in `hoursBeforeStart` before the event begins, for an event that is
+ * `eventInHours` from NOW. `hoursBeforeStart` MUST exceed `eventInHours`, or
+ * the result is a created_at in the future — which no real row can have.
+ */
 function optedInAt(hoursBeforeStart: number, eventInHours: number): string {
+  if (hoursBeforeStart <= eventInHours) throw new Error('opt-in would be in the future');
   return new Date(NOW.getTime() + (eventInHours - hoursBeforeStart) * H).toISOString();
 }
 
@@ -194,10 +199,10 @@ describe('dueReminders', () => {
   });
 
   it('SUPPRESSES the 24h notice when the user opted in inside the 24h window', () => {
-    // They opted in 6h before the event, which is 20h from NOW: they just
-    // looked at the listing, so a "tomorrow" email now is noise. Only the 1h
-    // notice should reach them, later.
-    const r = row({ created_at: optedInAt(6, 20) });
+    // Event is 20h out; they opted in an hour ago, i.e. 21h before it starts —
+    // already inside the 24h window. They just looked at the listing, so a
+    // "tomorrow" email now is noise. Only the 1h notice should reach them.
+    const r = row({ created_at: optedInAt(21, 20) });
     expect(dueReminders([r], map(listingAt(20)), NOW)).toEqual([
       { user_id: 'U1', listing_id: 'L1', stage: '24h', suppress: true },
     ]);
