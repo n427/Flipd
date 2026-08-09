@@ -9,8 +9,11 @@ import { admin } from '../../../lib/supabase/admin';
 
 // Queries feed a prompt, so bound them. 200 chars is far past any real search
 // and short enough that 30 days of them stay a reasonable prompt size.
-export function normalizeQuery(raw: string): string | null {
-  const q = (raw ?? '').trim().replace(/\s+/g, ' ');
+// Takes unknown, not string: the value comes straight off a parsed JSON body,
+// so `{"query": 123}` would otherwise reach .trim() and 500 the route.
+export function normalizeQuery(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const q = raw.trim().replace(/\s+/g, ' ');
   if (!q) return null;
   return q.slice(0, 200);
 }

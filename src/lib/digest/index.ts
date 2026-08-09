@@ -7,7 +7,7 @@ import { admin } from '../supabase/admin';
 import { isInSendWindow, isDue } from './window';
 import { buildProfile } from './profile';
 import { matchListings, type Candidate } from './match';
-import { wantsEmail, digestEmail } from '../notify';
+import { wantsEmail, digestEmail, verifiedEmailFor } from '../notify';
 
 // Bounds. CANDIDATE_CAP keeps the prompt affordable; USER_CAP keeps one sweep
 // tick from running for an hour. Both are well under PostgREST's 1000-row
@@ -49,10 +49,17 @@ export const digestProducer: Producer = {
     // prompt — the model has no use for it and it is not ours to hand over.
     const candidates = listings as (Candidate & { seller_id: string })[];
 
+    // profiles has no `email` column — only `contact_email`, which is
+    // user-editable. Like every sibling notifier, the address comes from
+    // verifiedEmailFor(), which reads the verified auth account.
+    // Longest-waiting first: with USER_CAP capping the batch, an unordered
+    // limit would let Postgres return the same arbitrary slice every tick and
+    // starve everyone outside it.
     const { data: users, error: userErr } = await admin
       .from('profiles')
-      .select('id, email, notify_prefs, last_digest_at')
+      .select('id, notify_prefs, last_digest_at')
       .or(`last_digest_at.is.null,last_digest_at.lt.${dueBefore}`)
+      .order('last_digest_at', { ascending: true, nullsFirst: true })
       .limit(USER_CAP);
     if (userErr) throw new Error(`user query failed: ${userErr.message}`);
 
@@ -62,13 +69,25 @@ export const digestProducer: Producer = {
 
     for (const user of users ?? []) {
       // Per-user try/catch is the whole failure story: one user's bad row,
-      // model hiccup, or mail bounce must not suppress everyone else's digest
-      // — and must not stamp, so tomorrow's run retries instead of silently
-      // dropping that user forever.
+      // model hiccup, or mail failure must not suppress everyone else's digest.
       try {
         if (!isDue(user.last_digest_at, now)) { skipped++; continue; }
         if (!wantsEmail(user.notify_prefs, 'listing_match')) { skipped++; continue; }
-        if (!user.email) { skipped++; continue; }
+
+        // Stamp on every ATTEMPT that gets past the gates, not only on a send
+        // — the same choice popup-reminders makes, for the same reason. A user
+        // with signals but no good match is never a send; if that left them
+        // unstamped they would be re-evaluated every hour of the 12-hour
+        // window, costing 12 model calls a day, forever, and crowding
+        // genuinely-due users out of the USER_CAP batch. Stamping first means
+        // at most one model call per user per day. The cost is that a mail
+        // failure loses that user one day's digest, which is the cheaper bug.
+        await admin.from('profiles')
+          .update({ last_digest_at: now.toISOString() })
+          .eq('id', user.id);
+
+        const to = await verifiedEmailFor(user.id);
+        if (!to) { skipped++; continue; }
 
         // Three signals. Deliberately three round-trips rather than one
         // batched join: a batched query turns a per-user failure into an
@@ -107,13 +126,7 @@ export const digestProducer: Producer = {
         // No matches is a successful run that sends nothing.
         if (!matches.length) { skipped++; continue; }
 
-        await digestEmail(user.email, matches, pool);
-
-        // Stamp LAST, and only on a real send. Stamping before the send would
-        // mean a mail failure costs the user a full day.
-        await admin.from('profiles')
-          .update({ last_digest_at: now.toISOString() })
-          .eq('id', user.id);
+        await digestEmail(to, matches, pool);
         sent++;
       } catch (err) {
         // user.id only — never the email, never the search text.
