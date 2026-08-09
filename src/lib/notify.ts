@@ -32,6 +32,25 @@ export function wantsSms(prefs: unknown, event: NotifyEvent): boolean {
   return p[event]?.sms === true;
 }
 
+export type SmsProfile = {
+  phone_verified_at: string | null;
+  sms_consent_at: string | null;
+  notify_prefs: unknown;
+};
+
+// Three independent gates, all required. Owning a number is not agreeing to be
+// texted, and agreeing to be texted is not agreeing to every event — so these
+// can never collapse into one flag. A missing profile fails closed: the caller
+// could not prove consent, which is the same as not having it.
+export function canSms(profile: SmsProfile | null | undefined, event: NotifyEvent): boolean {
+  if (!profile) return false;
+  return (
+    profile.phone_verified_at != null &&
+    profile.sms_consent_at != null &&
+    wantsSms(profile.notify_prefs, event)
+  );
+}
+
 // The delivery address is the auth account's verified USC email — not the
 // editable contact_email profile field.
 export async function verifiedEmailFor(userId: string): Promise<string | null> {
