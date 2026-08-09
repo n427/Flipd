@@ -1,7 +1,7 @@
 import { admin } from '@/lib/supabase/admin';
 import { formatEventStart, formatEventWindow } from '@/lib/validation';
 import { popupReminderEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
-import { dueReminders, type ReminderListing, type ReminderRow } from './due-reminders';
+import { dueReminders, stampColumn, type ReminderListing, type ReminderRow } from './due-reminders';
 import type { Producer } from './index';
 
 // Moved from the old /api/cron/popup-reminders route, carrying one deliberate
@@ -52,10 +52,16 @@ async function run(): Promise<Record<string, number>> {
   // the loop. Two stages roughly doubles the row count, and this runs hourly
   // against a table that only grows.
   const userIds = Array.from(new Set(due.map((d) => d.user_id)));
-  const { data: profileRows } = await admin
+  // Unchecked, a failed fetch here leaves prefsById empty, and wantsEmail()
+  // defaults ON for a missing entry — every opted-out user would get emailed,
+  // and the row still gets stamped below so the mistake never retries. Throw
+  // instead, matching the two queries above, so the flags stay null and the
+  // next hourly run tries again.
+  const { data: profileRows, error: profilesError } = await admin
     .from('profiles')
     .select('id, notify_prefs')
     .in('id', userIds);
+  if (profilesError) throw new Error(profilesError.message);
   const prefsById = new Map(
     (profileRows ?? []).map((p) => [p.id as string, (p as { notify_prefs: unknown }).notify_prefs]),
   );
@@ -63,7 +69,7 @@ async function run(): Promise<Record<string, number>> {
   let sent = 0;
   for (const d of due) {
     const listing = listings.get(d.listing_id)!;
-    const column = d.stage === '1h' ? 'reminded_1h_at' : 'reminded_24h_at';
+    const column = stampColumn(d.stage);
 
     if (!d.suppress && wantsEmail(prefsById.get(d.user_id), 'popup_reminder')) {
       const to = await verifiedEmailFor(d.user_id);

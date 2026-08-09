@@ -21,7 +21,7 @@
 
 ## Deploy Ordering
 
-Migration 032 renames a column the running producer reads. Whichever lands first, there is a window where the producer errors — it throws, `runSweep` catches it, the other producers keep running, and the error appears in the route's `errors` array. Nothing crashes and nothing is lost: the flags stay null, so the next hourly run delivers whatever was due. Apply the migration and deploy the code close together and the window is minutes. This is stated in the Operator Runbook at the end.
+Migration 032 renames a column the running producer reads. Whichever lands first, there is a window where the producer errors — it throws, `runSweep` catches it, the other producers keep running, and the error appears in the route's `errors` array. Nothing crashes, and the flags stay null so the next hourly run delivers whatever is still due — except a 1h notice whose window elapses entirely during the gap, which is missed permanently because the event will have started. Apply the migration and deploy the code close together and the window is minutes. This is stated in the Operator Runbook at the end.
 
 ---
 
@@ -584,7 +584,7 @@ git commit -m "feat(reminders): send at 24h and 1h, batch profile lookups"
 
 ## Operator Runbook (human, after merge)
 
-Migration 032 renames a column the running producer reads, so apply it and deploy the code close together. In the gap the producer throws, `runSweep` catches it, other producers keep running, and the error surfaces in the route's `errors` array. Nothing is lost — the flags stay null and the next hourly run delivers whatever was due.
+Migration 032 renames a column the running producer reads, so apply it and deploy the code close together. In the gap the producer throws, `runSweep` catches it, other producers keep running, and the error surfaces in the route's `errors` array. The flags stay null and the next hourly run delivers whatever is still due — except a reminder whose window elapses entirely during the gap (e.g. a 1h notice), which is missed permanently since the event will have started.
 
 **1.** Merge and push so Vercel deploys.
 

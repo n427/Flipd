@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dueReminders, type ReminderListing, type ReminderRow } from './due-reminders';
+import { dueReminders, stampColumn, type ReminderListing, type ReminderRow } from './due-reminders';
 
 const NOW = new Date('2026-08-09T12:00:00.000Z');
 const H = 60 * 60 * 1000;
@@ -127,5 +127,15 @@ describe('dueReminders', () => {
       { user_id: 'UA', listing_id: 'LA', stage: '24h', suppress: false },
       { user_id: 'UB', listing_id: 'LB', stage: '1h', suppress: false },
     ]);
+  });
+});
+
+describe('stampColumn', () => {
+  it('maps 24h to reminded_24h_at', () => {
+    expect(stampColumn('24h')).toBe('reminded_24h_at');
+  });
+
+  it('maps 1h to reminded_1h_at', () => {
+    expect(stampColumn('1h')).toBe('reminded_1h_at');
   });
 });

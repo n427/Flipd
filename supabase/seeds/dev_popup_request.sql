@@ -214,14 +214,14 @@ join public.message_threads t on t.id = v.thread_id::uuid;
 
 -- ── ACTIVITY tab: a popup reminder you've opted into ─────────────────
 -- Points at the demo thrift popup above, which starts tomorrow, so the
--- day-before reminder job (api/cron/popup-reminders) has a live row to find.
-insert into public.popup_reminders (user_id, listing_id, reminded_at)
+-- day-before reminder job (api/cron/sweep) has a live row to find.
+insert into public.popup_reminders (user_id, listing_id, reminded_24h_at)
 select p.id, 'e0000000-0000-4000-8000-000000000203'::uuid, null
 from public.profiles p
 where coalesce(p.is_demo, false) = false
 order by p.created_at desc
 limit 1
-on conflict (user_id, listing_id) do update set reminded_at = null;
+on conflict (user_id, listing_id) do update set reminded_24h_at = null;
 
 commit;
 

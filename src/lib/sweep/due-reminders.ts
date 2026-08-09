@@ -79,3 +79,10 @@ export function dueReminders(
 
   return out;
 }
+
+// Lives beside ReminderStage, not in the producer, so a swapped mapping is
+// caught by a unit test instead of by users getting the 1h email every hour
+// until the event starts (reminded_1h_at would never get stamped).
+export function stampColumn(stage: ReminderStage): 'reminded_24h_at' | 'reminded_1h_at' {
+  return stage === '1h' ? 'reminded_1h_at' : 'reminded_24h_at';
+}
