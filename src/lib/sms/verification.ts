@@ -1,8 +1,11 @@
 import { createHash, randomInt } from 'crypto';
 
-// A 6-digit code has only a million possibilities, so the hash is not what
-// makes it safe — the attempt cap and the short expiry are. The hash exists so
-// that a leak of the table cannot be replayed directly.
+// CODE_TTL_MS: ten minutes — enough time for a user to receive and enter the
+// code, but short enough that a leaked code is useless by the time an attacker
+// finds it. MAX_ATTEMPTS: five — with a million 6-digit possibilities, five
+// attempts makes brute force impractical under the resend cooldown. RESEND_COOLDOWN_MS:
+// sixty seconds — prevents rapid-fire redemption attempts and protects against
+// resend spam.
 export const CODE_TTL_MS = 10 * 60 * 1000;
 export const MAX_ATTEMPTS = 5;
 export const RESEND_COOLDOWN_MS = 60 * 1000;
