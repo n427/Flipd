@@ -12,18 +12,36 @@ export function generateCode(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, '0');
 }
 
-// Salted with the user id so one stolen hash cannot be tested against every
-// other pending code in the table.
+// Keeps plaintext codes out of the table, but is not a meaningful barrier to
+// offline brute force at this keyspace (6 digits, exhaustible in seconds). What
+// actually protects the code is the 10-minute expiry, the attempt cap, and the
+// fact that redeeming one requires the user's own authenticated session.
 export function hashCode(code: string, userId: string): string {
   return createHash('sha256').update(`${userId}:${code}`).digest('hex');
 }
 
 // US numbers only — Flipd is USC-only, and accepting international formats
-// would mean carrier rules and costs this build does not handle.
+// would mean carrier rules and costs this build does not handle. Rejects strings
+// with letters (they are not phone numbers), and validates against NANP rules
+// so we do not text bogus numbers that cost money.
 export function normalizePhone(raw: string): string | null {
-  const digits = (raw ?? '').replace(/\D/g, '');
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  const input = raw ?? '';
+  // Reject any input containing a letter; only allow digits and common formatting chars.
+  if (/[a-zA-Z]/.test(input)) return null;
+  if (!/^[\d\s+\-().]*$/.test(input)) return null;
+
+  const digits = input.replace(/\D/g, '');
+
+  // Normalize to 10 digits and validate NANP rules: area code and exchange
+  // code must both start with 2-9 (first digit cannot be 0 or 1).
+  if (digits.length === 10) {
+    if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(digits)) return null;
+    return `+1${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    if (!/^1[2-9]\d{2}[2-9]\d{6}$/.test(digits)) return null;
+    return `+${digits}`;
+  }
   return null;
 }
 

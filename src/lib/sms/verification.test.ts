@@ -45,6 +45,16 @@ describe('normalizePhone', () => {
     expect(normalizePhone('+44 20 7946 0958')).toBeNull();
     expect(normalizePhone('31055501234567')).toBeNull();
   });
+
+  it('rejects NANP-invalid numbers (area code or exchange starting with 0 or 1)', () => {
+    expect(normalizePhone('1234567890')).toBeNull(); // area code starts with 1
+    expect(normalizePhone('0235550123')).toBeNull(); // area code starts with 0
+    expect(normalizePhone('3101550123')).toBeNull(); // exchange code starts with 1
+  });
+
+  it('rejects strings with letters even if they contain 10 valid digits', () => {
+    expect(normalizePhone('callme3105550123@x.com')).toBeNull();
+  });
 });
 
 describe('isStopKeyword', () => {
