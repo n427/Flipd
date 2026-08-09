@@ -213,12 +213,21 @@ export function expiryEmail(listingTitle: string) {
   };
 }
 
-// Buyer opt-in: a popup they asked to be reminded about is tomorrow.
-export function popupReminderEmail(listingTitle: string, whenLabel: string) {
+// Buyer opt-in: a popup they asked to be reminded about is coming up. One
+// function rather than two near-identical ones, because only the framing
+// differs by lead time — "tomorrow" is actively wrong an hour beforehand, and
+// "starting soon" is wrong a day out. The stage union is inline rather than
+// imported from the sweep: notify is the lower layer and must not depend on it.
+export function popupReminderEmail(listingTitle: string, whenLabel: string, stage: '24h' | '1h') {
+  const imminent = stage === '1h';
   return {
-    subject: `Reminder: "${listingTitle}" is coming up`,
+    subject: imminent
+      ? `Starting soon: "${listingTitle}"`
+      : `Tomorrow: "${listingTitle}"`,
     html: wrap(
-      `<p><strong>${esc(listingTitle)}</strong> is happening <strong>${esc(whenLabel)}</strong>.</p>
+      `<p><strong>${esc(listingTitle)}</strong> ${
+        imminent ? 'starts in about an hour' : 'is happening tomorrow'
+      } — <strong>${esc(whenLabel)}</strong>.</p>
        <p>You asked us to remind you — see you there.</p>`,
     ),
   };
