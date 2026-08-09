@@ -22,13 +22,26 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   if (!row) return NextResponse.json({ error: 'Request a code first.' }, { status: 400 });
 
+  // A null code_hash means this row was already consumed (used, expired, or
+  // exhausted — see below) and is being kept alive only for its sent_at.
+  // Without this check a consumed row would fall through to a hash comparison
+  // against null.
+  if (row.code_hash === null) {
+    return NextResponse.json({ error: 'That code was already used. Request a new one.' }, { status: 400 });
+  }
+
+  // Consume (null out code_hash) rather than delete on every terminal path
+  // below. Deleting the row destroys sent_at, which is the ONLY thing
+  // rate-limiting sends in src/app/api/me/phone/start/route.ts — a deleted row
+  // lets the next start fire immediately, turning the attempt cap into an
+  // unbounded-texting vector.
   if (new Date(row.expires_at).getTime() < Date.now()) {
-    await admin.from('phone_verifications').delete().eq('user_id', user.id);
+    await admin.from('phone_verifications').update({ code_hash: null }).eq('user_id', user.id);
     return NextResponse.json({ error: 'That code expired. Request a new one.' }, { status: 400 });
   }
 
   if (row.attempts >= MAX_ATTEMPTS) {
-    await admin.from('phone_verifications').delete().eq('user_id', user.id);
+    await admin.from('phone_verifications').update({ code_hash: null }).eq('user_id', user.id);
     return NextResponse.json({ error: 'Too many attempts. Request a new code.' }, { status: 429 });
   }
 
@@ -72,6 +85,6 @@ export async function POST(req: NextRequest) {
     .eq('id', user.id);
   if (stampError) return NextResponse.json({ error: stampError.message }, { status: 500 });
 
-  await admin.from('phone_verifications').delete().eq('user_id', user.id);
+  await admin.from('phone_verifications').update({ code_hash: null }).eq('user_id', user.id);
   return NextResponse.json({ ok: true, phone: row.phone });
 }

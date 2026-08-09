@@ -8,10 +8,14 @@ alter table public.profiles
 -- Pending verification codes. The code itself is never stored — only a hash —
 -- so a leak of this table cannot be replayed. Short expiry plus an attempt cap
 -- is what actually protects a 6-digit code; the hash protects it at rest.
+-- code_hash has no NOT-NULL constraint: a null hash means the code was used,
+-- expired, or exhausted. The row is kept (not deleted) in that state purely so
+-- its sent_at survives to keep enforcing the resend cooldown in
+-- src/app/api/me/phone/start/route.ts.
 create table if not exists public.phone_verifications (
   user_id    uuid primary key references public.profiles (id) on delete cascade,
   phone      text        not null,
-  code_hash  text        not null,
+  code_hash  text,
   expires_at timestamptz not null,
   attempts   int         not null default 0,
   sent_at    timestamptz not null default now()
@@ -48,3 +52,17 @@ create trigger profiles_clear_phone_verification
   before update on public.profiles
   for each row
   execute function public.clear_phone_verification();
+
+-- RLS on profiles is row-level only (019_rls_policies.sql): a user may update
+-- their OWN row, but nothing restricts WHICH columns. Mobile writes profiles
+-- directly with the anon key, so without column grants a user could set
+-- contact_phone to someone else's number and then stamp their own
+-- phone_verified_at and sms_consent_at — self-granting every gate and texting
+-- a stranger. Only the server (service_role, which bypasses these grants) may
+-- write the consent columns.
+revoke update on public.profiles from authenticated;
+grant update (
+  display_name, handle, school_unit, class_year, bio, avatar_url,
+  contact_method, contact_instagram, contact_phone, contact_email,
+  heard_from, heard_from_detail, notify_prefs
+) on public.profiles to authenticated;
