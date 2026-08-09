@@ -6,6 +6,13 @@ import { admin } from './supabase/admin';
 
 export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message' | 'popup_reminder' | 'listing_match';
 
+// A digest match, as produced by src/lib/digest/match.ts. Duplicated here
+// rather than imported so notify stays the lower layer with no dependency on
+// the digest feature — see the same rationale on popupReminderEmail's stage
+// union below.
+type DigestMatch = { id: string; reason: string };
+type DigestListing = { id: string; title: string; price: number; category: string };
+
 // `app` is what the preference UI writes for push. `push` is the older key
 // from before in-app notifications had a name in the UI; it is still honoured
 // so existing rows keep working rather than silently flipping back on.
@@ -254,4 +261,51 @@ export function popupReminderEmail(listingTitle: string, whenLabel: string, stag
        <p>You asked us to remind you — see you there.</p>`,
     ),
   };
+}
+
+// Optional: no site-URL constant exists anywhere else in this codebase (the
+// app has no canonical public web address wired in yet), so a match renders
+// as a plain-text title — matching every sibling email above, none of which
+// link out either — unless this is set, in which case it becomes a real link.
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/+$/, '');
+
+const priceLabel = (price: number) =>
+  price > 0 ? `$${price.toLocaleString('en-US')}` : 'Free';
+
+// Buyer, opt-in: today's picks from what they saved, messaged about, and
+// searched. Unlike the single-listing emails above, this one already knows
+// its own recipient and sends itself — by the time the digest producer has
+// matches in hand there is no `{ subject, html }` pair left for it to do
+// anything else with, so — unlike its siblings — this is the one email
+// function in this file that calls sendEmail() itself.
+export async function digestEmail(
+  email: string,
+  matches: DigestMatch[],
+  pool: DigestListing[],
+): Promise<void> {
+  const byId = new Map(pool.map((l) => [l.id, l]));
+  const rows = matches
+    .map((m) => {
+      const listing = byId.get(m.id);
+      // Defensive only: matchListings/parseMatches already validate every id
+      // against this same pool, so this should never be hit.
+      if (!listing) return '';
+      const href = SITE_URL ? `${SITE_URL}/listing/${listing.id}` : null;
+      const title = href
+        ? `<a href="${href}" style="color:#111;text-decoration:underline">${esc(listing.title)}</a>`
+        : `<strong>${esc(listing.title)}</strong>`;
+      return `<p style="margin:0 0 16px">
+        ${title} — ${priceLabel(listing.price)}<br/>
+        <span style="color:#5a6169">${esc(m.reason)}</span>
+      </p>`;
+    })
+    .filter(Boolean)
+    .join('');
+
+  const subject = `${matches.length} listing${matches.length === 1 ? '' : 's'} you might want`;
+  const html = wrap(
+    `<p>Based on what you've saved, messaged about, and searched for:</p>
+     ${rows}`,
+  );
+  await sendEmail(email, subject, html);
 }

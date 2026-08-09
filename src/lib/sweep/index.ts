@@ -3,6 +3,8 @@
 // Producers are injected rather than imported here so the isolation guarantee
 // is unit-testable without touching the database.
 
+import { digestProducer } from '../digest';
+
 export type Producer = {
   name: string;
   run: () => Promise<Record<string, number>>;
@@ -35,3 +37,11 @@ export async function runSweep(producers: Producer[]): Promise<SweepResult> {
   // signal (which producer broke) would be buried in scheduler noise.
   return { ok: true, counts, errors };
 }
+
+// Registers digestProducer at this module's surface. NOTE: the hourly cron
+// route (src/app/api/cron/sweep/route.ts) currently builds its own producer
+// list by hand — `runSweep([popupRemindersProducer])` — rather than importing
+// one from here, so this export is not yet consumed by anything at runtime.
+// Wire digestProducer into that array (alongside popupRemindersProducer) to
+// actually put the digest on the hourly schedule.
+export { digestProducer };
