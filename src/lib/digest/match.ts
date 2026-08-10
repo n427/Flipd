@@ -1,9 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-// One constant, one place to change the cost/quality tradeoff. The approved
-// spec suggested Haiku for cost; opus-5 is the default because model choice
-// belongs to the operator, not to a silent default buried in a prompt.
-export const DIGEST_MODEL = 'claude-opus-5';
+// One constant, one place to change the cost/quality tradeoff.
+//
+// Haiku for two reasons, latency first: the digest runs inside a serverless
+// cron tick with a ~10-15s budget and loops over users sequentially, so a
+// slow per-user call does not merely cost more, it means the tick is killed
+// and nobody gets mail. Ranking ~100 short listings against a short profile
+// is well inside Haiku's range. Cost is the secondary win.
+//
+// Switching back to an Opus- or Sonnet-tier model is a real change, not a
+// one-word edit: those models run adaptive thinking (so max_tokens must cover
+// thinking too), they accept `output_config.effort` where Haiku 4.5 rejects
+// it with a 400, and their minimum cacheable prefix differs. Read the call in
+// matchListings before changing this line.
+export const DIGEST_MODEL = 'claude-haiku-4-5';
 export const MAX_MATCHES = 5;
 
 export type Candidate = { id: string; title: string; price: number; category: string };
@@ -71,15 +81,17 @@ export async function matchListings(profile: string, listings: Candidate[]): Pro
 
   const res = await client.messages.create({
     model: DIGEST_MODEL,
-    // Adaptive thinking is on by default on opus-5 and max_tokens caps
-    // thinking + output together, so this is sized for both, not just the
-    // few hundred tokens of JSON we actually want back.
-    max_tokens: 8000,
-    system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+    // Haiku 4.5 does not run thinking unless explicitly configured, so
+    // max_tokens bounds the visible answer only — a few hundred tokens of
+    // JSON. 2000 is generous headroom for MAX_MATCHES entries.
+    max_tokens: 2000,
+    // No cache_control marker: Haiku 4.5's minimum cacheable prefix is 4096
+    // tokens and this system block is ~170, so a breakpoint here would be a
+    // silent no-op (cache_creation_input_tokens stays 0, no error raised).
+    system: SYSTEM,
     output_config: {
-      // A ranking task, not a research task. Low effort keeps a per-user
-      // daily job affordable without hurting match quality.
-      effort: 'low',
+      // No `effort` here — it is unsupported on Haiku 4.5 and sending it is
+      // a 400. Depth control on this model is the prompt, not a parameter.
       format: { type: 'json_schema', schema: SCHEMA },
     },
     messages: [

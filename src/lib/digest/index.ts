@@ -13,7 +13,7 @@ import { wantsEmail, digestEmail, verifiedEmailFor } from '../notify';
 // tick from running for an hour. Both are well under PostgREST's 1000-row
 // default, so neither query is silently truncated.
 const CANDIDATE_CAP = 100;
-const USER_CAP = 200;
+const USER_CAP = 25;
 const SIGNAL_CAP = 20;
 
 export const digestProducer: Producer = {

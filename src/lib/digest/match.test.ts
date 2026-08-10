@@ -23,6 +23,6 @@ describe('parseMatches', () => {
     expect(parseMatches(JSON.stringify(many), valid).length).toBeLessThanOrEqual(MAX_MATCHES);
   });
   it('pins the model behind one constant', () => {
-    expect(DIGEST_MODEL).toBe('claude-opus-5');
+    expect(DIGEST_MODEL).toBe('claude-haiku-4-5');
   });
 });
