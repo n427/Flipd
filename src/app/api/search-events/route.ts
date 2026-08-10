@@ -6,17 +6,9 @@ import { NextRequest, NextResponse } from 'next/server';
 // same one src/app/api/me/route.ts uses — just imported by relative path.
 import { getRequestUser } from '../../../lib/supabase/authAny';
 import { admin } from '../../../lib/supabase/admin';
-
-// Queries feed a prompt, so bound them. 200 chars is far past any real search
-// and short enough that 30 days of them stay a reasonable prompt size.
-// Takes unknown, not string: the value comes straight off a parsed JSON body,
-// so `{"query": 123}` would otherwise reach .trim() and 500 the route.
-export function normalizeQuery(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  const q = raw.trim().replace(/\s+/g, ' ');
-  if (!q) return null;
-  return q.slice(0, 200);
-}
+// normalizeQuery lives in lib, not here: a route module may only export HTTP
+// handlers and Next's config fields, so exporting a helper breaks the build.
+import { normalizeQuery } from '../../../lib/digest/query';
 
 // Called by both the web and mobile search paths (fire-and-forget) to record
 // what a user searched for, so the digest producer can tell "listings we

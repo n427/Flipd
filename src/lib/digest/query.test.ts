@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeQuery } from './route';
+import { normalizeQuery } from './query';
 
 describe('normalizeQuery', () => {
   it('trims and collapses whitespace', () => {
