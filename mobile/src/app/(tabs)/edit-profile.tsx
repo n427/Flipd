@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, Switch } from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, Switch, SwitchProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FormScroll } from '@/components/FormScroll';
@@ -20,7 +20,13 @@ const NOTIFY_EVENTS: { id: NotifyEvent; label: string }[] = [
   { id: 'new_message', label: 'New message in a conversation' },
   { id: 'reminder', label: 'Reminder before a request expires' },
   { id: 'expiry', label: 'Your request expired' },
+  { id: 'popup_reminder', label: 'A popup or event you saved is starting soon' },
 ];
+
+// `activeThumbColor` is a react-native-web-only prop, absent from RN's
+// SwitchProps types, and the only way to stop the on-state thumb falling back
+// to Material teal (#009688) in the browser. Native ignores the unknown key.
+const WEB_ACTIVE_THUMB = { activeThumbColor: '#fff' } as unknown as SwitchProps;
 
 export default function EditProfile() {
   const router = useRouter();
@@ -34,7 +40,6 @@ export default function EditProfile() {
   const [year, setYear] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [prefs, setPrefs] = useState<NotifyPrefs>({});
 
@@ -52,7 +57,6 @@ export default function EditProfile() {
         setUnit(p.school_unit ?? null);
         setYear(p.class_year ?? null);
         setAvatar(p.avatar_url ?? null);
-        setPhone(p.contact_phone ?? '');
         setEmail(p.contact_email ?? '');
         setPrefs(p.notify_prefs ?? {});
       }
@@ -115,7 +119,6 @@ export default function EditProfile() {
         bio: bio.trim() || null,
         school_unit: unit,
         class_year: year,
-        contact_phone: phone.trim() || null,
         contact_email: email.trim() || null,
         notify_prefs: prefs,
       });
@@ -213,7 +216,9 @@ export default function EditProfile() {
           </Pressable>
         </View>
 
-        <Text style={label}>Name</Text>
+        <Text style={label}>
+          Name<Text style={{ color: T.cardinal }}> *</Text>
+        </Text>
         <TextInput value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor={T.muted} style={field} />
 
         <Text style={label}>Bio</Text>
@@ -244,29 +249,19 @@ export default function EditProfile() {
           ))}
         </View>
 
-        <Text style={label}>Where we reach you</Text>
-        <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginBottom: 12, marginTop: -2, lineHeight: 19 }}>
-          Used for sign-in codes and notifications. Other users never see these, and messages stay in Flipd.
-        </Text>
-        <TextInput
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="Phone number"
-          placeholderTextColor={T.muted}
-          keyboardType="phone-pad"
-          style={field}
-        />
+        <Text style={label}>Email</Text>
+        {/* Tied to the verified USC account the session is built on, so it is
+            shown for reference but never editable here. */}
         <TextInput
           value={email}
-          onChangeText={setEmail}
+          editable={false}
           placeholder="Contact email"
           placeholderTextColor={T.muted}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          textContentType="emailAddress"
-          style={field}
+          style={[field, { backgroundColor: T.fieldbg, color: T.muted }]}
         />
+        <Text style={{ fontFamily: F.regular, fontSize: 12, color: T.muted, marginTop: -12, marginBottom: 20, lineHeight: 18 }}>
+          Tied to your verified account, so it cannot be changed here.
+        </Text>
 
         <Text style={label}>Notifications</Text>
         <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginBottom: 12, marginTop: -2, lineHeight: 19 }}>
@@ -291,7 +286,14 @@ export default function EditProfile() {
               <Switch
                 value={eventOn(ev.id)}
                 onValueChange={(on) => setEvent(ev.id, on)}
-                trackColor={{ true: T.cardinal }}
+                // react-native-web defaults the *thumb* to Material teal
+                // (#009688) once on, which fought the cardinal track. Pin every
+                // colour in both states so the control matches the app.
+                trackColor={{ false: T.rule, true: T.cardinal }}
+                thumbColor="#fff"
+                {...WEB_ACTIVE_THUMB}
+                ios_backgroundColor={T.rule}
+                style={{ transform: [{ scale: 0.9 }] }}
               />
             </View>
           ))}

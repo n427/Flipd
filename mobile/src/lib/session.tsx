@@ -46,7 +46,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     const { data, error } = await supabase
       .from('profiles')
-      .select('display_name, contact_instagram, contact_phone, contact_email')
+      .select('display_name, contact_instagram, contact_email')
       .eq('id', userId)
       .maybeSingle();
     // On a read failure, treat the user as onboarded: a network blip should
@@ -55,7 +55,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setOnboarded('yes');
       return;
     }
-    const hasContact = Boolean(data?.contact_instagram || data?.contact_phone || data?.contact_email);
+    const hasContact = Boolean(data?.contact_instagram || data?.contact_email);
     setOnboarded(data?.display_name && hasContact ? 'yes' : 'no');
   }, [userId]);
 

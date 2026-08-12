@@ -26,9 +26,8 @@ const CHANNELS: readonly { id: string; label: string; detailPrompt?: string }[] 
 ];
 
 // Where Flipd sends notifications. NOT shared with other users: conversations
-// happen in the app, so a phone number is only a way for us to reach you.
+// happen in the app.
 const METHODS = [
-  { id: 'phone', label: 'Phone number', placeholder: '(213) 555-0100' },
   { id: 'email', label: 'Email', placeholder: 'you@usc.edu' },
 ] as const;
 type MethodId = (typeof METHODS)[number]['id'];
@@ -36,7 +35,6 @@ type MethodId = (typeof METHODS)[number]['id'];
 const CHANNEL_OPTIONS = [
   { id: 'app', label: 'In the app', hint: 'Push notifications' },
   { id: 'email', label: 'Email', hint: '' },
-  { id: 'sms', label: 'Text', hint: 'Coming soon' },
 ] as const;
 type ChannelId = (typeof CHANNEL_OPTIONS)[number]['id'];
 
@@ -56,7 +54,7 @@ export default function Setup() {
   const [heardDetail, setHeardDetail] = useState('');
   const [avatar, setAvatar] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [contacts, setContacts] = useState<Record<MethodId, string>>({ phone: '', email: '' });
+  const [contacts, setContacts] = useState<Record<MethodId, string>>({ email: '' });
   // In-app on by default: the channel that always works and costs nothing.
   const [channels, setChannels] = useState<ChannelId[]>(['app', 'email']);
   const [error, setError] = useState('');
@@ -72,7 +70,7 @@ export default function Setup() {
       .then((p) => {
         if (!alive) return;
         // Instagram no longer counts: it can't receive a notification.
-        const hasContact = Boolean(p?.contact_phone || p?.contact_email);
+        const hasContact = Boolean(p?.contact_email);
         if (p?.display_name && hasContact) {
           router.replace('/(tabs)/feed');
           return;
@@ -142,8 +140,8 @@ export default function Setup() {
   };
 
   const finish = async () => {
-    if (!METHODS.some((m) => contacts[m.id].trim())) {
-      setError('Add a phone number or email so we can reach you.');
+    if (!contacts.email.trim()) {
+      setError('Add an email so we can reach you.');
       return;
     }
     if (channels.length === 0) {
@@ -159,13 +157,11 @@ export default function Setup() {
         school_unit: unit,
         heard_from: heardId!,
         heard_from_detail: heardDetail.trim() || null,
-        contact_phone: contacts.phone.trim() || null,
         contact_email: contacts.email.trim() || null,
         notify_prefs: Object.fromEntries(
           ALL_EVENTS.map((ev) => [ev, {
             app: channels.includes('app'),
             email: channels.includes('email'),
-            sms: channels.includes('sms'),
           }]),
         ),
       });
@@ -296,67 +292,40 @@ export default function Setup() {
             <Text style={heading}>Where should we reach you?</Text>
             <Text style={sub}>For sign-in codes and alerts about your listings. Buyers never see these. Messages stay in Flipd.</Text>
 
-            {METHODS.map((m) => {
-              // Email is the verified @usc.edu address they just signed in
-              // with. It is the identity this account is built on, so it is
-              // shown for confirmation but not editable here.
-              const locked = m.id === 'email';
-              return (
-                <View key={m.id}>
-                  <Text style={label}>{m.label}</Text>
-                  {locked ? (
-                    <View style={[field, { justifyContent: 'center', backgroundColor: T.fieldbg }]}>
-                      <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.muted }}>
-                        {contacts.email || user?.email}
-                      </Text>
-                    </View>
-                  ) : (
-                    <TextInput
-                      value={contacts[m.id]}
-                      onChangeText={(t) => setContacts((c) => ({ ...c, [m.id]: t }))}
-                      placeholder={m.placeholder}
-                      placeholderTextColor={T.muted}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      keyboardType="phone-pad"
-                      textContentType="telephoneNumber"
-                      style={field}
-                    />
-                  )}
-                </View>
-              );
-            })}
+            <Text style={label}>Email</Text>
+            {/* The verified @usc.edu address they just signed in with. It is the
+                identity this account is built on, so it is shown for
+                confirmation but not editable here. */}
+            <View style={[field, { justifyContent: 'center', backgroundColor: T.fieldbg }]}>
+              <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.muted }}>
+                {contacts.email || user?.email}
+              </Text>
+            </View>
 
             <Text style={[label, { marginTop: 4 }]}>Where should notifications go?</Text>
             {CHANNEL_OPTIONS.map((c) => {
               const on = channels.includes(c.id);
-              // Text has no provider wired up, so offering it would promise
-              // delivery that never happens.
-              const disabled = c.id === 'sms';
               return (
                 <Pressable
                   key={c.id}
                   onPress={() =>
-                    disabled
-                      ? undefined
-                      : setChannels((prev) => (on ? prev.filter((x) => x !== c.id) : [...prev, c.id]))
+                    setChannels((prev) => (on ? prev.filter((x) => x !== c.id) : [...prev, c.id]))
                   }
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 10,
                     borderWidth: 1.5,
-                    borderColor: on && !disabled ? T.ink : T.rule,
+                    borderColor: on ? T.ink : T.rule,
                     borderRadius: 12,
                     paddingVertical: 13,
                     paddingHorizontal: 14,
-                    opacity: disabled ? 0.55 : 1,
                   }}
                 >
                   <Ionicons
-                    name={on && !disabled ? 'checkbox' : 'square-outline'}
+                    name={on ? 'checkbox' : 'square-outline'}
                     size={19}
-                    color={on && !disabled ? T.cardinal : T.muted}
+                    color={on ? T.cardinal : T.muted}
                   />
                   <Text style={{ flex: 1, fontFamily: F.semibold, fontSize: 15, color: T.ink }}>{c.label}</Text>
                   {c.hint ? (

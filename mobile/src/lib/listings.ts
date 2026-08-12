@@ -18,6 +18,7 @@ export type FeedListing = {
   photo_urls: string[];
   seller_id: string;
   category: string | null;
+  created_at: string;
   seller: FeedSeller | null;
 };
 
@@ -65,7 +66,7 @@ export async function fetchFeed(opts: FeedQuery = {}): Promise<{ listings: FeedL
 
   let q = supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, seller_id, category')
+    .select('id, title, price, location, photo_urls, seller_id, category, created_at')
     .eq('archived', false);
 
   if (opts.category && opts.category !== 'all') q = q.eq('category', opts.category);
@@ -195,6 +196,10 @@ export type NewListing = {
   lng: number | null;
   negotiable: boolean;
   photo_urls: string[];
+  // Popups only (category 'event'). Both set together or both null — a
+  // half-open window would render as a popup with no end time.
+  event_start: string | null;
+  event_end: string | null;
 };
 
 // Direct insert (RLS listings_insert_own requires seller_id = auth.uid()).
@@ -214,6 +219,8 @@ export async function createListing(input: NewListing): Promise<string> {
       lng: input.lng,
       negotiable: input.negotiable,
       photo_urls: input.photo_urls,
+      event_start: input.event_start,
+      event_end: input.event_end,
     })
     .select('id')
     .single();
@@ -223,7 +230,7 @@ export async function createListing(input: NewListing): Promise<string> {
 
 // Per-event notification prefs. Both channels default ON — a stored `false`
 // turns that channel off for that event. Matches the web/server shape.
-export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message';
+export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message' | 'popup_reminder';
 // `app` is the key the web preference UI writes for push; `push` is the older
 // name. Both are written and read so either client's saved shape is honoured.
 export type NotifyPrefs = Partial<Record<NotifyEvent, { app?: boolean; email?: boolean; push?: boolean; sms?: boolean }>>;
@@ -236,7 +243,6 @@ export type MyProfile = {
   bio: string | null;
   avatar_url: string | null;
   contact_instagram: string | null;
-  contact_phone: string | null;
   contact_email: string | null;
   notify_prefs: NotifyPrefs;
   heard_from: string | null;
@@ -245,7 +251,7 @@ export type MyProfile = {
 export async function fetchMyProfile(userId: string): Promise<MyProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, school_unit, class_year, bio, avatar_url, contact_instagram, contact_phone, contact_email, notify_prefs, heard_from')
+    .select('id, display_name, school_unit, class_year, bio, avatar_url, contact_instagram, contact_email, notify_prefs, heard_from')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -253,27 +259,35 @@ export async function fetchMyProfile(userId: string): Promise<MyProfile | null> 
   return { ...(data as MyProfile), notify_prefs: (data.notify_prefs as NotifyPrefs) ?? {} };
 }
 
-export async function fetchMyListings(userId: string): Promise<FeedListing[]> {
+/** Own listings, active and sold. `archived` is what separates the two. */
+export type MyListing = FeedListing & { archived: boolean };
+
+export async function fetchMyListings(userId: string): Promise<MyListing[]> {
   const { data, error } = await supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, seller_id, category')
+    .select('id, title, price, location, photo_urls, seller_id, category, created_at, archived')
     .eq('seller_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return ((data ?? []) as Omit<FeedListing, 'seller'>[]).map((l) => ({
+  return ((data ?? []) as Omit<MyListing, 'seller'>[]).map((l) => ({
     ...l,
     price: l.price ?? 0,
     photo_urls: l.photo_urls ?? [],
+    archived: l.archived ?? false,
     seller: null,
   }));
 }
 
 // --- Saved listings (favorites) — direct-to-Supabase, own-row RLS ---
+// Uses the same `saves` table the web app writes through /api/saves, so a
+// listing saved on one platform shows as saved on the other. An earlier
+// migration introduced a parallel `saved_listings` table; it was never applied
+// and would have split saves across two stores, so it was dropped.
 
 // IDs the user has saved, for hydrating heart state on cards/detail.
 export async function fetchSavedIds(userId: string): Promise<string[]> {
   const { data, error } = await supabase
-    .from('saved_listings')
+    .from('saves')
     .select('listing_id')
     .eq('user_id', userId);
   if (error) throw error;
@@ -284,7 +298,7 @@ export async function fetchSavedIds(userId: string): Promise<string[]> {
 export async function toggleSaved(userId: string, listingId: string, saved: boolean): Promise<boolean> {
   if (saved) {
     const { error } = await supabase
-      .from('saved_listings')
+      .from('saves')
       .delete()
       .eq('user_id', userId)
       .eq('listing_id', listingId);
@@ -292,7 +306,7 @@ export async function toggleSaved(userId: string, listingId: string, saved: bool
     return false;
   }
   const { error } = await supabase
-    .from('saved_listings')
+    .from('saves')
     .insert({ user_id: userId, listing_id: listingId });
   // Ignore a duplicate-save race (already saved elsewhere).
   if (error && error.code !== '23505') throw error;
@@ -304,7 +318,7 @@ export async function toggleSaved(userId: string, listingId: string, saved: bool
 // embedded join, so it doesn't depend on PostgREST's FK-relationship cache.
 export async function fetchSavedListings(userId: string): Promise<FeedListing[]> {
   const { data: saves, error } = await supabase
-    .from('saved_listings')
+    .from('saves')
     .select('listing_id, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
@@ -314,7 +328,7 @@ export async function fetchSavedListings(userId: string): Promise<FeedListing[]>
 
   const { data: rows, error: le } = await supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, seller_id, category')
+    .select('id, title, price, location, photo_urls, seller_id, category, created_at')
     .in('id', orderedIds)
     .eq('archived', false);
   if (le) throw le;
@@ -556,7 +570,7 @@ export async function fetchPublicProfile(userId: string): Promise<FeedSeller | n
 export async function fetchUserListings(userId: string): Promise<FeedListing[]> {
   const { data, error } = await supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, seller_id, category')
+    .select('id, title, price, location, photo_urls, seller_id, category, created_at')
     .eq('seller_id', userId)
     .eq('archived', false)
     .order('created_at', { ascending: false });
@@ -590,10 +604,9 @@ export async function generateDescription(title: string, category: string): Prom
 
 // Contact channels, in the order that decides the primary one. Mirrors
 // METHOD_ORDER in web src/lib/validation.ts — /api/me validates contact_method
-// against the same list.
-// Instagram is gone: it was only ever a contact-sharing method, and Flipd
-// cannot deliver a notification there.
-const METHOD_ORDER = ['phone', 'email'] as const;
+// against the same list. Email is the only one left: Instagram was never a
+// notification destination, and phone went with the SMS channel.
+const METHOD_ORDER = ['email'] as const;
 
 export type OnboardingInput = {
   display_name: string;
@@ -602,9 +615,8 @@ export type OnboardingInput = {
   heard_from: string;
   heard_from_detail: string | null;
   // Notification destinations, never shown to other users.
-  contact_phone: string | null;
   contact_email: string | null;
-  notify_prefs?: Record<string, { app?: boolean; email?: boolean; sms?: boolean }>;
+  notify_prefs?: Record<string, { app?: boolean; email?: boolean }>;
 };
 
 // Finish onboarding. Goes through /api/me rather than a direct table write so
@@ -634,7 +646,6 @@ export async function updateMyProfile(
     school_unit?: string | null;
     class_year?: string | null;
     contact_instagram?: string | null;
-    contact_phone?: string | null;
     contact_email?: string | null;
     notify_prefs?: NotifyPrefs;
   },
@@ -843,4 +854,34 @@ export async function fetchSafetyReview(
   if (!res.ok) return null;
   const body = await res.json().catch(() => ({}));
   return (body.review as SafetyReview) ?? null;
+}
+
+// Popup reminders. Direct Supabase like saves — migration 017 gives the user
+// self select/insert/delete on popup_reminders. The web's /api/popup-reminders
+// route is cookie-only, so it is not reachable from a Bearer-token client.
+export async function fetchReminderIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('popup_reminders')
+    .select('listing_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.listing_id as string);
+}
+
+export async function toggleReminder(userId: string, listingId: string, on: boolean): Promise<boolean> {
+  if (on) {
+    const { error } = await supabase
+      .from('popup_reminders')
+      .delete()
+      .eq('user_id', userId)
+      .eq('listing_id', listingId);
+    if (error) throw error;
+    return false;
+  }
+  const { error } = await supabase
+    .from('popup_reminders')
+    .insert({ user_id: userId, listing_id: listingId });
+  // Ignore a duplicate race (reminder already set on another device).
+  if (error && error.code !== '23505') throw error;
+  return true;
 }
