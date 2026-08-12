@@ -48,10 +48,15 @@ Two concrete bugs follow directly:
 - `u/[id].tsx:214` hardcodes `?from=feed`. Opening a listing from someone's
   profile and pressing back lands on the feed rather than that profile.
 
-Separately, `u/[id].tsx` is the only screen that pads with the `S.screenTop`
-constant *without* wrapping in `SafeAreaView edges={['top']}`. `theme.ts` states
-the contract — "`screenTop` sits INSIDE a SafeAreaView edges={['top']} — it is
-breathing room" — so that screen's ⋯ menu renders into the Dynamic Island.
+Separately, the ⋯ menu on `u/[id].tsx:131-137` is `position: 'absolute'` with
+`top: S.screenTop`. Taken out of normal flow, it pins 12pt from the top of its
+container while every sibling sits materially lower — the `FlatList` adds
+`paddingTop: S.screenTop` and its header `View` adds another `padding: 10`. The
+result reads as a control floating near the notch, misaligned with everything
+around it. (The screen does wrap in `SafeAreaView edges={['top']}`; the problem
+is the absolute positioning, not a missing inset.) Moving it into
+`<ScreenHeader>`'s right slot as an ordinary flex child removes the question
+entirely, since it then aligns with the back chevron by construction.
 
 ## Decisions
 
