@@ -582,7 +582,7 @@ export default function Requests() {
             keyExtractor={(t) => t.id}
             renderItem={({ item }) => (
               <Pressable
-                onPress={() => router.push(`/(tabs)/messages/${item.id}`)}
+                onPress={() => router.push(`/messages/${item.id}`)}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -633,7 +633,7 @@ export default function Requests() {
                 onReview={tab === 'incoming' ? () => openReview(item) : undefined}
                 onComplete={() => onComplete(item)}
                 onRate={() => openRate(item)}
-                onOpenChat={(threadId) => router.push(`/(tabs)/messages/${threadId}`)}
+                onOpenChat={(threadId) => router.push(`/messages/${threadId}`)}
                 busy={busyId === item.id}
               />
             )}

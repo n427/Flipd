@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { useSession } from '@/lib/session';
 import {
@@ -127,15 +128,18 @@ export default function PublicProfile() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-        {!isSelf ? (
-          <Pressable
-            onPress={() => setSheet('menu')}
-            hitSlop={10}
-            style={{ position: 'absolute', top: S.screenTop, right: 18, zIndex: 10, padding: 4 }}
-          >
-            <Ionicons name="ellipsis-horizontal" size={22} color={T.ink} />
-          </Pressable>
-        ) : null}
+        {/* The menu is an ordinary flex child of the header rather than an
+            absolutely-positioned overlay, so it lines up with the back chevron
+            instead of floating up near the notch. */}
+        <ScreenHeader
+          right={
+            !isSelf ? (
+              <Pressable onPress={() => setSheet('menu')} hitSlop={10} style={{ padding: 4 }}>
+                <Ionicons name="ellipsis-horizontal" size={22} color={T.ink} />
+              </Pressable>
+            ) : null
+          }
+        />
 
         {blocked ? (
           <View style={{ backgroundColor: '#FDF2F2', paddingTop: S.screenTop, paddingBottom: 10, paddingHorizontal: 18 }}>

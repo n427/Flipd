@@ -377,7 +377,7 @@ export default function ListingDetailScreen() {
             <>
               <Text style={sectionLabel}>Seller</Text>
               <Pressable
-                onPress={() => router.push(`/(tabs)/u/${listing.seller_id}`)}
+                onPress={() => router.push(`/u/${listing.seller_id}`)}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -449,7 +449,7 @@ export default function ListingDetailScreen() {
               {/* An open conversation outranks the request CTA: someone who
                   already has a thread wants back into it, not to start over. */}
               <Pressable
-                onPress={threadId ? () => router.push(`/(tabs)/messages/${threadId}`) : requested ? undefined : openSheet}
+                onPress={threadId ? () => router.push(`/messages/${threadId}`) : requested ? undefined : openSheet}
                 disabled={!threadId && requested}
                 style={{
                   backgroundColor: !threadId && requested ? T.fieldbg : T.cardinal,

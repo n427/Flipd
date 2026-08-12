@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { supabase } from '@/lib/supabase';
 import {
   fetchThread,
@@ -210,20 +211,13 @@ export default function ThreadScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <ScreenHeader />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
-        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop }}>
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={10}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 }}
-          >
-            <Ionicons name="chevron-back" size={20} color={T.muted} />
-            <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.muted }}>Back</Text>
-          </Pressable>
+        <View style={{ paddingHorizontal: S.gutter }}>
 
           {/* Pinned listing header: the subject is never ambiguous, and it is
               the way back to the post. */}
