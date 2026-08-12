@@ -147,6 +147,12 @@ Suppression lives **in the sweep, not the client**. The in-progress mobile "remi
 
 ## Subsystem 3 — SMS Channel
 
+> **REMOVED 2026-08-11.** Built in phase 3, never switched on, deleted before it
+> ever sent a message. See
+> [2026-08-11-remove-sms-channel-design.md](2026-08-11-remove-sms-channel-design.md).
+> The section below is kept as a record of what was built, not as a description
+> of the system.
+
 ### Three gates
 
 ```ts
