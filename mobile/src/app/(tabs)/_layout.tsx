@@ -107,21 +107,14 @@ export default function TabsLayout() {
         options={{ tabBarIcon: ({ color, size }) => <Feather name="user" color={color} size={size} /> }}
       />
       {/* Hidden routes — not tabs */}
-      <Tabs.Screen name="saved" options={{ href: null }} />
-      <Tabs.Screen name="reviews" options={{ href: null }} />
-      <Tabs.Screen name="my-listings" options={{ href: null }} />
       <Tabs.Screen name="listing/[id]/index" options={{ href: null }} />
       <Tabs.Screen name="listing/[id]/edit" options={{ href: null }} />
       <Tabs.Screen name="u/[id]" options={{ href: null }} />
-      <Tabs.Screen name="edit-profile" options={{ href: null }} />
       {/* A conversation is a full-screen destination. `href: null` only keeps
           it off the tab bar — the bar still rendered on top of it, so the
           raised Post button sat over the send button and the composer was
           pinned behind the bar. Hide the bar outright here. */}
       <Tabs.Screen name="messages/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="terms" options={{ href: null }} />
-      <Tabs.Screen name="privacy" options={{ href: null }} />
-      <Tabs.Screen name="support" options={{ href: null }} />
     </Tabs>
   );
 }

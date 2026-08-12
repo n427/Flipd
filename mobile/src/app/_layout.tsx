@@ -64,7 +64,18 @@ function AuthWatcher() {
     return () => sub.remove();
   }, [router]);
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        gestureEnabled: true,
+        // iOS: let the drag start anywhere, not just the 20pt edge. This is the
+        // behaviour the hand-rolled EdgeSwipeBackGesture was approximating.
+        fullScreenGestureEnabled: true,
+      }}
+    />
+  );
 }
 
 export default function RootLayout() {

@@ -1,9 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { goBack } from '@/lib/nav';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useSession } from '@/lib/session';
 import { fetchMyListings, MyListing } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
@@ -70,19 +69,8 @@ export default function MyListings() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 10,
-          paddingHorizontal: 16,
-          paddingTop: S.screenTop,
-          paddingBottom: 10,
-        }}
-      >
-        <Pressable onPress={() => goBack('/(tabs)/profile')} hitSlop={10}>
-          <Ionicons name="chevron-back" size={23} color={T.ink} />
-        </Pressable>
+      <ScreenHeader />
+      <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
         <Text style={{ fontFamily: F.black, fontSize: 22, color: T.ink, letterSpacing: -0.6 }}>My Listings</Text>
       </View>
 

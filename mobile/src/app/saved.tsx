@@ -1,9 +1,8 @@
 import { useCallback, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { goBackTo } from '@/lib/nav';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useSession } from '@/lib/session';
 import { fetchSavedListings, FeedListing } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
@@ -60,6 +59,7 @@ export default function Saved() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <ScreenHeader />
       <FlatList
         data={listings}
         keyExtractor={(l) => l.id}
@@ -75,16 +75,6 @@ export default function Saved() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListHeaderComponent={
           <View style={{ paddingHorizontal: 6, paddingBottom: 10 }}>
-            {/* Saved is off the tab bar and only reachable from Profile, so it
-                needs its own way back — router.back() would pop tab history. */}
-            <Pressable
-              onPress={() => goBackTo('/(tabs)/profile')}
-              hitSlop={10}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 }}
-            >
-              <Feather name="chevron-left" size={20} color={T.muted} />
-              <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.muted }}>Back</Text>
-            </Pressable>
             <Text style={{ fontFamily: F.black, fontSize: 24, color: T.ink, letterSpacing: -0.6 }}>
               Saved
             </Text>

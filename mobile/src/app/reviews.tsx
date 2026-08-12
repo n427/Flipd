@@ -1,12 +1,11 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useSession } from '@/lib/session';
 import { fetchRatings, RatingSummary } from '@/lib/listings';
 import { Stars } from '@/components/Stars';
-import { goBackTo } from '@/lib/nav';
 import { T, F, S } from '@/lib/theme';
 
 // Ratings this user has received. Anonymous by design — the API never returns
@@ -47,6 +46,7 @@ export default function Reviews() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <ScreenHeader />
       <FlatList
         data={ratings.reviews}
         keyExtractor={(r, i) => `${r.created_at}-${i}`}
@@ -59,14 +59,6 @@ export default function Reviews() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListHeaderComponent={
           <View style={{ paddingBottom: 10 }}>
-            <Pressable
-              onPress={() => goBackTo('/(tabs)/profile')}
-              hitSlop={10}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 }}
-            >
-              <Feather name="chevron-left" size={20} color={T.muted} />
-              <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.muted }}>Back</Text>
-            </Pressable>
             <Text style={{ fontFamily: F.black, fontSize: 24, color: T.ink, letterSpacing: -0.6 }}>Reviews</Text>
             {ratings.average != null ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>

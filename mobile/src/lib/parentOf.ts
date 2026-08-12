@@ -11,7 +11,7 @@ const FEED = '/(tabs)/feed';
 const REQUESTS = '/(tabs)/requests';
 const PROFILE = '/(tabs)/profile';
 
-const RULES: ReadonlyArray<readonly [RegExp, string]> = [
+const RULES: readonly (readonly [RegExp, string])[] = [
   [/^\/listing\//, FEED],
   [/^\/u\//, FEED],
   [/^\/messages\//, REQUESTS],
