@@ -137,8 +137,13 @@ alter table public.profiles add constraint profiles_contact_method_check
 
 `contact_method = 'phone'` is legal today under the check constraint in
 `007_identity_contact.sql`. Left alone, those rows would name a column that no
-longer exists. `'email'` is always a safe target because `contact_email` is locked
-to the verified account and therefore always populated. The constraint is then
+longer exists. The re-point target follows the same instagram-then-email
+precedence `primaryMethod` uses in `src/lib/validation.ts`: `contact_instagram`
+first, then `contact_email`, and `null` when a row has neither. `contact_email`
+is not guaranteed non-null — `src/app/api/me/route.ts` maps an empty string to
+`null`, and mobile writes the column directly — so it cannot be assumed a safe
+target on its own; `null` is the honest answer for a row with neither, and it
+passes the narrowed constraint below, so this is safe. The constraint is then
 narrowed so the database agrees with the narrowed `ContactMethod` union rather
 than silently permitting a value the app can no longer produce.
 

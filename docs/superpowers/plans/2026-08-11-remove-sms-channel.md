@@ -778,7 +778,25 @@ the exported union, and drop `sms`:
   notify_prefs: Record<string, { app?: boolean; email?: boolean }> | null;
 ```
 
-- [ ] **Step 5: Verify**
+- [ ] **Step 5: Clean up the two bridge call sites**
+
+Task 2 could not drop `phone` from its `primaryMethod` calls, because `ContactValues`
+still required the key until Step 3 above. Both web pages therefore carry a
+`phone: null` bridge that is now an excess property and will fail to compile.
+
+In `src/app/onboarding/page.tsx` and `src/app/(app)/profile/edit/page.tsx`, change:
+
+```tsx
+          contact_method: primaryMethod({ instagram: null, phone: null, email: contacts.email.trim() || null }),
+```
+
+to:
+
+```tsx
+          contact_method: primaryMethod({ instagram: null, email: contacts.email.trim() || null }),
+```
+
+- [ ] **Step 6: Verify**
 
 Run: `npx vitest run src/lib/validation.test.ts`
 Expected: PASS.
@@ -908,15 +926,43 @@ hardening is preserved, not reverted."
 
 1. Merge and deploy Tasks 1-5 **before** applying the migration. The app must stop
    reading `contact_phone` before the column disappears.
-2. Apply `035_remove_sms.sql` in the Supabase SQL editor. **This permanently
+2. **Confirm mobile adoption of the Task 3 build before applying this migration.**
+   Mobile writes `profiles` directly with the anon key, so any mobile build
+   predating Task 3 still sends `contact_phone` on every profile save and will get
+   `42703 column "contact_phone" of relation "profiles" does not exist` — failing
+   the ENTIRE profile save, not just the phone field. Unlike web, a native deploy
+   only counts once it has actually reached devices, not once it is submitted or
+   released. Ship the Task 3 mobile build and confirm adoption before applying
+   `035`, or knowingly accept a window where stale clients cannot save their
+   profile at all.
+3. Apply `035_remove_sms.sql` in the Supabase SQL editor. **This permanently
    deletes every stored phone number.** Take a backup first if there is any doubt.
-3. The check constraint is unnamed in `007_identity_contact.sql`, so it should have
-   been auto-named `profiles_contact_method_check`. If the `drop constraint if
-   exists` is a silent no-op, confirm the real name with `\d public.profiles` and
-   correct the migration before the `add constraint` line fails on a duplicate.
-4. Verify: `select count(*) from public.profiles where contact_method = 'phone';`
+4. The check constraint is unnamed in `007_identity_contact.sql`, so it should have
+   been auto-named `profiles_contact_method_check`, and `drop constraint if
+   exists` should find and drop it before `add constraint` recreates it under that
+   same name — that `add constraint` cannot fail on a duplicate, since the exact
+   name it uses was just dropped. The real risk is a **name mismatch**: if the
+   live constraint actually has a different name, `drop constraint if exists` is a
+   silent no-op and `add constraint profiles_contact_method_check` succeeds
+   anyway, leaving TWO check constraints on `contact_method` — the new narrow one
+   plus the old, more permissive one still standing. After applying, run `\d
+   public.profiles` and drop any second `contact_method` check constraint that
+   survived.
+5. Verify: `select count(*) from public.profiles where contact_method = 'phone';`
    returns 0, and `select contact_phone from public.profiles limit 1;` errors with
    "column does not exist".
-5. Remove `SMS_API_KEY`, `SMS_API_URL`, `SMS_FROM`, `SMS_WEBHOOK_SECRET` from Vercel
+6. **Delete these three lines from `.env.local.example`** (around lines 26-28):
+
+   ```
+   SMS_API_KEY=
+   SMS_API_URL=
+   SMS_FROM=
+   ```
+
+   Task 1 Step 4 required this but could not do it: env files are permission-denied
+   to every agent in this environment. No later task's verification grep covers
+   `.env.local.example`, so nothing else will catch it. Zero-risk edit; nothing
+   reads these vars any more.
+7. Remove `SMS_API_KEY`, `SMS_API_URL`, `SMS_FROM`, `SMS_WEBHOOK_SECRET` from Vercel
    (Production and Preview) if they were ever set.
-6. If an SMS provider account or number was provisioned, decommission it.
+8. If an SMS provider account or number was provisioned, decommission it.
