@@ -11,6 +11,7 @@ import { FormScroll } from '@/components/FormScroll';
 import { Field } from '@/components/Field';
 import { MapPreview } from '@/components/MapPreview';
 import { CATEGORIES, CAMPUS_SPOTS } from '@/lib/catalog';
+import { isPopupCategory, parseEventWindow, formatEventWindow } from '@/lib/events';
 import { searchPlaces, placeDetails, PlaceHit } from '@/lib/places';
 import { T, F, S } from '@/lib/theme';
 
@@ -32,12 +33,22 @@ export default function Post() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [negotiable, setNegotiable] = useState(false);
+  // Popup window. Kept as raw text so the fields work identically on web and
+  // native without pulling in a native date-picker module.
+  const [eventDate, setEventDate] = useState('');
+  const [eventStartTime, setEventStartTime] = useState('');
+  const [eventEndTime, setEventEndTime] = useState('');
   const [locName, setLocName] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
+
+  // A popup is a listing in the 'event' category: no price, but a required
+  // start/end window. Same rule the web app applies.
+  const isPopup = isPopupCategory(category);
+  const eventWindow = isPopup ? parseEventWindow(eventDate, eventStartTime, eventEndTime) : null;
 
   const fillWithAI = async () => {
     if (!title.trim() || !category) {
@@ -139,6 +150,14 @@ export default function Post() {
       setError('Add a pickup location.');
       return;
     }
+    if (isPopup && !eventWindow) {
+      setError(
+        !eventDate.trim() || !eventStartTime.trim() || !eventEndTime.trim()
+          ? 'Add the date and start/end time for your popup.'
+          : 'Check the popup times — it must end after it starts, same day.',
+      );
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -147,15 +166,18 @@ export default function Post() {
       const id = await createListing({
         seller_id: user.id,
         title: title.trim(),
-        price: Number.isFinite(parsedPrice) && parsedPrice > 0 ? parsedPrice : 0,
+        // Popups are not priced; the web app sends no price for them either.
+        price: isPopup ? 0 : Number.isFinite(parsedPrice) && parsedPrice > 0 ? parsedPrice : 0,
         description: description.trim() || null,
         category,
         location: locName.trim(),
         place_name: locName.trim(),
         lat: coords?.lat ?? null,
         lng: coords?.lng ?? null,
-        negotiable,
+        negotiable: isPopup ? false : negotiable,
         photo_urls,
+        event_start: eventWindow?.start ?? null,
+        event_end: eventWindow?.end ?? null,
       });
       router.replace(`/(tabs)/listing/${id}`);
     } catch (e) {
@@ -166,7 +188,9 @@ export default function Post() {
 
   // Progress: photos, title, category, location → 0/4 in the header.
   const steps = [photos.length > 0, !!title.trim(), !!category, !!locName.trim()].filter(Boolean).length;
-  const ready = !!title.trim() && !!category && !!locName.trim();
+  // A popup is only postable once its window parses, so the button can't
+  // enable into a submit that the validation above would reject.
+  const ready = !!title.trim() && !!category && !!locName.trim() && (!isPopup || !!eventWindow);
 
   // One hint line under the button, showing the next thing standing between
   // this draft and a live listing — a single validation surface rather than
@@ -177,7 +201,9 @@ export default function Post() {
       ? 'Pick a category to post'
       : !locName.trim()
         ? 'Add a meetup spot so buyers know where to go'
-        : null;
+        : isPopup && !eventWindow
+          ? 'Add when your popup runs — date, start and end time'
+          : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -277,24 +303,96 @@ export default function Post() {
           {title.length}/{MAX_TITLE}
         </Text>
 
-        {/* Price — $ prefix sits inside the field */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-          <Text style={[label, { marginBottom: 0 }]}>Price</Text>
-          <Text style={{ fontFamily: F.medium, fontSize: 12, color: T.muted }}>Leave blank for free</Text>
-        </View>
-        <View style={{ justifyContent: 'center', marginBottom: 22 }}>
-          <Text style={{ position: 'absolute', left: 16, zIndex: 1, fontFamily: F.bold, fontSize: 16, color: T.muted }}>$</Text>
-          <TextInput
-            value={price}
-            onChangeText={(t) => setPrice(t.replace(/\D/g, ''))}
-            onFocus={() => setFocused('price')}
-            onBlur={() => setFocused(null)}
-            placeholder="0"
-            placeholderTextColor={T.muted}
-            keyboardType="number-pad"
-            style={[field, focused === 'price' && fieldFocus, { marginBottom: 0, paddingLeft: 34, fontFamily: F.semibold }]}
-          />
-        </View>
+        {/* Category comes before the price/date fields on purpose: it decides
+            which of them you get, so choosing first means nobody fills in a
+            field that the next tap replaces. */}
+        <Text style={label}>Category</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginHorizontal: -PAGE_PAD, marginBottom: 22 }}
+          contentContainerStyle={{ gap: 7, paddingHorizontal: PAGE_PAD }}
+        >
+          {CATEGORIES.map((cat) => (
+            <Pressable key={cat.id} onPress={() => setCategory(category === cat.id ? null : cat.id)} style={chip(category === cat.id)}>
+              <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: category === cat.id ? '#fff' : CHIP_FG }}>
+                {cat.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* Popups carry a time window instead of a price — same swap the web
+            form makes once the Popups category is selected. */}
+        {isPopup ? (
+          <>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+              <Text style={[label, { marginBottom: 0 }]}>
+                When<Text style={{ color: T.cardinal }}> *</Text>
+              </Text>
+              <Text style={{ fontFamily: F.medium, fontSize: 12, color: T.muted }}>Same day, 24h times</Text>
+            </View>
+            <TextInput
+              value={eventDate}
+              onChangeText={setEventDate}
+              onFocus={() => setFocused('eventDate')}
+              onBlur={() => setFocused(null)}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={T.muted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[field, focused === 'eventDate' && fieldFocus, { marginBottom: 10 }]}
+            />
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
+              <TextInput
+                value={eventStartTime}
+                onChangeText={setEventStartTime}
+                onFocus={() => setFocused('eventStart')}
+                onBlur={() => setFocused(null)}
+                placeholder="Start 14:00"
+                placeholderTextColor={T.muted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[field, focused === 'eventStart' && fieldFocus, { flex: 1, marginBottom: 0 }]}
+              />
+              <TextInput
+                value={eventEndTime}
+                onChangeText={setEventEndTime}
+                onFocus={() => setFocused('eventEnd')}
+                onBlur={() => setFocused(null)}
+                placeholder="End 17:00"
+                placeholderTextColor={T.muted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[field, focused === 'eventEnd' && fieldFocus, { flex: 1, marginBottom: 0 }]}
+              />
+            </View>
+            <Text style={{ fontFamily: F.medium, fontSize: 12.5, color: eventWindow ? T.muted : T.cardinal, marginBottom: 22, lineHeight: 18 }}>
+              {eventWindow ? formatEventWindow(eventWindow.start, eventWindow.end) : 'Set a date and a start/end time.'}
+            </Text>
+          </>
+        ) : (
+          <>
+            {/* Price — $ prefix sits inside the field */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+              <Text style={[label, { marginBottom: 0 }]}>Price</Text>
+              <Text style={{ fontFamily: F.medium, fontSize: 12, color: T.muted }}>Leave blank for free</Text>
+            </View>
+            <View style={{ justifyContent: 'center', marginBottom: 22 }}>
+              <Text style={{ position: 'absolute', left: 16, zIndex: 1, fontFamily: F.bold, fontSize: 16, color: T.muted }}>$</Text>
+              <TextInput
+                value={price}
+                onChangeText={(t) => setPrice(t.replace(/\D/g, ''))}
+                onFocus={() => setFocused('price')}
+                onBlur={() => setFocused(null)}
+                placeholder="0"
+                placeholderTextColor={T.muted}
+                keyboardType="number-pad"
+                style={[field, focused === 'price' && fieldFocus, { marginBottom: 0, paddingLeft: 34, fontFamily: F.semibold }]}
+              />
+            </View>
+          </>
+        )}
 
         {/* Description */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -327,24 +425,9 @@ export default function Post() {
           ]}
         />
 
-        {/* Category — full-bleed horizontal scroll */}
-        <Text style={label}>Category</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginHorizontal: -PAGE_PAD, marginBottom: 22 }}
-          contentContainerStyle={{ gap: 7, paddingHorizontal: PAGE_PAD }}
-        >
-          {CATEGORIES.map((cat) => (
-            <Pressable key={cat.id} onPress={() => setCategory(category === cat.id ? null : cat.id)} style={chip(category === cat.id)}>
-              <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: category === cat.id ? '#fff' : CHIP_FG }}>
-                {cat.label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* Open to offers */}
+        {/* Open to offers — priced listings only; a popup has no price to
+            negotiate, and the web form hides it for popups too. */}
+        {!isPopup ? (
         <Pressable
           onPress={() => setNegotiable((v) => !v)}
           style={{
@@ -377,6 +460,7 @@ export default function Post() {
             <View style={{ width: 24, height: 24, borderRadius: 999, backgroundColor: '#fff' }} />
           </View>
         </Pressable>
+        ) : null}
 
         {/* Location */}
         <Text style={label}>Where you’ll meet</Text>

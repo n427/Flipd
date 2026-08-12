@@ -35,10 +35,10 @@ select v.id::uuid, p.id, v.category, v.title, v.description, v.price, true,
        v.location, '{email}', v.photo::text[], '{50% 50%}', now() - v.age
 from public.profiles p
 cross join (values
-  ('f0000000-0000-4000-8000-000000000401', 'goods', 'Standing desk converter',
+  ('354cd55e-ee6f-4c39-bcd6-fa455c5df704', 'goods', 'Standing desk converter',
    'Barely used, raises to standing height. Pickup near campus.', 75,
    'USC Village', '{https://picsum.photos/seed/flipd-desk/800/800}', interval '3 days'),
-  ('f0000000-0000-4000-8000-000000000402', 'services', 'Calc 125 tutoring',
+  ('5060eb56-c3cd-4f09-9640-f0772d7f3730', 'services', 'Calc 125 tutoring',
    'One-on-one help, first session half price.', 40,
    'Leavey Library', '{https://picsum.photos/seed/flipd-tutor2/800/800}', interval '5 days')
 ) as v(id, category, title, description, price, location, photo, age)
@@ -63,15 +63,15 @@ select v.id::uuid, l.id, l.title,
        v.status, v.offer, v.intro,
        now() - v.age, now() - v.age + interval '72 hours', v.resolved
 from (values
-  ('f0000000-0000-4000-8000-000000000501', 'f0000000-0000-4000-8000-000000000401',
+  ('891afcf7-fa4c-4003-95b8-4cdfe05bbc58', '354cd55e-ee6f-4c39-bcd6-fa455c5df704',
    'pending', 65,
    'Is the desk converter still available? I could pick it up Thursday afternoon if that works for you.',
    interval '5 hours', null::timestamptz),
-  ('f0000000-0000-4000-8000-000000000502', 'f0000000-0000-4000-8000-000000000402',
+  ('010bd5ac-a0d3-4435-b512-201f9897c085', '5060eb56-c3cd-4f09-9640-f0772d7f3730',
    'approved', null,
    'I have a Calc 125 midterm in two weeks and could really use help with integrals. Are you free weekday evenings?',
    interval '2 days', now() - interval '2 days' + interval '40 minutes'),
-  ('f0000000-0000-4000-8000-000000000503', 'f0000000-0000-4000-8000-000000000401',
+  ('451d56e9-06b1-4240-b824-fce5d0d62e49', '354cd55e-ee6f-4c39-bcd6-fa455c5df704',
    'declined', 50,
    'Would you take 50 for the desk? I can grab it today.',
    interval '6 days', now() - interval '6 days' + interval '3 hours')
@@ -89,15 +89,15 @@ on conflict (id) do update set
 insert into public.message_threads (
   id, request_id, listing_id, listing_title, buyer_id, seller_id, created_at, last_message_at
 )
-select 'f0000000-0000-4000-8000-000000000601'::uuid, r.id, r.listing_id, r.listing_title,
+select '820669ca-225d-436e-8dd4-cd581575243b'::uuid, r.id, r.listing_id, r.listing_title,
        r.buyer_id, r.seller_id, r.resolved_at, r.resolved_at
 from public.reveal_requests r
-where r.id = 'f0000000-0000-4000-8000-000000000502'::uuid
+where r.id = '010bd5ac-a0d3-4435-b512-201f9897c085'::uuid
 on conflict (request_id) do update set listing_title = excluded.listing_title;
 
 -- A short exchange, ending on the buyer's message so the thread reads unread.
 delete from public.messages
-where thread_id = 'f0000000-0000-4000-8000-000000000601'::uuid;
+where thread_id = '820669ca-225d-436e-8dd4-cd581575243b'::uuid;
 
 insert into public.messages (thread_id, sender_id, body, created_at)
 select t.id,
@@ -109,7 +109,7 @@ from (values
   (false, 'Yes, Tuesday and Thursday after 6 both work for me.', interval '1 day'),
   (true,  'Tuesday is perfect. Should I bring the textbook?', interval '3 hours')
 ) as v(from_buyer, body, age)
-join public.message_threads t on t.id = 'f0000000-0000-4000-8000-000000000601'::uuid;
+join public.message_threads t on t.id = '820669ca-225d-436e-8dd4-cd581575243b'::uuid;
 
 commit;
 
@@ -117,4 +117,4 @@ commit;
 --   select listing_title, status, offer, left(intro_message, 50) as intro
 --     from public.reveal_requests where id::text like 'f0000000%';
 --   select body, created_at from public.messages
---     where thread_id = 'f0000000-0000-4000-8000-000000000601' order by created_at;
+--     where thread_id = '820669ca-225d-436e-8dd4-cd581575243b' order by created_at;

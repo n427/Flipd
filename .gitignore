@@ -10,3 +10,4 @@ Tassel-handoff.zip
 .superpowers/
 # Supabase CLI scratch
 supabase/.temp/
+.gstack/

@@ -1,8 +1,8 @@
 import { ReactNode } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { goBackTo } from '@/lib/nav';
 import { T, F, S } from '@/lib/theme';
 import type { LegalDoc } from '@/lib/legal';
 
@@ -11,8 +11,6 @@ import type { LegalDoc } from '@/lib/legal';
 // the copy differs. These are terminal reading screens reached from Profile,
 // so they carry an explicit back control rather than relying on the swipe.
 export function LegalScreen({ doc, children }: { doc: LegalDoc; children?: ReactNode }) {
-  const router = useRouter();
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
       <ScrollView
@@ -24,7 +22,10 @@ export function LegalScreen({ doc, children }: { doc: LegalDoc; children?: React
         }}
       >
         <Pressable
-          onPress={() => router.back()}
+          // Not router.back(): inside Tabs that pops the *tab* history, so
+          // arriving via Feed → Profile → Support sent Back to the feed. These
+          // three screens hang off Profile only, so the destination is exact.
+          onPress={() => goBackTo('/(tabs)/profile')}
           hitSlop={10}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14 }}
         >

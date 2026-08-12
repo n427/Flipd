@@ -76,6 +76,10 @@ export async function GET(
       offer: request?.offer ?? null,
       approved_at: request?.resolved_at ?? null,
       created_at: thread.created_at,
+      // Who wrote the intro message, and when. The requester is always the
+      // buyer, so the viewer's side is enough to attribute it without guessing.
+      i_am_buyer: thread.buyer_id === user.id,
+      requested_at: request?.created_at ?? null,
     },
     messages: rows.map((m) => ({
       id: m.id,

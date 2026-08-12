@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Pressable, Alert, TextInput } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,30 +20,9 @@ import {
   RatingSummary,
 } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
+import { Stars } from '@/components/Stars';
+import { ReportForm } from '@/components/ReportForm';
 import { T, F, S } from '@/lib/theme';
-
-const REPORT_REASONS: { key: ReportReason; label: string }[] = [
-  { key: 'scam', label: 'Scam or fraud' },
-  { key: 'prohibited', label: 'Prohibited item' },
-  { key: 'harassment', label: 'Harassment' },
-  { key: 'other', label: 'Something else' },
-];
-
-// Compact star row for an average score (supports halves).
-function Stars({ value, size = 15 }: { value: number; size?: number }) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 1 }}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <Ionicons
-          key={n}
-          name={value >= n ? 'star' : value >= n - 0.5 ? 'star-half' : 'star-outline'}
-          size={size}
-          color={T.gold}
-        />
-      ))}
-    </View>
-  );
-}
 
 export default function PublicProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -54,9 +33,12 @@ export default function PublicProfile() {
   const [ratings, setRatings] = useState<RatingSummary>({ average: null, count: 0, reviews: [] });
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [blocked, setBlocked] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState<ReportReason | null>(null);
-  const [reportNote, setReportNote] = useState('');
+  // One sheet, two views. Presenting a second Modal while the first is still
+  // dismissing misbehaves on iOS, so the menu swaps its content in place.
+  const [sheet, setSheet] = useState<null | 'menu' | 'report'>(null);
+  // Alert.alert is an empty stub in react-native-web, so every confirmation
+  // and error has to surface in-app rather than through a native dialog.
+  const [toast, setToast] = useState<string | null>(null);
   const [reporting, setReporting] = useState(false);
 
   const isSelf = user?.id === id;
@@ -84,50 +66,38 @@ export default function PublicProfile() {
     load();
   }, [load]);
 
-  // Overflow menu: Block/Unblock + Report.
-  const openMenu = () => {
-    const options = [
-      blocked ? 'Unblock' : 'Block',
-      'Report',
-      'Cancel',
-    ];
-    Alert.alert(profile?.display_name || 'This Trojan', undefined, [
-      {
-        text: options[0],
-        style: blocked ? 'default' : 'destructive',
-        onPress: toggleBlock,
-      },
-      { text: 'Report', onPress: () => setReportOpen(true) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
+  // Toasts clear themselves so there is nothing extra to dismiss.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4200);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const toggleBlock = async () => {
+    setSheet(null);
     try {
       if (blocked) {
         await unblockUser(String(id));
         setBlocked(false);
+        setToast('Unblocked.');
       } else {
         await blockUser(String(id));
         setBlocked(true);
-        Alert.alert('Blocked', 'You won’t see each other’s listings or be able to request contact.');
+        setToast('Blocked. You won’t see each other’s listings or be able to request contact.');
       }
     } catch (e) {
-      Alert.alert('Could not update', e instanceof Error ? e.message : 'Try again.');
+      setToast(e instanceof Error ? e.message : 'Could not update. Try again.');
     }
   };
 
-  const sendReport = async () => {
-    if (!reportReason) return;
+  const sendReport = async (reason: ReportReason, note: string) => {
     setReporting(true);
     try {
-      await reportUser({ userId: String(id) }, reportReason, reportNote);
-      setReportOpen(false);
-      setReportReason(null);
-      setReportNote('');
-      Alert.alert('Report sent', 'Thanks. Our team will take a look.');
+      await reportUser({ userId: String(id) }, reason, note);
+      setSheet(null);
+      setToast('Report sent. Our team will take a look.');
     } catch (e) {
-      Alert.alert('Could not send', e instanceof Error ? e.message : 'Try again.');
+      setToast(e instanceof Error ? e.message : 'Could not send. Try again.');
     } finally {
       setReporting(false);
     }
@@ -159,7 +129,7 @@ export default function PublicProfile() {
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
         {!isSelf ? (
           <Pressable
-            onPress={openMenu}
+            onPress={() => setSheet('menu')}
             hitSlop={10}
             style={{ position: 'absolute', top: S.screenTop, right: 18, zIndex: 10, padding: 4 }}
           >
@@ -245,90 +215,69 @@ export default function PublicProfile() {
         )}
         />
 
-        {/* Report sheet */}
-        <Sheet visible={reportOpen} onClose={() => setReportOpen(false)}>
+        {/* Snackbar — the only feedback channel that works on web. */}
+        {toast ? (
+          <View
+            style={{
+              position: 'absolute',
+              left: 16,
+              right: 16,
+              bottom: S.screenBottom + 12,
+              zIndex: 20,
+              backgroundColor: T.ink,
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+            }}
+          >
+            <Text style={{ fontFamily: F.medium, fontSize: 13.5, color: '#fff', lineHeight: 19 }}>{toast}</Text>
+          </View>
+        ) : null}
+
+        {/* Overflow menu + report, sharing one sheet. */}
+        <Sheet visible={sheet !== null} onClose={() => setSheet(null)}>
           <SheetGrabber />
-          <View>
+          {sheet === 'menu' ? (
             <View>
-              <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, letterSpacing: -0.4 }}>
-                Report {profile?.display_name || 'this Trojan'}
+              <Text style={{ fontFamily: F.extrabold, fontSize: 18, color: T.ink, letterSpacing: -0.3, marginBottom: 6 }}>
+                {profile?.display_name || 'This Trojan'}
               </Text>
-              <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6 }}>
-                What’s wrong? Reports are private.
-              </Text>
-
-              <View style={{ gap: 8, marginTop: 18 }}>
-                {REPORT_REASONS.map((r) => {
-                  const on = reportReason === r.key;
-                  return (
-                    <Pressable
-                      key={r.key}
-                      onPress={() => setReportReason(r.key)}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        borderWidth: 1.5,
-                        borderColor: on ? T.cardinal : T.rule,
-                        backgroundColor: on ? '#FDF2F2' : '#fff',
-                        borderRadius: 14,
-                        paddingVertical: 14,
-                        paddingHorizontal: 16,
-                      }}
-                    >
-                      <Text style={{ fontFamily: F.semibold, fontSize: 15, color: T.ink }}>{r.label}</Text>
-                      <Ionicons
-                        name={on ? 'checkmark-circle' : 'ellipse-outline'}
-                        size={20}
-                        color={on ? T.cardinal : T.rule}
-                      />
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <TextInput
-                value={reportNote}
-                onChangeText={setReportNote}
-                placeholder="Add details (optional)"
-                placeholderTextColor={T.muted}
-                multiline
-                maxLength={500}
-                style={{
-                  backgroundColor: T.fieldbg,
-                  borderRadius: 14,
-                  paddingHorizontal: 16,
-                  paddingVertical: 14,
-                  minHeight: 72,
-                  textAlignVertical: 'top',
-                  fontFamily: F.medium,
-                  fontSize: 15,
-                  color: T.ink,
-                  marginTop: 12,
-                }}
-              />
-
               <Pressable
-                onPress={sendReport}
-                disabled={reporting || !reportReason}
-                style={{
-                  backgroundColor: T.cardinal,
-                  borderRadius: 14,
-                  paddingVertical: 16,
-                  alignItems: 'center',
-                  marginTop: 18,
-                  opacity: reporting || !reportReason ? 0.5 : 1,
-                }}
+                onPress={toggleBlock}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 15 }}
               >
-                <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>
-                  {reporting ? 'Sending…' : 'Submit report'}
+                <Ionicons name={blocked ? 'person-add-outline' : 'ban-outline'} size={20} color={blocked ? T.ink : T.danger} />
+                <Text style={{ fontFamily: F.semibold, fontSize: 15.5, color: blocked ? T.ink : T.danger }}>
+                  {blocked ? 'Unblock' : 'Block'}
                 </Text>
               </Pressable>
-              <Pressable onPress={() => setReportOpen(false)} style={{ marginTop: 14, alignItems: 'center' }}>
+              <Pressable
+                onPress={() => setSheet('report')}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  paddingVertical: 15,
+                  borderTopWidth: 1,
+                  borderTopColor: T.rule,
+                }}
+              >
+                <Ionicons name="flag-outline" size={20} color={T.ink} />
+                <Text style={{ fontFamily: F.semibold, fontSize: 15.5, color: T.ink }}>Report</Text>
+              </Pressable>
+              <Pressable onPress={() => setSheet(null)} style={{ marginTop: 10, alignItems: 'center' }}>
                 <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
               </Pressable>
             </View>
-          </View>
+          ) : (
+            <ReportForm
+              title={`Report ${profile?.display_name || 'this Trojan'}`}
+              submitting={reporting}
+              onSubmit={sendReport}
+              onCancel={() => setSheet('menu')}
+              cancelLabel="Back"
+            />
+          )}
         </Sheet>
     </SafeAreaView>
   );

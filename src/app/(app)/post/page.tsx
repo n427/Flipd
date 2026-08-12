@@ -17,7 +17,7 @@ export default function PostPage() {
         // shows its own confirmation (whose button routes back to the feed).
         // onProgress drives the fill on WebCreate's publish button.
         const created = await store.addListing(fd, onProgress);
-        if (!created) throw new Error('Publish failed — no listing returned.');
+        if (!created) throw new Error('Publish failed. No listing was returned.');
       }}
     />
   );

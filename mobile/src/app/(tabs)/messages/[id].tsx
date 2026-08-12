@@ -16,7 +16,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import {
   fetchThread,
@@ -93,6 +93,7 @@ function VideoAttachment({ uri }: { uri: string }) {
 export default function ThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [head, setHead] = useState<ThreadHead | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -325,7 +326,17 @@ export default function ThreadScreen() {
           )}
         />
 
-        <View style={{ borderTopWidth: 1, borderTopColor: T.rule, paddingHorizontal: S.gutter, paddingTop: 10, paddingBottom: 10 }}>
+        {/* With the tab bar hidden, the composer owns the bottom of the screen
+            and has to clear the home indicator itself. */}
+        <View
+          style={{
+            borderTopWidth: 1,
+            borderTopColor: T.rule,
+            paddingHorizontal: S.gutter,
+            paddingTop: 10,
+            paddingBottom: 10 + insets.bottom,
+          }}
+        >
           {pending.length > 0 ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
               {pending.map((a, i) => (

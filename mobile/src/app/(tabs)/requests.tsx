@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, SectionList, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert, TextInput } from 'react-native';
+import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert, TextInput } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { SafetyCard } from '@/components/SafetyCard';
+import { fetchThreads, ThreadSummary } from '@/lib/messages';
 import { useSession } from '@/lib/session';
-import { fetchSafetyReview, SafetyReview, fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest } from '@/lib/listings';
+import { fetchSafetyReview, SafetyReview, fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest, rangeSince, FeedRange } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
 import { T, F, S } from '@/lib/theme';
 
 // Status → label + colors (badge).
-// Rows shown per section before "See all".
-const PREVIEW_COUNT = 2;
 
 const STATUS: Record<string, { label: string; bg: string; fg: string }> = {
   pending: { label: 'Pending', bg: '#FFF3D6', fg: '#8A6D1A' },
@@ -62,39 +62,31 @@ function Row({
   const canRespond = !!onRespond && item.status === 'pending';
   // Either party can close out an approved deal.
   const canComplete = !!onComplete && item.status === 'approved';
+  const sub = [item.counterpart?.display_name, item.offer != null ? `Offer $${item.offer}` : null]
+    .filter(Boolean)
+    .join(' · ');
+
+  // One padded card per request rather than a stack of full-bleed strips: the
+  // actions belong to the request, so they sit inside its card.
   return (
     <View
       style={{
         backgroundColor: '#fff',
-        borderRadius: 14,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: T.rule,
-        marginBottom: 10,
-        overflow: 'hidden',
+        marginBottom: 12,
+        padding: 16,
       }}
     >
-      <Pressable
-        onPress={onPress}
-        style={{
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
+      <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>
+          <Text numberOfLines={1} style={{ fontFamily: F.extrabold, fontSize: 17, color: T.ink, letterSpacing: -0.3 }}>
             {item.listing_title || 'A listing'}
           </Text>
-          {item.counterpart?.display_name ? (
-            <Text numberOfLines={1} style={{ fontFamily: F.medium, fontSize: 13, color: T.muted, marginTop: 2 }}>
-              {item.counterpart.display_name}
-              {item.offer != null ? `  ·  Offer $${item.offer}` : ''}
-            </Text>
-          ) : item.offer != null ? (
-            <Text style={{ fontFamily: F.medium, fontSize: 13, color: T.muted, marginTop: 2 }}>
-              Offer: ${item.offer}
+          {sub ? (
+            <Text numberOfLines={1} style={{ fontFamily: F.regular, fontSize: 13.5, color: T.muted, marginTop: 3 }}>
+              {sub}
             </Text>
           ) : null}
         </View>
@@ -104,43 +96,23 @@ function Row({
       {/* The buyer's own words: the basis for the seller's decision, and for
           services the only way to know what is actually being asked for. */}
       {item.intro_message ? (
-        <View style={{ borderTopWidth: 1, borderTopColor: T.rule, paddingHorizontal: 16, paddingVertical: 12 }}>
-          <Text style={{ fontFamily: F.regular, fontSize: 14, lineHeight: 20, color: '#333' }}>
-            {item.intro_message}
-          </Text>
-        </View>
-      ) : null}
-
-      {item.thread_id ? (
-        <Pressable
-          onPress={() => onOpenChat?.(item.thread_id!)}
-          style={{
-            borderTopWidth: 1,
-            borderTopColor: T.rule,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <Ionicons name="chatbubble-outline" size={16} color={T.cardinal} />
-          <Text style={{ flex: 1, fontFamily: F.bold, fontSize: 14.5, color: T.cardinal }}>Open chat</Text>
-          <Ionicons name="chevron-forward" size={16} color={T.muted} />
-        </Pressable>
+        <Text style={{ fontFamily: F.regular, fontSize: 15, lineHeight: 22, color: T.ink, marginTop: 12 }}>
+          {item.intro_message}
+        </Text>
       ) : null}
 
       {canRespond && onReview ? (
         <Pressable
           onPress={onReview}
           style={{
-            borderTopWidth: 1,
-            borderTopColor: T.rule,
-            paddingVertical: 12,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 6,
+            marginTop: 14,
+            paddingVertical: 11,
+            borderRadius: 12,
+            backgroundColor: T.fieldbg,
           }}
         >
           <Ionicons name="sparkles-outline" size={14} color={T.cardinal} />
@@ -148,66 +120,137 @@ function Row({
         </Pressable>
       ) : null}
 
-      {canRespond ? (
-        <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: T.rule }}>
-          <Pressable
-            onPress={() => onRespond!('decline')}
-            disabled={busy}
-            style={{ flex: 1, paddingVertical: 13, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
-          >
-            <Text style={{ fontFamily: F.bold, fontSize: 14, color: T.muted }}>Decline</Text>
-          </Pressable>
-          <View style={{ width: 1, backgroundColor: T.rule }} />
-          <Pressable
-            onPress={() => onRespond!('approve')}
-            disabled={busy}
-            style={{ flex: 1, paddingVertical: 13, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
-          >
-            {busy ? (
-              <ActivityIndicator size="small" color={T.cardinal} />
-            ) : (
-              <Text style={{ fontFamily: F.bold, fontSize: 14, color: T.cardinal }}>Approve</Text>
-            )}
-          </Pressable>
+      {/* Actions sit side by side: the primary one filled, the rest outlined. */}
+      {item.thread_id || canRespond || canComplete || (item.can_rate && onRate) ? (
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+          {item.thread_id ? (
+            <Pressable
+              onPress={() => onOpenChat?.(item.thread_id!)}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 7,
+                backgroundColor: '#fff',
+                borderWidth: 1.5,
+                borderColor: T.cardinal,
+                borderRadius: 12,
+                paddingVertical: 13,
+              }}
+            >
+              <Ionicons name="chatbubble-outline" size={16} color={T.cardinal} />
+              <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.cardinal }}>Open chat</Text>
+            </Pressable>
+          ) : null}
+
+          {canRespond ? (
+            <>
+              <Pressable
+                onPress={() => onRespond!('approve')}
+                disabled={busy}
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: T.cardinal,
+                  borderRadius: 12,
+                  paddingVertical: 13,
+                  opacity: busy ? 0.5 : 1,
+                }}
+              >
+                {busy ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: '#fff' }}>Approve</Text>
+                )}
+              </Pressable>
+              <Pressable
+                onPress={() => onRespond!('decline')}
+                disabled={busy}
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: T.rule,
+                  paddingVertical: 13,
+                  opacity: busy ? 0.5 : 1,
+                }}
+              >
+                <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.muted }}>Decline</Text>
+              </Pressable>
+            </>
+          ) : null}
+
+          {canComplete ? (
+            <Pressable
+              onPress={onComplete}
+              disabled={busy}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: T.rule,
+                paddingVertical: 13,
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color={T.ink} />
+              ) : (
+                <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.ink }}>Mark complete</Text>
+              )}
+            </Pressable>
+          ) : null}
+
+          {item.can_rate && onRate ? (
+            <Pressable
+              onPress={onRate}
+              disabled={busy}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: T.rule,
+                paddingVertical: 13,
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              <Ionicons name="star" size={15} color={T.gold} />
+              <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.ink }}>Rate</Text>
+            </Pressable>
+          ) : null}
         </View>
-      ) : null}
-
-      {canComplete ? (
-        <Pressable
-          onPress={onComplete}
-          disabled={busy}
-          style={{ borderTopWidth: 1, borderTopColor: T.rule, paddingVertical: 13, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
-        >
-          {busy ? (
-            <ActivityIndicator size="small" color={T.cardinal} />
-          ) : (
-            <Text style={{ fontFamily: F.bold, fontSize: 14, color: T.cardinal }}>Mark complete</Text>
-          )}
-        </Pressable>
-      ) : null}
-
-      {item.can_rate && onRate ? (
-        <Pressable
-          onPress={onRate}
-          disabled={busy}
-          style={{
-            borderTopWidth: 1,
-            borderTopColor: T.rule,
-            paddingVertical: 13,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            opacity: busy ? 0.5 : 1,
-          }}
-        >
-          <Ionicons name="star" size={15} color={T.gold} />
-          <Text style={{ fontFamily: F.bold, fontSize: 14, color: T.ink }}>Leave a rating</Text>
-        </Pressable>
       ) : null}
     </View>
   );
 }
+
+// Same three tabs as the web page: conversations plus the two request
+// directions, which are different jobs with different actions.
+type Tab = 'conversations' | 'incoming' | 'outgoing';
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'conversations', label: 'Conversations' },
+  { id: 'incoming', label: 'Want to talk' },
+  { id: 'outgoing', label: 'You sent' },
+];
+
+// Same windows as the web page's "From" control.
+const RANGES: { id: FeedRange; label: string; short: string }[] = [
+  { id: 'day', label: 'Past 24 hours', short: '24 hours' },
+  { id: 'week', label: 'Past week', short: 'Past week' },
+  { id: 'month', label: 'Past month', short: 'Past month' },
+  { id: 'all', label: 'All time', short: 'All time' },
+];
 
 export default function Requests() {
   const router = useRouter();
@@ -215,13 +258,15 @@ export default function Requests() {
   const { refresh: refreshBadge } = useUnread();
   const [incoming, setIncoming] = useState<RevealRequest[]>([]);
   const [outgoing, setOutgoing] = useState<RevealRequest[]>([]);
+  const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [tab, setTab] = useState<Tab>('conversations');
+  // Defaults to the past week, matching the web page.
+  const [range, setRange] = useState<FeedRange>('week');
+  const [rangeOpen, setRangeOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  // Each section previews PREVIEW_COUNT rows until "See all" is tapped. Keyed
-  // by section title so the two expand independently.
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   // Confirmation sheet for completing a deal, and an inline error line —
   // both replace native Alerts, which felt out of place in the app.
   const [completing, setCompleting] = useState<RevealRequest | null>(null);
@@ -249,9 +294,15 @@ export default function Requests() {
     if (!user) return;
     try {
       setError(false);
-      const { incoming, outgoing } = await fetchRequests(user.id);
+      // Threads never fail the screen on their own — an empty list just
+      // renders the conversations empty state.
+      const [{ incoming, outgoing }, t] = await Promise.all([
+        fetchRequests(user.id),
+        fetchThreads().catch(() => [] as ThreadSummary[]),
+      ]);
       setIncoming(incoming);
       setOutgoing(outgoing);
+      setThreads(t);
     } catch (e) {
       setError(true);
       if (__DEV__) console.warn('[requests] load failed:', e);
@@ -364,109 +415,230 @@ export default function Requests() {
     );
   }
 
-  const sections = [
-    { title: 'People who want to talk', data: incoming, incoming: true },
-    { title: 'Requests you sent', data: outgoing, incoming: false },
-  ]
-    .filter((s) => s.data.length > 0)
-    .map((s) => ({
-      ...s,
-      total: s.data.length,
-      data: expanded[s.title] ? s.data : s.data.slice(0, PREVIEW_COUNT),
-    }));
+  // rangeSince gives an ISO cutoff; compare in ms. null means "all time".
+  const sinceIso = rangeSince(range);
+  const since = sinceIso ? new Date(sinceIso).getTime() : null;
+  // A row with no/unparseable timestamp is kept rather than silently dropped.
+  const inWindow = (iso: string | null | undefined) => {
+    if (since == null || !iso) return true;
+    const ms = new Date(iso).getTime();
+    return !Number.isFinite(ms) || ms >= since;
+  };
 
-  if (!sections.length) {
-    // Scrollable so pull-to-refresh actually works here — this used to be a
-    // plain View that told people to "pull to retry" with nothing to pull.
-    // A failed load also gets its own wording and a Retry button, rather than
-    // being indistinguishable from having no requests at all.
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-          <Text style={{ fontFamily: F.bold, fontSize: 17, color: T.ink, marginBottom: 6 }}>
-            {error ? 'Couldn’t load your requests' : 'No requests yet'}
-          </Text>
-          <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, textAlign: 'center' }}>
-            {error
-              ? 'Check your connection, then pull down to refresh.'
-              : 'When you message a seller, or someone asks about your listing, it shows up here.'}
-          </Text>
-          {error ? (
+  const visibleIncoming = incoming.filter((r) => inWindow(r.created_at));
+  const visibleOutgoing = outgoing.filter((r) => inWindow(r.created_at));
+  // Conversations are bounded by their last message, so the control means the
+  // same thing on every tab.
+  const visibleThreads = threads.filter((t) => inWindow(t.last_message_at));
+
+  const counts: Record<Tab, number> = {
+    conversations: visibleThreads.length,
+    incoming: visibleIncoming.length,
+    outgoing: visibleOutgoing.length,
+  };
+
+  const rows = tab === 'incoming' ? visibleIncoming : tab === 'outgoing' ? visibleOutgoing : [];
+  // Distinguishes "nothing here" from "nothing in the window you picked".
+  const totalForTab =
+    tab === 'conversations' ? threads.length : tab === 'incoming' ? incoming.length : outgoing.length;
+  const hiddenByRange = counts[tab] === 0 && totalForTab > 0;
+
+  const emptyCopy = error
+    ? 'Check your connection, then pull down to refresh.'
+    : hiddenByRange
+      ? 'Nothing in this window. Try a longer range.'
+    : tab === 'conversations'
+      ? 'Approved requests open a chat, and it lands here.'
+      : tab === 'incoming'
+        ? 'When someone asks about one of your listings, it shows up here.'
+        : 'Requests you send to sellers show up here while you wait on a reply.';
+
+  const emptyTitle = error
+    ? 'Couldn’t load your requests'
+    : hiddenByRange
+      ? 'Nothing in this window'
+    : tab === 'conversations'
+      ? 'No conversations yet'
+      : tab === 'incoming'
+        ? 'Nobody’s asked yet'
+        : 'You haven’t asked anyone yet';
+
+  const listHeader = (
+    <View style={{ paddingBottom: 14 }}>
+      <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.7 }}>Requests</Text>
+      <Text style={{ fontFamily: F.regular, fontSize: 14.5, color: T.muted, marginTop: 5, lineHeight: 20 }}>
+        Your conversations, and the requests waiting on a reply.
+      </Text>
+
+      {/* Segmented control rather than section headers: three destinations of
+          equal weight, only one of which is relevant at a time. */}
+      <View
+        style={{
+          flexDirection: 'row',
+          backgroundColor: T.fieldbg,
+          borderRadius: 12,
+          padding: 4,
+          marginTop: 16,
+        }}
+      >
+        {TABS.map((t) => {
+          const on = tab === t.id;
+          return (
             <Pressable
-              onPress={onRefresh}
+              key={t.id}
+              onPress={() => setTab(t.id)}
               style={{
-                marginTop: 16,
-                backgroundColor: T.cardinal,
-                borderRadius: 12,
-                paddingVertical: 12,
-                paddingHorizontal: 24,
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 5,
+                paddingVertical: 9,
+                borderRadius: 9,
+                backgroundColor: on ? '#fff' : 'transparent',
+                borderWidth: 1,
+                borderColor: on ? T.rule : 'transparent',
               }}
             >
-              <Text style={{ fontFamily: F.bold, color: '#fff' }}>Retry</Text>
+              <Text
+                numberOfLines={1}
+                style={{ fontFamily: on ? F.bold : F.medium, fontSize: 13, color: on ? T.ink : T.muted }}
+              >
+                {t.label}
+              </Text>
+              {counts[t.id] > 0 ? (
+                <Text style={{ fontFamily: F.bold, fontSize: 13, color: on ? T.cardinal : T.muted }}>
+                  {counts[t.id]}
+                </Text>
+              ) : null}
             </Pressable>
-          ) : null}
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
+          );
+        })}
+      </View>
+
+      {/* Sits directly above the list it filters rather than competing with
+          the tabs for the same row. */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+        <Pressable
+          onPress={() => setRangeOpen(true)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 5,
+            paddingVertical: 7,
+            paddingHorizontal: 12,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: T.rule,
+            backgroundColor: '#fff',
+          }}
+        >
+          <Text style={{ fontFamily: F.medium, fontSize: 12.5, color: T.muted }}>From</Text>
+          <Text style={{ fontFamily: F.bold, fontSize: 12.5, color: T.ink }}>
+            {RANGES.find((r) => r.id === range)?.short}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color={T.muted} />
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const listEmpty = (
+    <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+      <Text style={{ fontFamily: F.bold, fontSize: 17, color: T.ink, marginBottom: 6 }}>{emptyTitle}</Text>
+      <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, textAlign: 'center', lineHeight: 20 }}>
+        {emptyCopy}
+      </Text>
+      {error ? (
+        <Pressable
+          onPress={onRefresh}
+          style={{ marginTop: 16, backgroundColor: T.cardinal, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 }}
+        >
+          <Text style={{ fontFamily: F.bold, color: '#fff' }}>Retry</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+
+  const listProps = {
+    style: { backgroundColor: T.bg },
+    contentContainerStyle: {
+      paddingHorizontal: S.gutter,
+      paddingTop: S.screenTop,
+      paddingBottom: S.screenBottom,
+    },
+    refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />,
+    ListHeaderComponent: listHeader,
+    ListEmptyComponent: listEmpty,
+  };
 
   return (
     <>
       <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-        <SectionList
-          style={{ backgroundColor: T.bg }}
-          contentContainerStyle={{
-            paddingHorizontal: S.gutter,
-            paddingTop: S.screenTop,
-            paddingBottom: S.screenBottom,
-          }}
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          renderSectionHeader={({ section }) => (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 10,
-                marginTop: 8,
-              }}
-            >
-              <Text style={{ fontFamily: F.extrabold, fontSize: 15, color: T.ink }}>{section.title}</Text>
-              {/* Only offer it when the preview is actually hiding something. */}
-              {section.total > PREVIEW_COUNT ? (
-                <Pressable
-                  onPress={() => setExpanded((e) => ({ ...e, [section.title]: !e[section.title] }))}
-                  hitSlop={8}
-                >
-                  <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.cardinal }}>
-                    {expanded[section.title] ? 'Show less' : `See all ${section.total}`}
+        {tab === 'conversations' ? (
+          <FlatList
+            {...listProps}
+            data={visibleThreads}
+            keyExtractor={(t) => t.id}
+            renderItem={({ item }) => (
+              <Pressable
+                onPress={() => router.push(`/(tabs)/messages/${item.id}`)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  backgroundColor: '#fff',
+                  borderWidth: 1,
+                  borderColor: T.rule,
+                  borderRadius: 16,
+                  padding: 14,
+                  marginBottom: 10,
+                }}
+              >
+                <View style={{ width: 46, height: 46, borderRadius: 12, overflow: 'hidden', backgroundColor: T.fieldbg }}>
+                  {item.listing_photo ? (
+                    <Image source={{ uri: item.listing_photo }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                  ) : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>
+                    {item.listing_title}
                   </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          )}
-          renderItem={({ item, section }) => (
-            <Row
-              item={item}
-              onPress={() => router.push(`/(tabs)/listing/${item.listing_id}?from=requests`)}
-              onRespond={
-                section.incoming
-                  ? (action) => (action === 'approve' ? onApprove(item.id) : setDeclining(item))
-                  : undefined
-              }
-              onReview={section.incoming ? () => openReview(item) : undefined}
-              onComplete={() => onComplete(item)}
-              onRate={() => openRate(item)}
-              onOpenChat={(threadId) => router.push(`/(tabs)/messages/${threadId}`)}
-              busy={busyId === item.id}
-            />
-          )}
-        />
+                  <Text numberOfLines={1} style={{ fontFamily: F.regular, fontSize: 13, color: T.muted, marginTop: 2 }}>
+                    {item.counterpart?.display_name || 'A Trojan'}
+                    {item.last_message ? ` · ${item.last_message}` : ''}
+                  </Text>
+                </View>
+                {/* Unread is the only thing worth a marker here; the row already
+                    reads as tappable. */}
+                {item.unread ? <View style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: T.cardinal }} /> : null}
+              </Pressable>
+            )}
+          />
+        ) : (
+          <FlatList
+            {...listProps}
+            key={tab}
+            data={rows}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <Row
+                item={item}
+                onPress={() => router.push(`/(tabs)/listing/${item.listing_id}?from=requests`)}
+                onRespond={
+                  tab === 'incoming'
+                    ? (action) => (action === 'approve' ? onApprove(item.id) : setDeclining(item))
+                    : undefined
+                }
+                onReview={tab === 'incoming' ? () => openReview(item) : undefined}
+                onComplete={() => onComplete(item)}
+                onRate={() => openRate(item)}
+                onOpenChat={(threadId) => router.push(`/(tabs)/messages/${threadId}`)}
+                busy={busyId === item.id}
+              />
+            )}
+          />
+        )}
       </SafeAreaView>
 
       {actionError ? (
@@ -479,6 +651,40 @@ export default function Requests() {
 
       {/* Completing archives nothing but does unlock ratings both ways, so it
           still deserves a confirm — just an in-app one. */}
+      <Sheet visible={rangeOpen} onClose={() => setRangeOpen(false)} contentStyle={{ paddingHorizontal: 20 }}>
+        <SheetGrabber />
+        <View>
+          <Text style={{ fontFamily: F.extrabold, fontSize: 18, color: T.ink, letterSpacing: -0.3, marginBottom: 12 }}>
+            Show requests from
+          </Text>
+          {RANGES.map((r) => {
+            const active = range === r.id;
+            return (
+              <Pressable
+                key={r.id}
+                onPress={() => {
+                  setRange(r.id);
+                  setRangeOpen(false);
+                }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 15,
+                  borderTopWidth: r.id === RANGES[0].id ? 0 : 1,
+                  borderTopColor: T.rule,
+                }}
+              >
+                <Text style={{ fontFamily: active ? F.bold : F.medium, fontSize: 15.5, color: active ? T.ink : T.muted }}>
+                  {r.label}
+                </Text>
+                {active ? <Ionicons name="checkmark" size={19} color={T.cardinal} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </Sheet>
+
       <Sheet visible={!!completing} onClose={() => setCompleting(null)}>
         <SheetGrabber />
         <View>

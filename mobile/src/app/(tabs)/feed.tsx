@@ -8,15 +8,13 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
-  Modal,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { fetchFeed, fetchBlockedIds, FeedListing, FeedSort, FeedRange } from '@/lib/listings';
+import { captureSearch } from '@/lib/searchCapture';
 import { ListingCard } from '@/components/ListingCard';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { CATEGORIES } from '@/lib/catalog';
@@ -56,24 +54,6 @@ export default function Feed() {
   // an unbounded list surfaces stale listings first-time users can't act on.
   const [range, setRange] = useState<FeedRange>('week');
   const [rangeOpen, setRangeOpen] = useState(false);
-
-  // Category row overflow: the arrow only makes sense while there's more to
-  // reveal, so track whether we've scrolled to the end.
-  const chipScroll = useRef<ScrollView>(null);
-  const chipOffset = useRef(0);
-  const [chipsAtEnd, setChipsAtEnd] = useState(false);
-
-  const onChipScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    chipOffset.current = contentOffset.x;
-    // 4px slack so rounding at the extreme doesn't leave the arrow stuck on.
-    setChipsAtEnd(contentOffset.x + layoutMeasurement.width >= contentSize.width - 4);
-  }, []);
-
-  // Tap the arrow to page forward roughly one screen of chips.
-  const pageChips = useCallback(() => {
-    chipScroll.current?.scrollTo({ x: chipOffset.current + 180, animated: true });
-  }, []);
 
   // Blocked ids rarely change — fetch once and reuse across queries.
   const blockedRef = useRef<string[] | null>(null);
@@ -179,7 +159,9 @@ export default function Feed() {
         <View style={{ flex: 1, justifyContent: 'center' }}>
           <TextInput
             value={query}
-            onChangeText={setQuery}
+            // captureSearch is debounced and fire-and-forget — it records the
+            // query for the daily digest and never blocks or fails the search.
+            onChangeText={(q) => { setQuery(q); captureSearch(q); }}
             autoCapitalize="none"
             returnKeyType="search"
             autoCorrect={false}
@@ -210,19 +192,13 @@ export default function Feed() {
         ) : null}
       </View>
 
-      {/* Category chips — one scrolling row. The six labels tile to just over
-          one screen width, so the tail chip sat off-screen with nothing to
-          hint at it. The arrow button makes the overflow explicit: tap to
-          page through, or swipe as usual. It hides once you reach the end. */}
+      {/* Category chips — one scrolling row, swipe to reach the overflow. */}
       <View style={{ paddingTop: 16, paddingBottom: 4 }}>
         <ScrollView
-          ref={chipScroll}
           horizontal
           showsHorizontalScrollIndicator={false}
-          onScroll={onChipScroll}
-          scrollEventThrottle={16}
           style={{ marginHorizontal: -6 }}
-          contentContainerStyle={{ gap: 7, paddingLeft: 6, paddingRight: 40 }}
+          contentContainerStyle={{ gap: 7, paddingLeft: 6, paddingRight: 6 }}
         >
           {CATS.map((c) => {
             const active = cat === c.id;
@@ -245,40 +221,6 @@ export default function Feed() {
           })}
         </ScrollView>
 
-        {chipsAtEnd ? null : (
-          <Pressable
-            onPress={pageChips}
-            hitSlop={8}
-            style={{
-              position: 'absolute',
-              right: -6,
-              top: 16,
-              bottom: 0,
-              width: 34,
-              alignItems: 'flex-end',
-              justifyContent: 'center',
-              // Opaque backdrop so the chip underneath doesn't bleed through
-              // the arrow and read as a smudge.
-              backgroundColor: T.bg,
-              paddingLeft: 8,
-            }}
-          >
-            <View
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: T.rule,
-                backgroundColor: '#fff',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="chevron-forward" size={14} color={T.ink} />
-            </View>
-          </Pressable>
-        )}
       </View>
 
       {/* Range dropdown + sort row */}

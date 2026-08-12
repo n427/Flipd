@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { FeedListing, priceLabel } from '@/lib/listings';
+import { isPopupCategory } from '@/lib/events';
 import { T, F } from '@/lib/theme';
 
 export function ListingCard({ listing, onPress }: { listing: FeedListing; onPress: () => void }) {
@@ -41,11 +42,17 @@ export function ListingCard({ listing, onPress }: { listing: FeedListing; onPres
       <Text numberOfLines={1} style={{ fontFamily: F.regular, color: T.muted, fontSize: 12.5, marginTop: 5 }}>
         {sellerLine}
       </Text>
-      <Text
-        style={{ fontFamily: F.bold, fontSize: 15.5, marginTop: 6, color: listing.price > 0 ? T.ink : T.cardinal }}
-      >
-        {priceLabel(listing.price)}
-      </Text>
+      {/* Popups aren't priced — the web card leaves the price label empty for
+          them rather than advertising a misleading "Free". */}
+      {isPopupCategory(listing.category) ? (
+        <Text style={{ fontFamily: F.bold, fontSize: 13.5, marginTop: 6, color: T.cardinal }}>Popup</Text>
+      ) : (
+        <Text
+          style={{ fontFamily: F.bold, fontSize: 15.5, marginTop: 6, color: listing.price > 0 ? T.ink : T.cardinal }}
+        >
+          {priceLabel(listing.price)}
+        </Text>
+      )}
     </Pressable>
   );
 }

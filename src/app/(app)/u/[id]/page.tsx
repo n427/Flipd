@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Avatar, ListingCard, Pill } from '@/components/ui';
+import { Avatar, ListingCard } from '@/components/ui';
 import { Stars } from '@/components/WebApp';
 import { formatPostedDate, mapDbListing } from '@/lib/store';
 import type { Listing } from '@/lib/types';
@@ -64,10 +64,7 @@ export default function PublicProfilePage({ params }: { params: { id: string } }
       <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
         <Avatar name={name} src={profile.avatar_url ?? undefined} size={76} tone="ink" />
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h1 style={{ fontWeight: 800, fontSize: 28, letterSpacing: '-0.03em', color: 'var(--ink)', margin: 0 }}>{name}</h1>
-            {profile.is_demo && <Pill kind="verified">FLIPD TEAM</Pill>}
-          </div>
+          <h1 style={{ fontWeight: 800, fontSize: 28, letterSpacing: '-0.03em', color: 'var(--ink)', margin: 0 }}>{name}</h1>
           <div className="t-meta" style={{ fontSize: 13.5, marginTop: 4 }}>
             {[meta, `joined ${formatPostedDate(profile.created_at)}`].filter(Boolean).join(' · ')}
           </div>
@@ -87,7 +84,7 @@ export default function PublicProfilePage({ params }: { params: { id: string } }
         </p>
       )}
 
-      <div style={{ display: 'flex', gap: 26, borderBottom: '1px solid var(--rule)', margin: '28px 0 24px' }}>
+      <div style={{ display: 'flex', gap: 26, borderBottom: '1px solid var(--rule)', margin: '28px 0 24px', '--tab-active-weight': 700 } as React.CSSProperties}>
         {([
           { id: 'listings', label: 'Listings', count: listings.length || null },
           { id: 'reviews', label: 'Reviews', count: ratings.count || null },
@@ -104,7 +101,7 @@ export default function PublicProfilePage({ params }: { params: { id: string } }
               marginBottom: -1, display: 'flex', alignItems: 'center', gap: 7,
             }}
           >
-            {t.label}
+            <span className="tab-label" data-label={t.label}><span>{t.label}</span></span>
             {t.count != null && (
               <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', background: 'var(--surface)', borderRadius: 999, padding: '2px 7px' }}>
                 {t.count}

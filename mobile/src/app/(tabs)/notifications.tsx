@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { View, Text, SectionList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { fetchFeed, FeedListing, priceLabel } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
+import { groupByDay } from '@/lib/day';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { T, F, S } from '@/lib/theme';
 
@@ -42,6 +42,10 @@ export default function Notifications() {
     setRefreshing(false);
   }, [load]);
 
+  // The query already returns newest first, so contiguous grouping keeps both
+  // the sections and the rows inside them in order.
+  const sections = useMemo(() => groupByDay(items, (l) => l.created_at), [items]);
+
   if (state === 'loading') {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
@@ -52,9 +56,10 @@ export default function Notifications() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-      <FlatList
-        data={items}
+      <SectionList
+        sections={sections}
         keyExtractor={(l) => l.id}
+        stickySectionHeadersEnabled={false}
         contentContainerStyle={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.cardinal} />}
         ListHeaderComponent={
@@ -62,6 +67,23 @@ export default function Notifications() {
             Activity
           </Text>
         }
+        renderSectionHeader={({ section }) => (
+          <Text
+            style={{
+              fontFamily: F.bold,
+              fontSize: 11.5,
+              letterSpacing: 0.9,
+              color: T.muted,
+              textTransform: 'uppercase',
+              // Generous lead-in above each day, tighter under it, so the
+              // header reads as attached to the rows that follow.
+              marginTop: section.title === sections[0]?.title ? 4 : 26,
+              marginBottom: 6,
+            }}
+          >
+            {section.title}
+          </Text>
+        )}
         ListEmptyComponent={
           <View style={{ padding: 40, alignItems: 'center' }}>
             <Text style={{ fontFamily: F.medium, color: T.muted, textAlign: 'center' }}>
@@ -71,32 +93,32 @@ export default function Notifications() {
         }
         renderItem={({ item }) => {
           const photo = item.photo_urls[0];
+          const who = item.seller?.display_name?.split(' ')[0] || 'A Trojan';
           return (
             <Pressable
               onPress={() => router.push(`/(tabs)/listing/${item.id}?from=notifications`)}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 12,
-                paddingVertical: 10,
+                gap: 14,
+                paddingVertical: 11,
               }}
             >
-              <View style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', backgroundColor: T.rule }}>
+              <View style={{ width: 64, height: 64, borderRadius: 14, overflow: 'hidden', backgroundColor: T.fieldbg }}>
                 {photo ? <Image source={{ uri: photo }} style={{ width: '100%', height: '100%' }} contentFit="cover" /> : null}
               </View>
               <View style={{ flex: 1 }}>
-                <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>
-                  {item.seller?.display_name?.split(' ')[0] || 'A Trojan'} posted {item.title}
+                <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 15.5, color: T.ink }}>
+                  {item.title}
                 </Text>
-                <Text style={{ fontFamily: F.medium, fontSize: 13, color: T.muted, marginTop: 2 }}>
-                  {priceLabel(item.price)}
+                {/* Who and how much, quietly — the day header already carries when. */}
+                <Text style={{ fontFamily: F.regular, fontSize: 13.5, color: T.muted, marginTop: 3 }}>
+                  {who} · {priceLabel(item.price)}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={T.muted} />
             </Pressable>
           );
         }}
-        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: T.rule }} />}
       />
     </SafeAreaView>
   );

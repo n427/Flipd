@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { Modal, View, Pressable, StyleProp, ViewStyle } from 'react-native';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import { Modal, View, Pressable, StyleProp, ViewStyle, Animated, Easing } from 'react-native';
 import { GESTURES_SUPPORTED } from '@/lib/gestures';
 import { T } from '@/lib/theme';
 
@@ -43,13 +43,61 @@ function StaticSheet({
   children: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
+  // Modal unmounts its children the instant `visible` flips, which would cut
+  // the close animation off. Latch it open until the animation has finished.
+  const [mounted, setMounted] = useState(visible);
+  const anim = useRef(new Animated.Value(0)).current;
+  const [travel, setTravel] = useState(SHEET_TRAVEL_FALLBACK);
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: OPEN_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: CLOSE_MS,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setMounted(false);
+      });
+    }
+  }, [visible, anim]);
+
+  if (!mounted) return null;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={onClose} />
-      <View style={[sheetBody, contentStyle]}>{children}</View>
+    <Modal visible transparent animationType="none" onRequestClose={onClose}>
+      {/* Scrim fades in place. It must not be inside a sliding container, or
+          the black rectangle travels up the screen with the sheet. */}
+      <Animated.View style={{ flex: 1, opacity: anim }}>
+        <Pressable style={{ flex: 1, backgroundColor: SCRIM }} onPress={onClose} />
+      </Animated.View>
+      <Animated.View
+        onLayout={(e) => setTravel(e.nativeEvent.layout.height)}
+        style={{
+          transform: [
+            { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [travel, 0] }) },
+          ],
+        }}
+      >
+        <View style={[sheetBody, contentStyle]}>{children}</View>
+      </Animated.View>
     </Modal>
   );
 }
+
+export const SCRIM = 'rgba(0,0,0,0.4)';
+export const OPEN_MS = 260;
+export const CLOSE_MS = 190;
+/** Used for the first frame, before onLayout reports the real sheet height. */
+export const SHEET_TRAVEL_FALLBACK = 600;
 
 export const sheetBody = {
   backgroundColor: '#fff',

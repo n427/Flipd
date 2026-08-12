@@ -56,19 +56,19 @@ select v.id::uuid, p.id, v.category, v.title, v.description, v.price, v.negotiab
        v.event_start, v.event_end, now() - v.age
 from public.profiles p
 cross join (values
-  ('e0000000-0000-4000-8000-000000000101', 'event', 'Matcha popup at Leavey — Friday',
+  ('0041d0a0-c695-4fe8-948e-f6041c9d9058', 'event', 'Matcha popup at Leavey — Friday',
    'One-day matcha cart outside Leavey. Iced matcha, strawberry matcha, oat milk available. Cash or Venmo.',
    7, false, 'Outside Leavey Library',
    '{https://picsum.photos/seed/flipd-matcha/800/800}',
    date_trunc('hour', now()) + interval '2 days' + interval '10 hours',
    date_trunc('hour', now()) + interval '2 days' + interval '14 hours',
    interval '5 days'),
-  ('e0000000-0000-4000-8000-000000000103', 'goods', 'Desk lamp, warm LED',
+  ('5b8695b8-09e0-4441-a70a-7d1c4dadbb8a', 'goods', 'Desk lamp, warm LED',
    'Barely used desk lamp, three brightness settings. Pickup at USC Village.',
    20, true, 'USC Village',
    '{https://picsum.photos/seed/flipd-lamp/800/800}',
    null, null, interval '6 days'),
-  ('e0000000-0000-4000-8000-000000000104', 'goods', 'Mini fridge, dorm size',
+  ('b1a25383-409b-4907-890d-1def530a0870', 'goods', 'Mini fridge, dorm size',
    'Clean 3.2 cu ft fridge, works perfectly. Moving out so it needs to go this week.',
    65, true, 'Cardinal Gardens',
    '{https://picsum.photos/seed/flipd-fridge/800/800}',
@@ -91,19 +91,19 @@ insert into public.listings (
   location, contact, photo_urls, photo_focus, event_start, event_end, created_at
 )
 values
-  ('e0000000-0000-4000-8000-000000000201'::uuid, 'd0000000-0000-4000-8000-000000000001'::uuid,
+  ('485ee5fd-ea60-4657-8541-09bca41ec8e4'::uuid, 'd0000000-0000-4000-8000-000000000001'::uuid,
    'food', 'Banana bread, baked this morning',
    'Two loaves left, brown butter walnut. Pickup near 30th & Hoover today.',
    9, false, '30th & Hoover', '{email}',
    '{https://picsum.photos/seed/flipd-banana/800/800}', '{50% 50%}',
    null, null, now() - interval '2 hours'),
-  ('e0000000-0000-4000-8000-000000000202'::uuid, 'd0000000-0000-4000-8000-000000000001'::uuid,
+  ('7aeff56d-9ea8-4e06-b9e8-7face63f4b13'::uuid, 'd0000000-0000-4000-8000-000000000001'::uuid,
    'services', 'Resume review, Marshall senior',
    'One-page resume edit with comments back in 24h. Recruiting season rates.',
    25, true, 'Zoom', '{email}',
    '{https://picsum.photos/seed/flipd-resume/800/800}', '{50% 50%}',
    null, null, now() - interval '7 hours'),
-  ('e0000000-0000-4000-8000-000000000203'::uuid, 'd0000000-0000-4000-8000-000000000001'::uuid,
+  ('98d366c2-c3cd-4389-aff3-61a286ef5f7a'::uuid, 'd0000000-0000-4000-8000-000000000001'::uuid,
    'event', 'Thrift popup on Trousdale — Saturday',
    'Student-run thrift racks on Trousdale. Everything $5–$20, Venmo accepted.',
    5, false, 'Trousdale Pkwy', '{email}',
@@ -141,15 +141,15 @@ select v.id::uuid, l.id, l.title,
        v.status, v.offer, v.intro,
        now() - v.age, now() - v.age + interval '72 hours', v.resolved
 from (values
-  ('e0000000-0000-4000-8000-000000000102', 'e0000000-0000-4000-8000-000000000103',
+  ('28654ad9-9ea1-43b9-b102-b099873719f3', '5b8695b8-09e0-4441-a70a-7d1c4dadbb8a',
    'pending',   18,
    'Is this still around? I am in Cardinal Gardens and could grab it tomorrow afternoon if that works.',
    interval '3 hours',  null::timestamptz),
-  ('e0000000-0000-4000-8000-000000000105', 'e0000000-0000-4000-8000-000000000104',
+  ('504c5049-586f-4272-b523-7d297e642d3e', 'b1a25383-409b-4907-890d-1def530a0870',
    'approved',  60,
    'Moving into a single next week and this would be perfect. Could do pickup Saturday morning.',
    interval '1 day',    now() - interval '20 hours'),
-  ('e0000000-0000-4000-8000-000000000106', 'e0000000-0000-4000-8000-000000000101',
+  ('01b261ae-37e3-46b2-b01b-2f724f5cd4ee', '0041d0a0-c695-4fe8-948e-f6041c9d9058',
    'completed', null,
    'Are you doing the Leavey popup again this week? Wanted to bring a couple friends.',
    interval '4 days', now() - interval '3 days')
@@ -172,8 +172,8 @@ insert into public.message_threads (
 select v.id::uuid, r.id, r.listing_id, r.listing_title, r.buyer_id, r.seller_id,
        r.resolved_at, r.resolved_at
 from (values
-  ('e0000000-0000-4000-8000-000000000301', 'e0000000-0000-4000-8000-000000000105'),
-  ('e0000000-0000-4000-8000-000000000302', 'e0000000-0000-4000-8000-000000000106')
+  ('d727521c-b039-4be0-ba0b-74eb395215d2', '504c5049-586f-4272-b523-7d297e642d3e'),
+  ('b422f69c-32ee-43f8-a999-88c3b379b777', '01b261ae-37e3-46b2-b01b-2f724f5cd4ee')
 ) as v(id, request_id)
 join public.reveal_requests r on r.id = v.request_id::uuid
 on conflict (request_id) do update set
@@ -189,8 +189,8 @@ on conflict (request_id) do update set
 -- thread unread for you.
 delete from public.messages
 where thread_id in (
-  'e0000000-0000-4000-8000-000000000301'::uuid,
-  'e0000000-0000-4000-8000-000000000302'::uuid
+  'd727521c-b039-4be0-ba0b-74eb395215d2'::uuid,
+  'b422f69c-32ee-43f8-a999-88c3b379b777'::uuid
 );
 
 insert into public.messages (thread_id, sender_id, body, created_at)
@@ -199,15 +199,15 @@ select v.thread_id::uuid,
        v.body,
        now() - v.age
 from (values
-  ('e0000000-0000-4000-8000-000000000301', true,
+  ('d727521c-b039-4be0-ba0b-74eb395215d2', true,
    'Thanks for approving. Saturday morning still good?', interval '19 hours'),
-  ('e0000000-0000-4000-8000-000000000301', false,
+  ('d727521c-b039-4be0-ba0b-74eb395215d2', false,
    'Yep, anytime after 10 works. I am right by the village.', interval '18 hours'),
-  ('e0000000-0000-4000-8000-000000000301', true,
+  ('d727521c-b039-4be0-ba0b-74eb395215d2', true,
    'Perfect, I will bring cash. Does 11 work?', interval '2 hours'),
-  ('e0000000-0000-4000-8000-000000000302', true,
+  ('b422f69c-32ee-43f8-a999-88c3b379b777', true,
    'Made it out to the popup, the strawberry matcha was great.', interval '3 days'),
-  ('e0000000-0000-4000-8000-000000000302', false,
+  ('b422f69c-32ee-43f8-a999-88c3b379b777', false,
    'So glad you came by. Doing it again in two weeks.', interval '3 days' - interval '20 minutes')
 ) as v(thread_id, from_buyer, body, age)
 join public.message_threads t on t.id = v.thread_id::uuid;
@@ -216,7 +216,7 @@ join public.message_threads t on t.id = v.thread_id::uuid;
 -- Points at the demo thrift popup above, which starts tomorrow, so the
 -- day-before reminder job (api/cron/sweep) has a live row to find.
 insert into public.popup_reminders (user_id, listing_id, reminded_24h_at)
-select p.id, 'e0000000-0000-4000-8000-000000000203'::uuid, null
+select p.id, '98d366c2-c3cd-4389-aff3-61a286ef5f7a'::uuid, null
 from public.profiles p
 where coalesce(p.is_demo, false) = false
 order by p.created_at desc

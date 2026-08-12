@@ -163,9 +163,11 @@ export default function Verify() {
               color: T.ink,
             }}
           />
-          <Text style={{ fontFamily: F.regular, fontSize: 13, color: error ? T.danger : T.muted, marginTop: 8, lineHeight: 18 }}>
-            {error || notice || 'Codes are 6 to 8 digits. Paste the whole thing.'}
-          </Text>
+          {(error || notice) ? (
+            <Text style={{ fontFamily: F.regular, fontSize: 13, color: error ? T.danger : T.muted, marginTop: 8, lineHeight: 18 }}>
+              {error || notice}
+            </Text>
+          ) : null}
 
           <Pressable
             onPress={submit}

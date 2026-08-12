@@ -168,11 +168,13 @@ export function Callout({
 
 // ── Button ───────────────────────────────────────────────────────────
 type ButtonProps = {
-  kind?: 'primary' | 'secondary' | 'secondary-active' | 'ghost' | 'on-dark' | 'disabled';
+  kind?: 'primary' | 'secondary' | 'secondary-active' | 'ghost' | 'outline' | 'on-dark' | 'disabled';
   children?: React.ReactNode;
   full?: boolean;
   size?: 'sm' | 'md' | 'lg';
   icon?: string;
+  /** Overrides the icon's inherited colour — e.g. a gold star on a rate button. */
+  iconColor?: string;
   /**
    * 0–1 fills the button left-to-right behind its label; `indeterminate`
    * pulses the whole surface for work whose duration can't be measured.
@@ -182,7 +184,7 @@ type ButtonProps = {
 } & React.ButtonHTMLAttributes<HTMLButtonElement>;
 
 export function Button({
-  kind = 'primary', children, onClick, style = {}, full = false, size = 'md', icon, progress, ...rest
+  kind = 'primary', children, onClick, style = {}, full = false, size = 'md', icon, iconColor, progress, ...rest
 }: ButtonProps) {
   const sizes: Record<string, React.CSSProperties> = {
     sm: { padding: '7px 16px', fontSize: 12 },
@@ -231,7 +233,10 @@ export function Button({
           flex here the wrapper is a single `.btn` child and `.btn`'s own gap
           never lands between icon and text. */}
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, ...(busy ? { position: 'relative' } : null) }}>
-        {icon && <Icon name={icon} size={14} />}
+        {/* `color` sets the stroke; the inline `color` style is what solid
+            glyphs need, since their paths fill with currentColor and would
+            otherwise stay the button's text colour. */}
+        {icon && <Icon name={icon} size={14} color={iconColor} style={iconColor ? { color: iconColor } : undefined} />}
         {children}
       </span>
     </button>
@@ -256,15 +261,6 @@ export function ListingCard({
         ) : (
           <Placeholder label={listing.photoLabel} tone={listing.photoTone} height="100%" radius={0} style={{ position: 'absolute', inset: 0 }} />
         )}
-        {listing.eventPill ? (
-          <div style={{ position: 'absolute', top: 8, left: 8 }}>
-            <Pill kind="event">{listing.eventPill}</Pill>
-          </div>
-        ) : listing.spokenFor ? (
-          <span style={{ position: 'absolute', top: 8, left: 8, background: 'rgba(255,255,255,0.92)', borderRadius: 999, padding: '4px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 11, color: 'var(--ink-2)' }}>
-            Spoken for
-          </span>
-        ) : null}
       </div>
       <div style={{ padding: compact ? '9px 2px 0' : '11px 2px 0', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

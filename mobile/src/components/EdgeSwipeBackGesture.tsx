@@ -1,4 +1,5 @@
-import { ReactNode } from 'react';
+import { ReactNode, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
 
@@ -20,6 +21,16 @@ const DISMISS_VELOCITY = 700; // or flick faster than this
  */
 export function EdgeSwipeBackGesture({ onBack, children }: { onBack: () => void; children: ReactNode }) {
   const x = useSharedValue(0);
+
+  // A committed swipe parks the screen 400px off-canvas and then navigates.
+  // Tabs keeps these screens mounted, so re-entering reused the same shared
+  // value and the screen rendered still shifted off — it looked like the
+  // route simply refused to open. Re-seat it every time we regain focus.
+  useFocusEffect(
+    useCallback(() => {
+      x.value = 0;
+    }, [x]),
+  );
 
   const pan = Gesture.Pan()
     .hitSlop({ left: 0, width: EDGE_WIDTH })

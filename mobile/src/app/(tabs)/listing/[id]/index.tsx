@@ -17,9 +17,15 @@ import {
   toggleSaved,
   ListingDetail,
   priceLabel,
+  reportUser,
+  ReportReason,
+  fetchReminderIds,
+  toggleReminder,
 } from '@/lib/listings';
 import { findThreadForListing } from '@/lib/messages';
-import { T, F } from '@/lib/theme';
+import { ReportForm } from '@/components/ReportForm';
+import { formatEventWindow } from '@/lib/events';
+import { T, F, S } from '@/lib/theme';
 import { containsContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
 import { SafetyCard } from '@/components/SafetyCard';
@@ -41,13 +47,29 @@ export default function ListingDetailScreen() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Hydrate the heart state once (cheap; own-row read).
+  const [reminded, setReminded] = useState(false);
+
+  // Hydrate the bookmark state once (cheap; own-row read).
   useEffect(() => {
     if (!user) return;
     fetchSavedIds(user.id)
       .then((ids) => setSaved(ids.includes(String(id))))
       .catch(() => {});
+    fetchReminderIds(user.id)
+      .then((ids) => setReminded(ids.includes(String(id))))
+      .catch(() => {});
   }, [user, id]);
+
+  const onToggleReminder = async () => {
+    if (!user) return;
+    const prev = reminded;
+    setReminded(!prev); // optimistic
+    try {
+      setReminded(await toggleReminder(user.id, String(id), prev));
+    } catch {
+      setReminded(prev); // revert on failure
+    }
+  };
 
   const onToggleSave = async () => {
     if (!user) return;
@@ -101,6 +123,11 @@ export default function ListingDetailScreen() {
   );
 
   const isOwner = !!user && !!listing && user.id === listing.seller_id;
+  // Popups carry both ends of the window; a half-set pair renders no pill.
+  const eventPill =
+    listing?.event_start && listing?.event_end
+      ? formatEventWindow(listing.event_start, listing.event_end)
+      : null;
 
   const onToggleSold = async () => {
     if (!listing) return;
@@ -138,6 +165,29 @@ export default function ListingDetailScreen() {
 
   // --- Buyer reveal flow ---
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reportToast, setReportToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!reportToast) return;
+    const t = setTimeout(() => setReportToast(null), 4200);
+    return () => clearTimeout(t);
+  }, [reportToast]);
+
+  const sendReport = async (reason: ReportReason, note: string) => {
+    if (!listing) return;
+    setReporting(true);
+    try {
+      await reportUser({ listingId: listing.id }, reason, note);
+      setReportOpen(false);
+      setReportToast('Report sent. Our team will take a look.');
+    } catch (e) {
+      setReportToast(e instanceof Error ? e.message : 'Could not send. Try again.');
+    } finally {
+      setReporting(false);
+    }
+  };
   // AI review of the seller, fetched when the request sheet opens so the buyer
   // reads it before committing. Advisory: null just renders nothing.
   const [safety, setSafety] = useState<SafetyReview | null>(null);
@@ -241,20 +291,54 @@ export default function ListingDetailScreen() {
             </Text>
             {!isOwner ? (
               <Pressable onPress={onToggleSave} hitSlop={8} style={{ paddingTop: 2 }}>
-                <Ionicons name={saved ? 'heart' : 'heart-outline'} size={26} color={saved ? T.cardinal : T.muted} />
+                <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={26} color={saved ? T.cardinal : T.muted} />
               </Pressable>
             ) : null}
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
-            <Text style={{ fontFamily: F.black, fontSize: 22, color: listing.price > 0 ? T.ink : T.cardinal }}>
-              {priceLabel(listing.price)}
-            </Text>
-            {listing.negotiable ? (
-              <View style={{ backgroundColor: T.fieldbg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-                <Text style={{ fontFamily: F.semibold, fontSize: 12, color: T.muted }}>Open to offers</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+            {eventPill ? (
+              /* A popup leads with when it runs; it has no price to show. */
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FDF2F2', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
+                <Ionicons name="calendar-outline" size={14} color={T.cardinal} />
+                <Text style={{ fontFamily: F.bold, fontSize: 13.5, color: T.cardinal }}>{eventPill}</Text>
               </View>
-            ) : null}
+            ) : (
+              <>
+                <Text style={{ fontFamily: F.black, fontSize: 22, color: listing.price > 0 ? T.ink : T.cardinal }}>
+                  {priceLabel(listing.price)}
+                </Text>
+                {listing.negotiable ? (
+                  <View style={{ backgroundColor: T.fieldbg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ fontFamily: F.semibold, fontSize: 12, color: T.muted }}>Open to offers</Text>
+                  </View>
+                ) : null}
+              </>
+            )}
           </View>
+
+          {/* Remind me — popups only, and never for your own listing. */}
+          {eventPill && !isOwner ? (
+            <Pressable
+              onPress={onToggleReminder}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                marginTop: 14,
+                borderRadius: 14,
+                paddingVertical: 14,
+                backgroundColor: reminded ? T.cardinal : '#fff',
+                borderWidth: 1,
+                borderColor: reminded ? T.cardinal : T.rule,
+              }}
+            >
+              <Ionicons name={reminded ? 'notifications' : 'notifications-outline'} size={17} color={reminded ? '#fff' : T.ink} />
+              <Text style={{ fontFamily: F.bold, fontSize: 15, color: reminded ? '#fff' : T.ink }}>
+                {reminded ? 'Reminder on' : 'Remind me'}
+              </Text>
+            </Pressable>
+          ) : null}
 
           {/* Description */}
           {listing.description ? (
@@ -383,12 +467,48 @@ export default function ListingDetailScreen() {
                   {threadId ? 'Open chat' : requested ? 'Request sent' : 'Message seller'}
                 </Text>
               </Pressable>
-              <Text style={{ fontFamily: F.regular, color: T.muted, fontSize: 12.5, textAlign: 'center', marginTop: 8 }}>
-                You each share contact only if the seller approves.
-              </Text>
+              {/* Quiet by design — reporting should be findable without
+                  competing with the primary action above it. */}
+              <Pressable
+                onPress={() => setReportOpen(true)}
+                hitSlop={8}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 22 }}
+              >
+                <Ionicons name="flag-outline" size={15} color={T.muted} />
+                <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.muted }}>Report listing</Text>
+              </Pressable>
             </>
           )}
         </View>
+
+        {/* Snackbar — Alert.alert is a no-op stub on react-native-web. */}
+        {reportToast ? (
+          <View
+            style={{
+              position: 'absolute',
+              left: 16,
+              right: 16,
+              bottom: S.screenBottom + 12,
+              zIndex: 20,
+              backgroundColor: T.ink,
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+            }}
+          >
+            <Text style={{ fontFamily: F.medium, fontSize: 13.5, color: '#fff', lineHeight: 19 }}>{reportToast}</Text>
+          </View>
+        ) : null}
+
+        <Sheet visible={reportOpen} onClose={() => setReportOpen(false)}>
+          <SheetGrabber />
+          <ReportForm
+            title="Report this listing"
+            submitting={reporting}
+            onSubmit={sendReport}
+            onCancel={() => setReportOpen(false)}
+          />
+        </Sheet>
 
         {/* Reveal request sheet */}
         <Sheet visible={sheetOpen} onClose={() => setSheetOpen(false)}>
@@ -399,7 +519,7 @@ export default function ListingDetailScreen() {
                 Message {listing.seller?.display_name?.split(' ')[0] || 'the seller'}
               </Text>
               <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6, lineHeight: 20 }}>
-                They see your name, school, and year with your message, and have 72 hours to reply. Approving opens a chat here in Flipd.
+                They see your name, school, and year with your message, and have 72 hours to reply.
               </Text>
 
               <View style={{ marginTop: 14 }}>

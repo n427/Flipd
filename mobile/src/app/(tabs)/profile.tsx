@@ -122,8 +122,8 @@ export default function Profile() {
         }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListHeaderComponent={
-          <View style={{ padding: 10, gap: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ padding: 10, gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 2 }}>
               {profile?.avatar_url ? (
                 <Image source={{ uri: profile.avatar_url }} style={{ width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: T.rule }} contentFit="cover" />
               ) : (
@@ -136,7 +136,7 @@ export default function Profile() {
             </View>
             {profile?.bio ? <Text style={{ fontFamily: F.regular, fontSize: 14, color: '#333', marginTop: 2 }}>{profile.bio}</Text> : null}
             {state === 'error' ? <Text style={{ fontFamily: F.medium, color: T.danger }}>Couldn&apos;t load your profile.</Text> : null}
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
               <Pressable
                 onPress={() => router.push('/(tabs)/edit-profile')}
                 style={{ backgroundColor: T.cardinal, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20 }}
@@ -152,8 +152,9 @@ export default function Profile() {
               </Pressable>
             </View>
 
-            <View style={{ marginTop: 14 }}>
-              <LinkRow icon="heart" label="Saved" onPress={() => router.push('/(tabs)/saved')} />
+            <View style={{ marginTop: 22, gap: 10 }}>
+              <LinkRow icon="bookmark" label="Saved" onPress={() => router.push('/(tabs)/saved')} />
+              <LinkRow icon="star-outline" label="Reviews" onPress={() => router.push('/(tabs)/reviews')} />
             </View>
 
             <View
@@ -161,18 +162,19 @@ export default function Profile() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginTop: 18,
+                marginTop: 30,
+                marginBottom: 4,
               }}
             >
-              <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>My Listings</Text>
-              {/* Only offer "See all" when the preview is actually hiding something. */}
-              {listings.length > PREVIEW_COUNT ? (
-                <Pressable onPress={() => router.push('/(tabs)/my-listings')} hitSlop={8}>
-                  <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.cardinal }}>
-                    See all {listings.length}
-                  </Text>
-                </Pressable>
-              ) : null}
+              <Text style={{ fontFamily: F.bold, fontSize: 17, color: T.ink, letterSpacing: -0.3 }}>My Listings</Text>
+              {/* Always available: past (sold) listings and reviews only live
+                  on that screen, so gating it on the preview overflowing left
+                  them unreachable for anyone with four listings or fewer. */}
+              <Pressable onPress={() => router.push('/(tabs)/my-listings')} hitSlop={8}>
+                <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.cardinal }}>
+                  See all{listings.length > PREVIEW_COUNT ? ` ${listings.length}` : ''}
+                </Text>
+              </Pressable>
             </View>
           </View>
         }

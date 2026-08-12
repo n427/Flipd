@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Modal, View, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -10,7 +10,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import { sheetBody } from './Sheet';
+import { sheetBody, SCRIM, OPEN_MS, CLOSE_MS, SHEET_TRAVEL_FALLBACK } from './Sheet';
 
 const DISMISS_DISTANCE = 120; // px dragged before we let go of it
 const DISMISS_VELOCITY = 800; // or a fast flick, whichever comes first
@@ -31,11 +31,26 @@ export function SwipeSheet({
   contentStyle?: StyleProp<ViewStyle>;
 }) {
   const y = useSharedValue(0);
+  // 0 = fully closed, 1 = fully open. Drives the entry/exit; `y` is the drag.
+  const progress = useSharedValue(0);
+  // Modal drops its children the moment `visible` flips, which would cut the
+  // exit animation off. Latch it open until the animation finishes.
+  const [mounted, setMounted] = useState(visible);
+  const [travel, setTravel] = useState(SHEET_TRAVEL_FALLBACK);
 
-  const close = () => {
-    y.value = 0; // reset so the next open starts seated
-    onClose();
-  };
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      y.value = 0; // start seated, even if the last close was a flick
+      progress.value = withTiming(1, { duration: OPEN_MS });
+    } else {
+      progress.value = withTiming(0, { duration: CLOSE_MS }, (done) => {
+        if (done) runOnJS(setMounted)(false);
+      });
+    }
+  }, [visible, y, progress]);
+
+  const close = () => onClose();
 
   const pan = Gesture.Pan()
     // Downward only: an upward drag would lift the sheet off the bottom of the
@@ -53,19 +68,26 @@ export function SwipeSheet({
       }
     });
 
-  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+  // Entry/exit offset plus whatever the finger has dragged.
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: y.value + (1 - progress.value) * travel }],
+  }));
   // Fade the scrim as the sheet travels, so the dismiss reads as one motion.
   const scrimStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(y.value, [0, 300], [1, 0], Extrapolation.CLAMP),
+    opacity: progress.value * interpolate(y.value, [0, 300], [1, 0], Extrapolation.CLAMP),
   }));
 
+  if (!mounted) return null;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
+    <Modal visible transparent animationType="none" onRequestClose={close}>
+      {/* Scrim fades in place. It must not be inside a sliding container, or
+          the black rectangle travels up the screen with the sheet. */}
       <Animated.View style={[{ flex: 1 }, scrimStyle]}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={close} />
+        <Pressable style={{ flex: 1, backgroundColor: SCRIM }} onPress={close} />
       </Animated.View>
       <GestureDetector gesture={pan}>
-        <Animated.View style={sheetStyle}>
+        <Animated.View onLayout={(e) => setTravel(e.nativeEvent.layout.height)} style={sheetStyle}>
           <View style={[sheetBody, contentStyle]}>{children}</View>
         </Animated.View>
       </GestureDetector>

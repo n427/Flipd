@@ -183,20 +183,20 @@ function HowItWorks() {
 function BothSides() {
   const sides = [
     {
-      role: 'Buyers',
-      lead: 'You ask. Nothing is shared until they say yes.',
+      role: 'For Buyers',
+      lead: 'Request details freely with verified USC students',
       points: [
-        { t: 'Read the AI review first', b: 'Before you send, the safety layer summarises the seller: profile completeness, rating history, and anything worth a second look.' },
-        { t: 'Send one message', b: 'Optional, and capped at one. Say what you want and when you can meet. No inbox to ignore, no back-and-forth before anyone has agreed.' },
-        { t: 'Wait for approval', b: 'Your contact details stay private until the seller approves. If they decline or the 72 hours lapse, they never see them.' },
+        { t: 'Read the AI review first', b: 'Before you send, the safety layer summarises the seller: profile completeness and rating history.' },
+        { t: 'Send one message', b: 'Send an optional message about what you want and when you can meet.' },
+        { t: 'Wait for approval', b: 'Your contact details stay private until the seller approves. If they decline or the 72 hours pass, they never see them.' },
       ],
     },
     {
-      role: 'Sellers',
-      lead: 'You decide who reaches you, with context.',
+      role: 'For Sellers',
+      lead: 'You decide who reaches you.',
       points: [
         { t: 'See who is asking', b: 'Their name, school, and year arrive with the request, alongside the same AI evaluation scored on profile completeness and past reviews.' },
-        { t: 'Read their message', b: 'One message, if they wrote one. Enough to judge whether it is worth your time before you commit to a conversation.' },
+        { t: 'Read their message', b: "Buyers can only send one message to start a conversation so you don't get spammed with questions." },
         { t: 'Approve within 72 hours', b: 'Approve and the chat opens for both of you. Decline, or let it expire, and nothing is exchanged.' },
       ],
     },
@@ -255,10 +255,10 @@ function BothSides() {
 
 function Categories() {
   const cats = [
-    { icon: 'services', label: 'Services', sub: 'nails · hair · tutoring · photo' },
-    { icon: 'event', label: 'Popups', sub: 'events · fundraisers' },
-    { icon: 'goods', label: 'Goods', sub: 'furniture · books · tech' },
-    { icon: 'housing', label: 'Housing', sub: 'sublets · roommates' },
+    { icon: 'services', label: 'Services' },
+    { icon: 'event', label: 'Popups' },
+    { icon: 'goods', label: 'Goods' },
+    { icon: 'housing', label: 'Housing' },
   ];
   return (
     <section id="categories" className="landing-section" style={{ padding: '96px 24px', scrollMarginTop: 60 }}>
@@ -274,8 +274,7 @@ function Categories() {
               <div style={{ border: '1px solid var(--rule)', borderRadius: 16, padding: '24px 18px', minHeight: 140, display: 'flex', flexDirection: 'column' }}>
                 <Icon name={c.icon} size={24} stroke={1.6} color="var(--ink)" />
                 <div style={{ marginTop: 'auto' }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 3px', letterSpacing: '-0.01em' }}>{c.label}</h3>
-                  <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{c.sub}</div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: '-0.01em' }}>{c.label}</h3>
                 </div>
               </div>
             </Reveal>
@@ -335,7 +334,7 @@ function JoinCTA() {
     }).catch(() => null);
     if (res?.ok) { setState('sent'); setCode(''); return; }
     const body = await res?.json().catch(() => ({}));
-    setError(body?.error || 'Something went wrong — try again.');
+    setError(body?.error || 'Something went wrong. Try again.');
     setState('idle');
   };
 
@@ -354,7 +353,7 @@ function JoinCTA() {
       return;
     }
     const body = await res?.json().catch(() => ({}));
-    setError(body?.error || 'Something went wrong — try again.');
+    setError(body?.error || 'Something went wrong. Try again.');
     setState('sent');
   };
 

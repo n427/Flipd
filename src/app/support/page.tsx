@@ -3,7 +3,7 @@ import { LegalPage } from '@/components/LegalPage';
 import { SUPPORT, SUPPORT_FAQ, SUPPORT_EMAIL } from '@/lib/legal';
 
 export const metadata: Metadata = {
-  title: 'Support — Flipd',
+  title: 'Support · Flipd',
   description: 'Help with signing in, buying, selling, and staying safe on Flipd.',
 };
 

@@ -35,7 +35,6 @@ type DbListing = {
   photo_focus?: string[] | null;
   photo_zoom?: string[] | null;
   archived?: boolean | null;
-  spoken_for?: boolean | null;
   created_at?: string | null;
   event_start?: string | null;
   event_end?: string | null;
@@ -136,7 +135,6 @@ export function mapDbListing(row: DbListing, meId: string | null): Listing {
     photo_focus: row.photo_focus || [],
     photo_zoom: row.photo_zoom || [],
     archived: row.archived ?? false,
-    spokenFor: row.spoken_for ?? false,
     created_at: row.created_at || undefined,
     postedLabel: formatPostedDate(row.created_at) || 'just now',
     contactMethods: (row.contact ?? []) as Listing['contactMethods'],
@@ -173,6 +171,7 @@ function mapReveal(dto: RevealDto, dir: 'in' | 'out'): ActivityItem {
     listingArchived: dto.listing_archived ?? false,
     listingRemoved: dto.listing_removed ?? false,
     when: timeAgo(dto.created_at),
+    createdAt: dto.created_at,
     expiresAt: dto.expires_at,
     offer: dto.offer ?? undefined,
     unread: dto.unread ?? false,
