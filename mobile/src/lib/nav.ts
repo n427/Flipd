@@ -1,62 +1,24 @@
 import { router } from 'expo-router';
+import { parentOf } from './parentOf';
+
+type Target = Parameters<typeof router.push>[0];
+type Replacement = Parameters<typeof router.replace>[0];
 
 /**
  * Go back, with a guaranteed destination.
  *
- * `router.back()` is a no-op when nothing is on the stack, which is common in
- * this app: a push notification opens /requests directly, `router.replace()`
- * leaves nothing behind it, and deep links start cold. The button renders,
- * the tap does nothing, and the screen looks frozen.
+ * Still used by the (auth) screens and the listing edit screen, which can be
+ * entered cold — `router.back()` is a no-op on an empty stack, so the button
+ * would render and do nothing.
  *
- * `fallback` is where to land in that case — pass the screen that is
- * conceptually "up" one level from here.
+ * Screens that can only be reached by a push use `router.back()` directly.
  */
-export function goBack(fallback: Parameters<typeof router.replace>[0] = '/(tabs)/feed') {
+export function goBack(fallback: Replacement = '/(tabs)/feed') {
   if (router.canGoBack()) {
     router.back();
     return;
   }
   router.replace(fallback);
-}
-
-/**
- * Go back to an explicitly known screen.
- *
- * These screens live in a Tabs navigator, where `router.back()` pops the tab
- * history rather than the screen you actually arrived from — open a listing
- * from Requests after visiting Feed and `back()` returns you to Feed. When the
- * caller told us where it came from (a `?from=` param), that answer is exact,
- * so navigate there instead of trusting the ambiguous history.
- */
-export function goBackTo(destination: Parameters<typeof router.replace>[0]) {
-  router.replace(destination);
-}
-
-/**
- * Tabs a screen can be opened from. Screens reachable from several places
- * (a listing opens from the feed, Requests, Saved, Notifications, a profile…)
- * take a `from` param so the back button returns to the right one instead of
- * dumping everyone on the feed.
- */
-export type FromTab = 'feed' | 'requests' | 'notifications' | 'saved' | 'profile' | 'my-listings';
-
-const FROM_ROUTES: Record<FromTab, string> = {
-  feed: '/(tabs)/feed',
-  requests: '/(tabs)/requests',
-  notifications: '/(tabs)/notifications',
-  saved: '/(tabs)/saved',
-  profile: '/(tabs)/profile',
-  'my-listings': '/(tabs)/my-listings',
-};
-
-/**
- * Back destination for a screen opened with `?from=`. Falls back to the feed
- * when the param is absent or unrecognised (an old deep link, a hand-typed
- * URL), so this can never resolve to a dead route.
- */
-export function backTarget(from: string | undefined): Parameters<typeof router.replace>[0] {
-  const route = from && FROM_ROUTES[from as FromTab];
-  return (route ?? '/(tabs)/feed') as Parameters<typeof router.replace>[0];
 }
 
 /**
@@ -67,6 +29,20 @@ export function backTarget(from: string | undefined): Parameters<typeof router.r
  * the detail screen of the thing just deleted, which then renders "not found".
  * This always replaces, so the dead screen leaves the stack entirely.
  */
-export function leaveAfterDelete(destination: Parameters<typeof router.replace>[0] = '/(tabs)/feed') {
+export function leaveAfterDelete(destination: Replacement = '/(tabs)/feed') {
   router.replace(destination);
+}
+
+/**
+ * Open a deep-linked screen with something behind it.
+ *
+ * A push notification or cold link arrives with an empty stack. Seeding the
+ * parent first means back pops and animates like any other screen, instead of
+ * replacing out from under the user.
+ */
+export function openDeepLink(target: Target) {
+  if (!router.canGoBack()) {
+    router.replace(parentOf(String(target)) as Replacement);
+  }
+  router.push(target);
 }

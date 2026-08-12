@@ -13,6 +13,7 @@ import {
   Figtree_900Black,
 } from '@expo-google-fonts/figtree';
 import { SessionProvider, useSession } from '@/lib/session';
+import { openDeepLink } from '@/lib/nav';
 import { UnreadProvider } from '@/lib/unread';
 import { T } from '@/lib/theme';
 
@@ -53,16 +54,18 @@ function AuthWatcher() {
     }
   }, [session, loading, onboarded, segments, router]);
 
-  // Tapping a reveal push (new request / approval) opens the Requests tab.
+  // Tapping a reveal push (new request / approval) opens Requests. Routed
+  // through openDeepLink so a cold start — the common case for a notification —
+  // lands with a screen behind it and back is never a dead button.
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((res) => {
       const type = res.notification.request.content.data?.type;
       if (type === 'new_request' || type === 'approval') {
-        router.push('/(tabs)/requests');
+        openDeepLink('/(tabs)/requests');
       }
     });
     return () => sub.remove();
-  }, [router]);
+  }, []);
 
   return (
     <Stack
