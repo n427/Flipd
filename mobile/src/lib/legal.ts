@@ -108,21 +108,21 @@ export const PRIVACY: LegalDoc = {
       heading: 'Information we collect',
       body: [
         'We collect your @usc.edu email address for sign-in and verification, along with your name, school, and year. We collect listing content you post, such as photos, prices, and descriptions.',
-        'We collect the messages you send through Flipd, including any photos or videos you attach, so conversations stay available to both people in them. We also collect an optional phone number, plus the notification settings you choose, so we know where and whether to contact you.',
+        'We collect the messages you send through Flipd, including any photos or videos you attach, so conversations stay available to both people in them. We also collect the notification settings you choose, so we know where and whether to contact you.',
         'We collect basic usage data, like pages visited and actions taken on the platform, to keep Flipd working and to improve it.',
       ],
     },
     {
       heading: 'How we use your information',
       body: [
-        'We use your information to verify you are a current USC student, operate the campus feed and listings, deliver messages between buyers and sellers, and communicate with you about your account, such as sign-in codes, request approvals, and new messages. Your phone number and email address are used only to reach you, never to identify you to another user. We do not sell your personal information to third parties.',
+        'We use your information to verify you are a current USC student, operate the campus feed and listings, deliver messages between buyers and sellers, and communicate with you about your account, such as sign-in codes, request approvals, and new messages. Your email address is used only to reach you, never to identify you to another user. We do not sell your personal information to third parties.',
       ],
     },
     {
       heading: 'What other users can see',
       body: [
         'Other users see your listings publicly on the feed, along with your name, school, year, profile photo, rating, and how many exchanges you have completed on Flipd.',
-        'When you send a request, the seller sees your name, school, year, and the message you wrote. Your phone number and email address are never shown to another user. Messages and attachments are visible only to the two people in a conversation.',
+        'When you send a request, the seller sees your name, school, year, and the message you wrote. Your email address is never shown to another user. Messages and attachments are visible only to the two people in a conversation.',
       ],
     },
     {
@@ -210,10 +210,6 @@ export const SUPPORT_FAQ: { q: string; a: string }[] = [
   {
     q: 'Can I send photos or videos?',
     a: 'Yes. Once a conversation is open you can attach photos and short videos, which is useful for showing condition, sizing, or exactly where to meet.',
-  },
-  {
-    q: 'Does Flipd have my phone number?',
-    a: 'Only if you add one. It is used for notifications and never shown to another user. You choose in your profile whether alerts arrive in the app, by email, or both.',
   },
   {
     q: 'Can I edit or remove my listing?',

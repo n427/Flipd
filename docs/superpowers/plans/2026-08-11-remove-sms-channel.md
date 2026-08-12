@@ -935,9 +935,24 @@ hardening is preserved, not reverted."
    released. Ship the Task 3 mobile build and confirm adoption before applying
    `035`, or knowingly accept a window where stale clients cannot save their
    profile at all.
-3. Apply `035_remove_sms.sql` in the Supabase SQL editor. **This permanently
+3. **Before applying, run these two counts and report them.** `035` is
+   irreversible — once it runs, there is no query left that can tell you what
+   these numbers used to be.
+
+   ```sql
+   select count(*) from public.profiles where contact_email is null;
+   select count(*) from public.profiles
+   where contact_method = 'phone' and contact_instagram is null and contact_email is null;
+   ```
+
+   The first count is the population the migration's new backfill step will
+   repair (rows with no `contact_email`, filled in from their verified
+   `auth.users` address). The second is the population that, without that
+   backfill, would have been re-pointed to `contact_method = null` — left with
+   no contact method at all, and no editable field in either client to add one.
+4. Apply `035_remove_sms.sql` in the Supabase SQL editor. **This permanently
    deletes every stored phone number.** Take a backup first if there is any doubt.
-4. The check constraint is unnamed in `007_identity_contact.sql`, so it should have
+5. The check constraint is unnamed in `007_identity_contact.sql`, so it should have
    been auto-named `profiles_contact_method_check`, and `drop constraint if
    exists` should find and drop it before `add constraint` recreates it under that
    same name — that `add constraint` cannot fail on a duplicate, since the exact
@@ -948,10 +963,10 @@ hardening is preserved, not reverted."
    plus the old, more permissive one still standing. After applying, run `\d
    public.profiles` and drop any second `contact_method` check constraint that
    survived.
-5. Verify: `select count(*) from public.profiles where contact_method = 'phone';`
+6. Verify: `select count(*) from public.profiles where contact_method = 'phone';`
    returns 0, and `select contact_phone from public.profiles limit 1;` errors with
    "column does not exist".
-6. **Delete these three lines from `.env.local.example`** (around lines 26-28):
+7. **Delete these three lines from `.env.local.example`** (around lines 26-28):
 
    ```
    SMS_API_KEY=
@@ -963,6 +978,6 @@ hardening is preserved, not reverted."
    to every agent in this environment. No later task's verification grep covers
    `.env.local.example`, so nothing else will catch it. Zero-risk edit; nothing
    reads these vars any more.
-7. Remove `SMS_API_KEY`, `SMS_API_URL`, `SMS_FROM`, `SMS_WEBHOOK_SECRET` from Vercel
+8. Remove `SMS_API_KEY`, `SMS_API_URL`, `SMS_FROM`, `SMS_WEBHOOK_SECRET` from Vercel
    (Production and Preview) if they were ever set.
-8. If an SMS provider account or number was provisioned, decommission it.
+9. If an SMS provider account or number was provisioned, decommission it.

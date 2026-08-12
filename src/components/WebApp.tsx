@@ -1764,17 +1764,6 @@ function ModalScrim({ children, onClose }: { children: React.ReactNode; onClose:
   );
 }
 
-const CONTACT_METHOD_LABELS: Record<'instagram' | 'phone' | 'email', string> = {
-  instagram: 'Instagram',
-  phone: 'Text',
-  email: 'Email',
-};
-const CONTACT_METHOD_ICONS: Record<'instagram' | 'phone' | 'email', string> = {
-  instagram: 'instagram',
-  phone: 'phone',
-  email: 'mail',
-};
-
 export function RevealModal({ listing, me, onClose, onContinue }: { listing: Listing; me: Profile | null; onClose: () => void; onContinue: (offer: number | undefined, introMessage: string) => void }) {
   const [offerText, setOfferText] = React.useState('');
   const [intro, setIntro] = React.useState('');

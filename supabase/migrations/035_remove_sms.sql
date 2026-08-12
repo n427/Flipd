@@ -19,16 +19,26 @@ drop function if exists public.clear_phone_verification();
 
 drop table if exists public.phone_verifications;
 
+-- Every account signs in with a verified USC address, and contact_email is
+-- now read-only in both clients — a row with a null one has no way to fill
+-- it in, and would be bounced through onboarding forever. Backfill from the
+-- auth record before anything below depends on it being present.
+update public.profiles p
+set contact_email = u.email
+from auth.users u
+where u.id = p.id and p.contact_email is null and u.email is not null;
+
 -- Re-point rows whose primary method is about to stop existing. This mirrors
--- primaryMethod's precedence in src/lib/validation.ts (instagram, then email)
--- rather than assuming email is always available: contact_email is not
--- guaranteed non-null (src/app/api/me/route.ts maps an empty string to null,
--- and mobile writes the column directly). NULL is the honest answer when a
--- row has neither — it passes the new CHECK constraint below, so this is safe.
+-- primaryMethod's precedence in src/lib/validation.ts (instagram, then email),
+-- including its Boolean(value) test: an empty string is falsy there, so the
+-- predicates below use nullif/trim rather than `is not null` to match exactly.
+-- The backfill above makes contact_email present for nearly every row; NULL is
+-- still the honest answer for the rare row where even auth.users.email was
+-- null — it passes the new CHECK constraint below, so this remains safe.
 update public.profiles
 set contact_method = case
-  when contact_instagram is not null then 'instagram'
-  when contact_email    is not null then 'email'
+  when nullif(trim(contact_instagram), '') is not null then 'instagram'
+  when nullif(trim(contact_email),     '') is not null then 'email'
   else null
 end
 where contact_method = 'phone';

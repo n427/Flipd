@@ -36,8 +36,8 @@ type RevealRow = {
   thread: { id: string } | { id: string }[] | null;
 };
 // Contact columns are deliberately absent: contact details are never shared
-// between users now that conversations happen in-app. Phone and email are
-// notification destinations only.
+// between users now that conversations happen in-app. Email is a notification
+// destination only.
 type ProfileRef = {
   id: string;
   display_name: string | null;
