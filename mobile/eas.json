@@ -4,7 +4,11 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "node": "24.16.0"
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
@@ -12,10 +16,12 @@
       }
     },
     "preview": {
+      "extends": "base",
       "developmentClient": false,
       "distribution": "internal"
     },
     "production": {
+      "extends": "base",
       "developmentClient": false,
       "distribution": "store",
       "autoIncrement": true
