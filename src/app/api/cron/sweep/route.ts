@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runSweep } from '@/lib/sweep';
 import { popupRemindersProducer } from '@/lib/sweep/popup-reminders';
+import { digestProducer } from '@/lib/digest';
 
 // Secret-guarded sweep, called hourly by Supabase pg_cron with
 // `Authorization: Bearer $CRON_SECRET`. Every producer decides what is DUE
@@ -13,6 +14,10 @@ export async function GET(req: NextRequest) {
   if (!secret || auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
-  const result = await runSweep([popupRemindersProducer]);
+  // The producer list lives here, not in the harness: runSweep stays
+  // producer-agnostic so its isolation guarantee is testable without a
+  // database. Each producer isolates its own failures, so adding one cannot
+  // break the others.
+  const result = await runSweep([popupRemindersProducer, digestProducer]);
   return NextResponse.json(result);
 }
