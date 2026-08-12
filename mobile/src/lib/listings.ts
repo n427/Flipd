@@ -233,7 +233,7 @@ export async function createListing(input: NewListing): Promise<string> {
 export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | 'new_message' | 'popup_reminder';
 // `app` is the key the web preference UI writes for push; `push` is the older
 // name. Both are written and read so either client's saved shape is honoured.
-export type NotifyPrefs = Partial<Record<NotifyEvent, { app?: boolean; email?: boolean; push?: boolean; sms?: boolean }>>;
+export type NotifyPrefs = Partial<Record<NotifyEvent, { app?: boolean; email?: boolean; push?: boolean }>>;
 
 export type MyProfile = {
   id: string;
