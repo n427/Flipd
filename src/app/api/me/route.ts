@@ -11,18 +11,18 @@ export async function GET(req: NextRequest) {
 
 const EDITABLE = [
   'display_name', 'handle', 'school_unit', 'class_year', 'bio', 'avatar_url',
-  'contact_method', 'contact_instagram', 'contact_phone', 'contact_email',
+  'contact_method', 'contact_instagram', 'contact_email',
   'heard_from', 'heard_from_detail',
 ] as const;
 
-const CONTACT_METHODS = ['instagram', 'phone', 'email'];
+const CONTACT_METHODS = ['instagram', 'email'];
 // Must match the CHECK constraint in migration 022_signup_attribution.sql and
 // CHANNELS in src/app/onboarding/page.tsx.
 const HEARD_FROM = ['instagram', 'friend', 'flyer', 'class_club', 'other'];
 // Attribution describes the moment of signup, so it is captured once and never
 // revised — see the write-once guard in PATCH below.
 const WRITE_ONCE = ['heard_from', 'heard_from_detail'] as const;
-const NOTIFY_EVENTS = ['new_request', 'approval', 'reminder', 'expiry', 'new_message'];
+const NOTIFY_EVENTS = ['new_request', 'approval', 'reminder', 'expiry', 'new_message', 'popup_reminder'];
 
 export async function PATCH(req: NextRequest) {
   const user = await getRequestUser(req);
@@ -34,14 +34,13 @@ export async function PATCH(req: NextRequest) {
     if (typeof body[key] === 'string') update[key] = body[key].trim() || null;
   }
   if (body.notify_prefs && typeof body.notify_prefs === 'object') {
-    const prefs: Record<string, { app?: boolean; email?: boolean; sms?: boolean }> = {};
+    const prefs: Record<string, { app?: boolean; email?: boolean }> = {};
     for (const ev of NOTIFY_EVENTS) {
       const entry = body.notify_prefs[ev];
       if (entry && typeof entry === 'object') {
         prefs[ev] = {};
         if (typeof entry.app === 'boolean') prefs[ev].app = entry.app;
         if (typeof entry.email === 'boolean') prefs[ev].email = entry.email;
-        if (typeof entry.sms === 'boolean') prefs[ev].sms = entry.sms;
       }
     }
     update.notify_prefs = prefs;

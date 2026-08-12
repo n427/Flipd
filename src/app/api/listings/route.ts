@@ -39,15 +39,7 @@ export async function GET(req: NextRequest) {
     .eq('blocker_id', user.id);
   const blockedIds = new Set((myBlocks ?? []).map((b) => b.blocked_id));
 
-  // Buyer-facing "spoken for": listings with an active (pending/approved) request.
-  const { data: activeReqs } = await supabase
-    .from('reveal_requests')
-    .select('listing_id')
-    .in('status', ['pending', 'approved']);
-  const spoken = new Set((activeReqs ?? []).map((r) => r.listing_id));
-  const listings = (data ?? [])
-    .filter((row) => !blockedIds.has(row.seller_id))
-    .map((row) => ({ ...row, spoken_for: spoken.has(row.id) }));
+  const listings = (data ?? []).filter((row) => !blockedIds.has(row.seller_id));
   return NextResponse.json({ listings });
 }
 
@@ -80,11 +72,11 @@ export async function POST(req: NextRequest) {
   // profile actually has a value for. Falls back to all-filled if none sent.
   const { data: sellerProfile } = await supabase
     .from('profiles')
-    .select('contact_instagram, contact_phone, contact_email')
+    .select('contact_instagram, contact_email')
     .eq('id', user.id)
     .single();
-  const filled = (['instagram', 'phone', 'email'] as const).filter((k) => {
-    const col = k === 'instagram' ? 'contact_instagram' : k === 'phone' ? 'contact_phone' : 'contact_email';
+  const filled = (['instagram', 'email'] as const).filter((k) => {
+    const col = k === 'instagram' ? 'contact_instagram' : 'contact_email';
     return sellerProfile?.[col as keyof typeof sellerProfile];
   });
   const submitted = JSON.parse((formData.get('contact_methods') as string) || '[]') as string[];
