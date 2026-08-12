@@ -9,6 +9,7 @@
     },
     "development": {
       "extends": "base",
+      "environment": "development",
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
@@ -17,11 +18,13 @@
     },
     "preview": {
       "extends": "base",
+      "environment": "preview",
       "developmentClient": false,
       "distribution": "internal"
     },
     "production": {
       "extends": "base",
+      "environment": "production",
       "developmentClient": false,
       "distribution": "store",
       "autoIncrement": true
