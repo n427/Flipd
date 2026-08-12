@@ -173,8 +173,10 @@ both.
   `edit-profile.tsx`, `listing/[id]/index.tsx`, `reviews.tsx`,
   `messages/[id].tsx`, and `components/LegalScreen.tsx` (which serves `terms`,
   `privacy`, and `support`). Two of the 11 sites are footer *cancel* links, not
-  headers — `edit-profile.tsx:311` and `listing/[id]/edit.tsx:...` — which keep
-  their position and simply call `router.back()`.
+  headers — `edit-profile.tsx:311` and `listing/[id]/edit.tsx:344` — which keep
+  their position. The edit-profile one becomes `router.back()`; the listing-edit
+  one keeps `goBack` with a corrected route, since a cold-linked edit screen
+  should still land on its listing.
 - `u/[id].tsx` — adopt `<ScreenHeader>`, which fixes the ⋯ position. It has no
   back control today at all.
 - `(auth)/email.tsx` and `(auth)/verify.tsx` keep `goBack` with its fallback.
