@@ -88,7 +88,7 @@ export default function Saved() {
           </View>
         }
         renderItem={({ item }) => (
-          <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}?from=saved`)} />
+          <ListingCard listing={item} onPress={() => router.push(`/listing/${item.id}`)} />
         )}
       />
     </SafeAreaView>

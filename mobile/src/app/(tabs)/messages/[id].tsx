@@ -230,7 +230,7 @@ export default function ThreadScreen() {
           <Pressable
             onPress={() =>
               head.listing_id && !head.listing_removed
-                ? router.push(`/(tabs)/listing/${head.listing_id}`)
+                ? router.push(`/listing/${head.listing_id}`)
                 : undefined
             }
             style={{

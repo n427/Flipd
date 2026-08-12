@@ -165,7 +165,7 @@ export default function EditListingScreen() {
         lng: coords?.lng ?? null,
         photos,
       });
-      goBack(`/(tabs)/listing/${id}`);
+      goBack(`/listing/${id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save. Try again.');
       setSaving(false);
@@ -341,7 +341,7 @@ export default function EditListingScreen() {
         >
           <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>{saving ? 'Saving…' : 'Save changes'}</Text>
         </Pressable>
-        <Pressable onPress={() => goBack(`/(tabs)/listing/${id}`)} style={{ marginTop: 14, alignItems: 'center' }}>
+        <Pressable onPress={() => goBack(`/listing/${id}`)} style={{ marginTop: 14, alignItems: 'center' }}>
           <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
         </Pressable>
       </FormScroll>

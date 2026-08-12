@@ -179,7 +179,7 @@ export default function Post() {
         event_start: eventWindow?.start ?? null,
         event_end: eventWindow?.end ?? null,
       });
-      router.replace(`/(tabs)/listing/${id}`);
+      router.replace(`/listing/${id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not post. Try again.');
       setSubmitting(false);

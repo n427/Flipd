@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert, T
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { goBackTo, leaveAfterDelete, backTarget } from '@/lib/nav';
+import { leaveAfterDelete } from '@/lib/nav';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/session';
 import {
@@ -29,16 +29,13 @@ import { T, F, S } from '@/lib/theme';
 import { containsContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
 import { SafetyCard } from '@/components/SafetyCard';
-import { EdgeSwipeBack } from '@/components/EdgeSwipeBack';
 import { MapPreview } from '@/components/MapPreview';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
 
 const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 export default function ListingDetailScreen() {
-  // `from` records which tab opened this listing, so back returns there
-  // rather than always dumping the user on the feed.
-  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useSession();
@@ -153,7 +150,7 @@ export default function ListingDetailScreen() {
           setBusy(true);
           try {
             await deleteListing(listing.id);
-            leaveAfterDelete(backTarget(from));
+            leaveAfterDelete();
           } catch (e) {
             setBusy(false);
             Alert.alert('Could not delete', e instanceof Error ? e.message : 'Try again.');
@@ -257,15 +254,14 @@ export default function ListingDetailScreen() {
     .join(' · ');
 
   return (
-    <EdgeSwipeBack onBack={() => goBackTo(backTarget(from))}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} style={{ backgroundColor: T.bg }}>
         <View>
           <PhotoCarousel photos={listing.photo_urls} />
-          {/* Floating back button. The photo carousel runs to the top of the
-              screen with no header, so without this there's no way back from a
-              listing except the system swipe gesture. */}
+          {/* Floating back button rather than a ScreenHeader: the carousel runs
+              full-bleed to the top of the screen, so a solid header row would
+              push the photo down. Pops the stack like every other back. */}
           <Pressable
-            onPress={() => goBackTo(backTarget(from))}
+            onPress={() => router.back()}
             hitSlop={10}
             style={{
               position: 'absolute',
@@ -423,7 +419,7 @@ export default function ListingDetailScreen() {
                 </View>
               ) : null}
               <Pressable
-                onPress={() => router.push(`/(tabs)/listing/${listing.id}/edit`)}
+                onPress={() => router.push(`/listing/${listing.id}/edit`)}
                 disabled={busy}
                 style={{ backgroundColor: T.cardinal, borderRadius: 14, paddingVertical: 16, alignItems: 'center', opacity: busy ? 0.6 : 1 }}
               >
@@ -605,7 +601,6 @@ export default function ListingDetailScreen() {
           </View>
         </Sheet>
       </ScrollView>
-    </EdgeSwipeBack>
   );
 }
 

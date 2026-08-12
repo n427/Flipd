@@ -186,7 +186,7 @@ export default function Profile() {
           ) : null
         }
         renderItem={({ item }) => (
-          <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}?from=profile`)} />
+          <ListingCard listing={item} onPress={() => router.push(`/listing/${item.id}`)} />
         )}
         ListFooterComponent={
           <View style={{ padding: 10, paddingTop: 24, gap: 8 }}>

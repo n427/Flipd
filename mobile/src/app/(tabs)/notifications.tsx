@@ -96,7 +96,7 @@ export default function Notifications() {
           const who = item.seller?.display_name?.split(' ')[0] || 'A Trojan';
           return (
             <Pressable
-              onPress={() => router.push(`/(tabs)/listing/${item.id}?from=notifications`)}
+              onPress={() => router.push(`/listing/${item.id}`)}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',

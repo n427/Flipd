@@ -310,7 +310,7 @@ export default function Feed() {
           </View>
         }
         renderItem={({ item }) => (
-          <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}?from=feed`)} />
+          <ListingCard listing={item} onPress={() => router.push(`/listing/${item.id}`)} />
         )}
       />
 
