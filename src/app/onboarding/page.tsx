@@ -8,10 +8,8 @@ import { Select } from '@/components/Select';
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
 // Where Flipd sends notifications. These are NOT shared with other users —
-// conversations happen in the app, so a phone number is only ever a way for us
-// to tell you something happened.
+// conversations happen in the app.
 const CONTACT_FIELDS = [
-  { id: 'phone', valueLabel: 'Phone number', placeholder: '(213) 555-0100' },
   { id: 'email', valueLabel: 'Email', placeholder: 'you@usc.edu' },
 ] as const;
 type MethodId = (typeof CONTACT_FIELDS)[number]['id'];
@@ -20,7 +18,6 @@ type MethodId = (typeof CONTACT_FIELDS)[number]['id'];
 const CHANNEL_OPTIONS = [
   { id: 'app', label: 'In the app', hint: 'Push notifications' },
   { id: 'email', label: 'Email', hint: '' },
-  { id: 'sms', label: 'Text', hint: 'Coming soon' },
 ] as const;
 type ChannelId = (typeof CHANNEL_OPTIONS)[number]['id'];
 
@@ -52,7 +49,7 @@ export default function OnboardingPage() {
   const [heardLabel, setHeardLabel] = React.useState('');
   const [heardDetail, setHeardDetail] = React.useState('');
   const [photo, setPhoto] = React.useState<{ file: File; url: string } | null>(null);
-  const [contacts, setContacts] = React.useState<{ phone: string; email: string }>({ phone: '', email: '' });
+  const [contacts, setContacts] = React.useState<{ email: string }>({ email: '' });
   // In-app on by default: it's the channel that always works and costs nothing.
   const [channels, setChannels] = React.useState<ChannelId[]>(['app', 'email']);
   const [verifiedEmail, setVerifiedEmail] = React.useState('');
@@ -66,7 +63,7 @@ export default function OnboardingPage() {
       .then((r) => (r.ok ? r.json() : { profile: null }))
       .then(({ profile }) => {
         // Instagram no longer counts: it can't receive a notification.
-        const hasContact = Boolean(profile?.contact_phone || profile?.contact_email);
+        const hasContact = Boolean(profile?.contact_email);
         if (profile?.display_name && hasContact) { router.replace('/feed'); return; }
         if (profile?.contact_email) {
           setVerifiedEmail(profile.contact_email);
@@ -88,8 +85,7 @@ export default function OnboardingPage() {
 
   const finish = async (e: React.FormEvent) => {
     e.preventDefault();
-    const filled = (['phone', 'email'] as const).filter((k) => contacts[k].trim());
-    if (filled.length === 0) { setError('Add a phone number or email so we can reach you.'); return; }
+    if (!contacts.email.trim()) { setError('Add an email so we can reach you.'); return; }
     if (channels.length === 0) { setError('Pick at least one place to get notifications.'); return; }
     setSaving(true);
     setError('');
@@ -109,14 +105,12 @@ export default function OnboardingPage() {
           school_unit: unit,
           heard_from: heardChannel?.id,
           heard_from_detail: heardDetail.trim() || null,
-          contact_method: primaryMethod({ instagram: null, phone: contacts.phone.trim() || null, email: contacts.email.trim() || null }),
-          contact_phone: contacts.phone.trim() || null,
+          contact_method: primaryMethod({ instagram: null, phone: null, email: contacts.email.trim() || null }),
           contact_email: contacts.email.trim() || null,
           notify_prefs: Object.fromEntries(
             ALL_EVENTS.map((ev) => [ev, {
               app: channels.includes('app'),
               email: channels.includes('email'),
-              sms: channels.includes('sms'),
             }]),
           ),
         }),
@@ -206,7 +200,6 @@ export default function OnboardingPage() {
                   value={contacts[m.id]}
                   onChange={(e) => setContacts((c) => ({ ...c, [m.id]: e.target.value }))}
                   placeholder={m.placeholder}
-                  inputMode={m.id === 'phone' ? 'tel' : undefined}
                 />
               </div>
             ))}
@@ -215,24 +208,19 @@ export default function OnboardingPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {CHANNEL_OPTIONS.map((c) => {
                   const on = channels.includes(c.id);
-                  // Text has no provider wired up yet, so offering it would
-                  // promise delivery that never happens.
-                  const disabled = c.id === 'sms';
                   return (
                     <label
                       key={c.id}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 10,
-                        border: '1.5px solid ' + (on && !disabled ? 'var(--ink)' : 'var(--rule)'),
+                        border: '1.5px solid ' + (on ? 'var(--ink)' : 'var(--rule)'),
                         borderRadius: 12, padding: '11px 14px',
-                        cursor: disabled ? 'default' : 'pointer',
-                        fontSize: 14.5, opacity: disabled ? 0.55 : 1,
+                        cursor: 'pointer', fontSize: 14.5,
                       }}
                     >
                       <input
                         type="checkbox"
-                        checked={on && !disabled}
-                        disabled={disabled}
+                        checked={on}
                         onChange={(e) => setChannels((prev) =>
                           e.target.checked ? [...prev, c.id] : prev.filter((x) => x !== c.id))}
                         style={{ width: 16, height: 16 }}

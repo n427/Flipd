@@ -9,9 +9,8 @@ import { Select } from '@/components/Select';
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
 const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', 'Thornton', 'Price', 'Other'];
 // Notification destinations, not things other users see. Conversations happen
-// in the app, so a phone number is only ever a way for Flipd to reach you.
+// in the app.
 const METHODS = [
-  { id: 'phone', valueLabel: 'Phone number', placeholder: '(213) 555-0100' },
   { id: 'email', valueLabel: 'Email', placeholder: 'you@usc.edu' },
 ] as const;
 type MethodId = (typeof METHODS)[number]['id'];
@@ -22,6 +21,7 @@ const NOTIFY_EVENTS = [
   { id: 'new_message', label: 'New message in a conversation' },
   { id: 'reminder', label: 'Reminder before a request expires' },
   { id: 'expiry', label: 'Your request expired' },
+  { id: 'popup_reminder', label: 'A popup or event you saved is starting soon' },
 ] as const;
 
 export default function ProfileEditPage() {
@@ -33,9 +33,9 @@ export default function ProfileEditPage() {
   const [year, setYear] = React.useState('');
   const [unit, setUnit] = React.useState('');
   const [bio, setBio] = React.useState('');
-  const [contacts, setContacts] = React.useState<{ phone: string; email: string }>({ phone: '', email: '' });
+  const [contacts, setContacts] = React.useState<{ email: string }>({ email: '' });
   const [photo, setPhoto] = React.useState<{ file: File; url: string } | null>(null);
-  const [prefs, setPrefs] = React.useState<Record<string, { app?: boolean; email?: boolean; sms?: boolean }>>({});
+  const [prefs, setPrefs] = React.useState<Record<string, { app?: boolean; email?: boolean }>>({});
   const [error, setError] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
@@ -47,10 +47,7 @@ export default function ProfileEditPage() {
     setYear(me.class_year ?? '');
     setUnit(me.school_unit ?? '');
     setBio(me.bio ?? '');
-    setContacts({
-      phone: me.contact_phone ?? '',
-      email: me.contact_email ?? '',
-    });
+    setContacts({ email: me.contact_email ?? '' });
     setPrefs(me.notify_prefs ?? {});
     setLoaded(true);
   }, [me, loaded]);
@@ -58,8 +55,7 @@ export default function ProfileEditPage() {
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { setError('Your name is required.'); return; }
-    const filled = (['phone', 'email'] as const).filter((k) => contacts[k].trim());
-    if (filled.length === 0) { setError('Add a phone number or email so we can reach you.'); return; }
+    if (!contacts.email.trim()) { setError('Add an email so we can reach you.'); return; }
     setSaving(true);
     setError('');
     try {
@@ -77,8 +73,7 @@ export default function ProfileEditPage() {
           class_year: year,
           school_unit: unit,
           bio,
-          contact_method: primaryMethod({ instagram: null, phone: contacts.phone.trim() || null, email: contacts.email.trim() || null }),
-          contact_phone: contacts.phone.trim() || null,
+          contact_method: primaryMethod({ instagram: null, phone: null, email: contacts.email.trim() || null }),
           contact_email: contacts.email.trim() || null,
           notify_prefs: prefs,
         }),
@@ -122,7 +117,7 @@ export default function ProfileEditPage() {
         </div>
 
         <div>
-          <label className="field-label">Name</label>
+          <label className="field-label">Name<span style={{ color: 'var(--accent)' }}> *</span></label>
           <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -154,35 +149,42 @@ export default function ProfileEditPage() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <label className="field-label">Where we reach you</label>
-          <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '-4px 0 4px', lineHeight: 1.5 }}>
-            Used for sign-in codes and notifications. Other users never see these.
-          </p>
-          {METHODS.map((m) => (
-            <div key={m.id}>
-              <label className="field-label">{m.valueLabel}</label>
-              <input
-                className="field"
-                value={contacts[m.id]}
-                onChange={(e) => setContacts((c) => ({ ...c, [m.id]: e.target.value }))}
-                placeholder={m.placeholder}
-                inputMode={m.id === 'phone' ? 'tel' : undefined}
-              />
-            </div>
-          ))}
+          {METHODS.map((m) => {
+            // Email is fixed to the verified account and is the only contact
+            // method, so this field is always read-only.
+            const locked = m.id === 'email';
+            return (
+              <div key={m.id}>
+                <label className="field-label">{m.valueLabel}</label>
+                <input
+                  className="field"
+                  value={contacts[m.id]}
+                  onChange={locked ? undefined : (e) => setContacts((c) => ({ ...c, [m.id]: e.target.value }))}
+                  placeholder={m.placeholder}
+                  readOnly={locked}
+                  aria-readonly={locked || undefined}
+                  style={locked ? { background: 'var(--surface)', color: 'var(--muted)', cursor: 'not-allowed' } : undefined}
+                />
+                {locked && (
+                  <p style={{ fontSize: 12, color: 'var(--muted)', margin: '6px 0 0', lineHeight: 1.5 }}>
+                    Tied to your verified account, so it cannot be changed here.
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <div>
           <label className="field-label">Notifications</label>
           <div style={{ border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 64px', padding: '10px 16px', background: 'var(--surface)', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px', padding: '10px 16px', background: 'var(--surface)', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>
               <span />
               <span style={{ textAlign: 'center' }}>In app</span>
               <span style={{ textAlign: 'center' }}>Email</span>
-              <span style={{ textAlign: 'center' }}>Text</span>
             </div>
             {NOTIFY_EVENTS.map((ev, i) => (
-              <div key={ev.id} style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 64px', alignItems: 'center', padding: '12px 16px', borderTop: i > 0 ? '1px solid var(--rule)' : 0 }}>
+              <div key={ev.id} style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px', alignItems: 'center', padding: '12px 16px', borderTop: i > 0 ? '1px solid var(--rule)' : 0 }}>
                 <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>{ev.label}</span>
                 <span style={{ textAlign: 'center' }}>
                   <input
@@ -199,9 +201,6 @@ export default function ProfileEditPage() {
                     onChange={(e2) => setPrefs((p) => ({ ...p, [ev.id]: { ...p[ev.id], email: e2.target.checked } }))}
                     aria-label={`Email for: ${ev.label}`}
                   />
-                </span>
-                <span style={{ textAlign: 'center', fontSize: 11, color: 'var(--muted-2)' }} title="Text notifications are coming soon">
-                  soon
                 </span>
               </div>
             ))}
