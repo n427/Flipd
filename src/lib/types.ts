@@ -5,7 +5,7 @@ export type PhotoTone = 'cream' | 'cardinal' | 'gold' | 'ink';
 // stays in the union: existing listings still carry it and must remain
 // representable. Do not remove without migrating those rows.
 export type CategoryId = 'all' | 'services' | 'food' | 'event' | 'housing' | 'goods';
-export type ContactMethod = 'instagram' | 'phone' | 'email';
+export type ContactMethod = 'instagram' | 'email';
 
 export interface Seller {
   id: string;
@@ -23,13 +23,12 @@ export interface Profile {
   handle: string | null;
   school_unit: string | null;
   class_year: string | null;
-  contact_method: 'instagram' | 'phone' | 'email' | null;
+  contact_method: ContactMethod | null;
   contact_instagram: string | null;
-  contact_phone: string | null;
   contact_email: string | null;
   bio: string | null;
   avatar_url: string | null;
-  notify_prefs: Record<string, { app?: boolean; email?: boolean; sms?: boolean }> | null;
+  notify_prefs: Record<string, { app?: boolean; email?: boolean }> | null;
   is_demo: boolean;
   created_at: string;
 }
@@ -56,7 +55,6 @@ export interface Listing {
   photo_focus?: string[];
   photo_zoom?: string[];
   archived?: boolean;
-  spokenFor?: boolean;
   created_at?: string;
   mine?: boolean;
   eventPill?: string;
@@ -83,6 +81,9 @@ export interface ActivityItem {
   listingArchived: boolean;
   listingRemoved: boolean;
   when: string;
+  // Raw timestamp behind `when`, so date filters do not have to parse
+  // a human label like "2d".
+  createdAt: string;
   expiresAt: string;
   offer?: number;
   unread: boolean;

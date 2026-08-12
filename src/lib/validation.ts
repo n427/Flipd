@@ -82,9 +82,9 @@ export function timeLeftLabel(expiresAt: string, now: Date = new Date()): string
   return `${Math.floor(mins / 60)}h left`;
 }
 
-type ContactValues = { instagram: string | null; phone: string | null; email: string | null };
-export type ContactMethod = 'instagram' | 'phone' | 'email';
-const METHOD_ORDER: ContactMethod[] = ['instagram', 'phone', 'email'];
+type ContactValues = { instagram: string | null; email: string | null };
+export type ContactMethod = 'instagram' | 'email';
+const METHOD_ORDER: ContactMethod[] = ['instagram', 'email'];
 
 // The methods actually shared = chosen ∩ (methods with a stored value).
 export function resolveSharedContact(chosen: string[], values: ContactValues): Partial<Record<ContactMethod, string>> {

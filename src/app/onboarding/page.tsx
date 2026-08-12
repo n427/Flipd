@@ -105,7 +105,7 @@ export default function OnboardingPage() {
           school_unit: unit,
           heard_from: heardChannel?.id,
           heard_from_detail: heardDetail.trim() || null,
-          contact_method: primaryMethod({ instagram: null, phone: null, email: contacts.email.trim() || null }),
+          contact_method: primaryMethod({ instagram: null, email: contacts.email.trim() || null }),
           contact_email: contacts.email.trim() || null,
           notify_prefs: Object.fromEntries(
             ALL_EVENTS.map((ev) => [ev, {

@@ -9,10 +9,11 @@ import Link from 'next/link';
 import { Icon } from './Icon';
 import { LocationPicker } from './LocationPicker';
 import { SafetyCard, type SafetyReview } from './SafetyCard';
-import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, Pill, Placeholder, Wordmark } from './ui';
+import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { classYearLabel, filterListings, formatPostedDate, photoCropStyle, useFlipdStore, type FlipdStore } from '@/lib/store';
-import { timeLeftLabel, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom, findContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
+import { captureSearch } from '@/lib/digest/capture';
+import { timeLeftLabel, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom, findContactInfo, profilePath, conversationHref, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import type { ActivityItem, ActivityStatus, FeedRange, Listing, PhotoTone, Profile, RatingSummary } from '@/lib/types';
 
 const TITLE_MAX = 80;
@@ -20,9 +21,14 @@ const TITLE_MAX = 80;
 interface DropdownOption { id: string; label: string; }
 
 // ── Small dropdown ───────────────────────────────────────────────────
-function WebDropdown({
-  label, icon, options, value, onChange,
-}: { label: string; icon?: string; options: DropdownOption[]; value: string; onChange: (id: string) => void }) {
+export function WebDropdown({
+  label, icon, options, value, onChange, plain,
+}: {
+  label: string; icon?: string; options: DropdownOption[]; value: string; onChange: (id: string) => void;
+  // Borderless. Inside a panel header the pill outline read as a second card
+  // edge sitting a few pixels inside the real one.
+  plain?: boolean;
+}) {
   const [open, setOpen] = React.useState(false);
   const current = options.find((o) => o.id === value);
   return (
@@ -31,9 +37,11 @@ function WebDropdown({
         onClick={() => setOpen((o) => !o)}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '8px 14px', borderRadius: 'var(--r-pill)',
-          border: '1px solid ' + (open ? 'var(--accent)' : 'var(--rule)'), background: '#fff',
-          color: 'var(--ink-2)', fontFamily: 'var(--sans)', fontWeight: 500, fontSize: 12.5,
+          padding: plain ? '6px 0' : '8px 14px', borderRadius: plain ? 6 : 'var(--r-pill)',
+          border: plain ? 0 : '1px solid ' + (open ? 'var(--accent)' : 'var(--rule)'),
+          background: plain ? 'transparent' : '#fff',
+          color: plain && open ? 'var(--ink)' : 'var(--ink-2)',
+          fontFamily: 'var(--sans)', fontWeight: plain ? 600 : 500, fontSize: 12.5,
         }}
       >
         {icon && <Icon name={icon} size={13} />}
@@ -110,10 +118,18 @@ export function WebAppHeader({
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginLeft: 'auto' }}>
-        <a href="/requests" onClick={spaClick(onRequests)} style={{ textDecoration: 'none', background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}>
-          Requests
+        <a
+          href="/requests"
+          onClick={spaClick(onRequests)}
+          aria-label={pendingCount > 0 ? `Requests and messages, ${pendingCount} pending` : 'Requests and messages'}
+          style={{ textDecoration: 'none', background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}
+        >
+          Requests &amp; Messages
+          {/* A dot, not a counter: the exact number matters once you are on the
+              page, not in the nav. The count moves to the aria-label so screen
+              readers keep it. */}
           {pendingCount > 0 && (
-            <span style={{ minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{pendingCount}</span>
+            <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)', flexShrink: 0 }} />
           )}
         </a>
         <button onClick={onBell} aria-label="Notifications" style={{ background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
@@ -137,7 +153,7 @@ export function Stars({ score, size = 15 }: { score: number; size?: number }) {
   return (
     <span style={{ display: 'inline-flex', gap: 1, lineHeight: 1 }} aria-label={`${score} out of 5`}>
       {[1, 2, 3, 4, 5].map((i) => (
-        <svg key={i} width={size} height={size} viewBox="0 0 24 24" fill={i <= full ? 'var(--accent)' : 'var(--rule-strong)'}>
+        <svg key={i} width={size} height={size} viewBox="0 0 24 24" fill={i <= full ? 'var(--star)' : 'var(--rule-strong)'}>
           <path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z" />
         </svg>
       ))}
@@ -160,7 +176,7 @@ export function RatingModal({ whom, onClose, onSubmit }: { whom: string; onClose
         <div style={{ display: 'flex', gap: 4, marginBottom: 16 }} onMouseLeave={() => setHover(0)}>
           {[1, 2, 3, 4, 5].map((i) => (
             <button key={i} type="button" onMouseEnter={() => setHover(i)} onClick={() => setScore(i)} aria-label={`${i} stars`} style={{ background: 'none', border: 0, padding: 2, cursor: 'pointer', lineHeight: 0 }}>
-              <svg width={30} height={30} viewBox="0 0 24 24" fill={i <= shown ? 'var(--accent)' : 'var(--rule-strong)'}>
+              <svg width={30} height={30} viewBox="0 0 24 24" fill={i <= shown ? 'var(--star)' : 'var(--rule-strong)'}>
                 <path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z" />
               </svg>
             </button>
@@ -175,7 +191,7 @@ export function RatingModal({ whom, onClose, onSubmit }: { whom: string; onClose
             setSaving(true); setError('');
             const r = await onSubmit(score, text);
             if (r.ok) onClose();
-            else { setError(r.error || 'Could not submit — try again.'); setSaving(false); }
+            else { setError(r.error || 'Could not submit. Try again.'); setSaving(false); }
           }}>
             {saving ? 'Submitting…' : 'Submit'}
           </Button>
@@ -189,29 +205,46 @@ export function RatingModal({ whom, onClose, onSubmit }: { whom: string; onClose
 // Requested -> Approved -> Contact shared -> Completed, with Declined /
 // Expired as terminal branches. Approval and contact-sharing are one
 // transition in the model, so approval lights both stages.
-export function RequestTimeline({ status }: { status: ActivityStatus }) {
-  if (status === 'DECLINED' || status === 'EXPIRED') {
+// `compact` drops the dots and rides alongside the action buttons instead of
+// sitting under them: on the requests panel the row is already short, and a
+// second stack of chrome below the CTAs pushed every request further apart.
+export function RequestTimeline({ status, compact }: { status: ActivityStatus; compact?: boolean }) {
+  const stages = status === 'DECLINED' || status === 'EXPIRED'
+    ? ['Requested', status === 'DECLINED' ? 'Declined' : 'Expired']
+    : ['Requested', 'Approved', 'Contact shared', 'Completed'];
+  const reached = status === 'DECLINED' || status === 'EXPIRED'
+    ? 1
+    : status === 'PENDING' ? 0 : status === 'APPROVED' ? 2 : 3;
+  // A closed request reached its last stage, but that stage is not an
+  // achievement, so it stays muted rather than inking the whole track.
+  const done = (i: number) => (status === 'DECLINED' || status === 'EXPIRED' ? i === 0 : i <= reached);
+
+  if (compact) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--ink)' }} />
-        <span style={{ fontFamily: 'var(--sans)', fontSize: 11.5, color: 'var(--muted)' }}>Requested</span>
-        <span style={{ width: 14, height: 1, background: 'var(--rule-strong)' }} />
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--muted-2)' }} />
-        <span style={{ fontFamily: 'var(--sans)', fontSize: 11.5, color: 'var(--muted)' }}>
-          {status === 'DECLINED' ? 'Declined' : 'Expired'}
-        </span>
+      <div className="req-timeline" style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+        {stages.map((label, i) => (
+          <React.Fragment key={label}>
+            {i > 0 && <span aria-hidden="true" style={{ width: 10, height: 1, background: 'var(--rule-strong)' }} />}
+            <span style={{
+              fontFamily: 'var(--sans)', fontSize: 11.5,
+              fontWeight: i === reached ? 700 : 500,
+              color: done(i) ? 'var(--ink)' : 'var(--muted)',
+            }}>
+              {label}
+            </span>
+          </React.Fragment>
+        ))}
       </div>
     );
   }
-  const stages = ['Requested', 'Approved', 'Contact shared', 'Completed'];
-  const reached = status === 'PENDING' ? 0 : status === 'APPROVED' ? 2 : 3;
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
       {stages.map((label, i) => (
         <React.Fragment key={label}>
-          {i > 0 && <span style={{ width: 14, height: 1, background: i <= reached ? 'var(--ink)' : 'var(--rule-strong)' }} />}
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: i <= reached ? 'var(--ink)' : 'var(--rule-strong)' }} />
-          <span style={{ fontFamily: 'var(--sans)', fontSize: 11.5, fontWeight: i === reached ? 700 : 400, color: i <= reached ? 'var(--ink)' : 'var(--muted)' }}>
+          {i > 0 && <span style={{ width: 14, height: 1, background: done(i) ? 'var(--ink)' : 'var(--rule-strong)' }} />}
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: done(i) ? 'var(--ink)' : 'var(--rule-strong)' }} />
+          <span style={{ fontFamily: 'var(--sans)', fontSize: 11.5, fontWeight: i === reached ? 700 : 400, color: done(i) ? 'var(--ink)' : 'var(--muted)' }}>
             {label}
           </span>
         </React.Fragment>
@@ -261,7 +294,7 @@ function ActivityRow({
         {a.status === 'APPROVED' && a.threadId && (
           <div style={{ marginTop: 8 }}>
             <Link
-              href={`/messages/${a.threadId}`}
+              href={conversationHref(a.threadId)}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface)', borderRadius: 6, padding: '6px 10px', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink)', textDecoration: 'none' }}
             >
               <Icon name="chat" size={13} /> Open chat
@@ -277,7 +310,7 @@ function ActivityRow({
         )}
         {a.status === 'COMPLETED' && a.canRate && onRate && (
           <div style={{ marginTop: 10 }}>
-            <Button kind="secondary" size="sm" onClick={() => onRate(a)} style={{ padding: '6px 16px' }}>Rate {a.who.split(' ')[0]}</Button>
+            <Button kind="secondary" size="sm" icon="star" iconColor="var(--star)" onClick={() => onRate(a)} style={{ padding: '6px 16px' }}>Rate {a.who.split(' ')[0]}</Button>
           </div>
         )}
       </div>
@@ -559,8 +592,8 @@ export function WebListingDetail({
       ) : (
         <>
           {(store.pendingByListing[listing.id] ?? 0) > 0 && (
-            <a href="/requests" style={{ display: 'block', background: 'var(--surface)', borderRadius: 10, padding: '12px 14px', marginBottom: 12, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', textDecoration: 'none' }}>
-              {store.pendingByListing[listing.id]} pending request{store.pendingByListing[listing.id] === 1 ? '' : 's'} — review →
+            <a href="/requests?tab=incoming" style={{ display: 'block', background: 'var(--surface)', borderRadius: 10, padding: '12px 14px', marginBottom: 12, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', textDecoration: 'none' }}>
+              {store.pendingByListing[listing.id]} pending request{store.pendingByListing[listing.id] === 1 ? '' : 's'} · review →
             </a>
           )}
           <div style={{ display: 'flex', gap: 10 }}>
@@ -585,7 +618,7 @@ export function WebListingDetail({
     ) : reveal?.status === 'APPROVED' && reveal.threadId ? (
       <div>
         <div className="t-eyebrow" style={{ color: 'var(--muted)', marginBottom: 12 }}>YOUR CHAT</div>
-        <Link href={`/messages/${reveal.threadId}`} style={{ textDecoration: 'none' }}>
+        <Link href={conversationHref(reveal.threadId)} style={{ textDecoration: 'none' }}>
           <Button kind="primary" full size="lg" icon="chat">Open chat</Button>
         </Link>
       </div>
@@ -607,7 +640,7 @@ export function WebListingDetail({
           {/* An open conversation outranks the request CTA: someone who
               already has a thread wants to get back into it, not start over. */}
           {reveal?.threadId ? (
-            <Link href={`/messages/${reveal.threadId}`} style={{ textDecoration: 'none', display: full ? 'block' : undefined }}>
+            <Link href={conversationHref(reveal.threadId)} style={{ textDecoration: 'none', display: full ? 'block' : undefined }}>
               <Button kind="primary" full={full} size="lg" icon="chat">Open chat</Button>
             </Link>
           ) : reveal?.status === 'PENDING' ? (
@@ -642,7 +675,7 @@ export function WebListingDetail({
           )}
         </div>
         <div className="t-meta" style={{ fontSize: 11.5, marginTop: 12, color: 'var(--muted)' }}>
-          {listing.seller.name.split(' ')[0]} will see your name, school, and year — everyone here is verified USC.
+          {listing.seller.name.split(' ')[0]} will see your name, school, and year. Everyone here is verified USC.
         </div>
       </>
       )
@@ -699,31 +732,33 @@ export function WebListingDetail({
   const isBlockedSeller = !preview && !listing.mine && store.blockedIds.has(listing.seller.id);
   const trustLinkStyle: React.CSSProperties = { background: 'none', border: 0, padding: 0, fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 500, color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 };
   const sellerRow = (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'center', borderTop: '1px solid var(--rule)', marginTop: 22, paddingTop: 18 }}>
-      <a href={`/u/${listing.seller.id}`} aria-label={`View ${listing.seller.name}'s profile`} style={{ flexShrink: 0, display: 'block' }}>
+    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', borderTop: '1px solid var(--rule)', marginTop: 22, paddingTop: 18 }}>
+      <a href={profilePath(listing.seller)} aria-label={`View ${listing.seller.name}'s profile`} style={{ flexShrink: 0, display: 'block' }}>
         <Avatar name={listing.seller.name} src={listing.seller.avatarUrl} size={40} tone="cream" />
       </a>
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
-            <a href={`/u/${listing.seller.id}`} style={{ color: 'var(--ink)', textDecoration: 'none' }}>{listing.seller.name}</a> listed this
-          </div>
-          {listing.seller.isDemo && <Pill kind="verified">FLIPD TEAM</Pill>}
+      {/* Identity stacks: who listed it on top, affiliation and the demo badge
+          below. The badge used to sit beside the name and crowd it against the
+          report links. */}
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
+          <a href={profilePath(listing.seller)} style={{ color: 'var(--ink)', textDecoration: 'none' }}>{listing.seller.name}</a> listed this
         </div>
         {(listing.seller.unit || listing.seller.year) && (
-          <div className="t-meta" style={{ fontSize: 13, marginTop: 2 }}>
+          <div className="t-meta" style={{ fontSize: 13, marginTop: 3 }}>
             {[listing.seller.unit, listing.seller.year].filter(Boolean).join(' · ')}
           </div>
         )}
       </div>
       {!preview && !listing.mine && (
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 14 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <button style={trustLinkStyle} onClick={() => { setReportSent(false); setReportOpen({ listingId: listing.id, label: 'this listing' }); }}>
             Report listing
           </button>
+          <span aria-hidden style={{ color: 'var(--rule-strong)', fontSize: 11 }}>·</span>
           <button style={trustLinkStyle} onClick={() => { setReportSent(false); setReportOpen({ userId: listing.seller.id, label: listing.seller.name.split(' ')[0] }); }}>
             Report seller
           </button>
+          <span aria-hidden style={{ color: 'var(--rule-strong)', fontSize: 11 }}>·</span>
           {isBlockedSeller ? (
             <button style={trustLinkStyle} onClick={() => store.unblockUser(listing.seller.id)}>Unblock</button>
           ) : (
@@ -853,7 +888,7 @@ export function WebListingDetail({
                   <Button kind="primary" style={{ flex: 1 }} onClick={async () => {
                     const ok = await store.reportTarget({ listingId: reportOpen.listingId, userId: reportOpen.userId }, reportReason, reportNote);
                     if (ok) setReportSent(true);
-                    else alert('Could not send the report — try again.');
+                    else alert('Could not send the report. Try again.');
                   }}>
                     Send report
                   </Button>
@@ -901,7 +936,7 @@ export function WebListingDetail({
                 const ok = await store.removeListing(listing.id);
                 setDeleteConfirm(false);
                 if (ok) onBack();
-                else alert('Could not delete the listing — try again.');
+                else alert('Could not delete the listing. Try again.');
               }}>
                 Delete
               </Button>
@@ -990,9 +1025,11 @@ export function WebCreate({
   // index even after other uploads have shifted positions.
   const photosRef = React.useRef(photos);
   photosRef.current = photos;
-  const availableMethods = (['instagram', 'phone', 'email'] as const)
+  const availableMethods = (['instagram', 'email'] as const)
     .filter((k) => store.me?.[`contact_${k}` as const]);
-  const [contactMethods, setContactMethods] = React.useState<string[]>(
+  // No per-listing picker any more: a listing shares every contact method the
+  // seller has set on their profile, and the profile is where you change that.
+  const [contactMethods] = React.useState<string[]>(
     () => initial?.contactMethods && initial.contactMethods.length
       ? initial.contactMethods.filter((m) => availableMethods.includes(m))
       : [...availableMethods],
@@ -1324,7 +1361,7 @@ export function WebCreate({
           {photos[cropIndex] ? (
             <div
               role="img"
-              aria-label={`Cover photo — drag to reposition. Photo ${cropIndex + 1} of ${photos.length}.`}
+              aria-label={`Cover photo. Drag to reposition. Photo ${cropIndex + 1} of ${photos.length}.`}
               onPointerDown={onCropPointerDown}
               onPointerMove={onCropPointerMove}
               onPointerUp={onCropPointerUp}
@@ -1332,7 +1369,7 @@ export function WebCreate({
             >
               <img
                 src={photos[cropIndex].url}
-                alt={`Editing photo ${cropIndex + 1} — drag to reposition`}
+                alt={`Editing photo ${cropIndex + 1}, drag to reposition`}
                 draggable={false}
                 // Existing (edit-mode) photos have no measured aspect yet — fill
                 // it in on load so the hint works for them too.
@@ -1403,8 +1440,8 @@ export function WebCreate({
           )}
           <p style={{ fontFamily: 'var(--sans)', fontSize: 12, lineHeight: 1.5, margin: '6px 0 0', color: showAspectHint ? 'var(--accent)' : 'var(--muted)' }}>
             {showAspectHint
-              ? "This photo isn't square — drag Zoom to fill the frame and crop the bars."
-              : 'Drag to reposition. Wide photos are zoomed to fill automatically — adjust with the slider.'}
+              ? "This photo isn't square. Drag Zoom to fill the frame and crop the bars."
+              : 'Drag to reposition. Wide photos are zoomed to fill automatically. Adjust with the slider.'}
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 10 }}>
@@ -1448,13 +1485,13 @@ export function WebCreate({
           </div>
 
           <p style={{ fontFamily: 'var(--sans)', fontSize: 12.5, lineHeight: 1.55, color: 'var(--muted)', margin: '14px 0 0' }}>
-            Tip: shoot near a window, and include the flaw if there is one. Buyers trust listings that show everything.
+            Tip: shoot near a window, and include the flaw if there is one.
           </p>
         </div>
 
         {/* Right: details */}
         <div>
-          <label className="field-label">It’s in the category of…<span style={{ color: 'var(--accent)' }}> *</span><span style={{ fontWeight: 400, color: 'var(--muted)', textTransform: 'none', letterSpacing: 0 }}> — pick one or more</span></label>
+          <label className="field-label">It’s in the category of…<span style={{ color: 'var(--accent)' }}> *</span></label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
             {CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
               <CategoryChip
@@ -1537,36 +1574,9 @@ export function WebCreate({
             <LocationPicker value={loc} onChange={setLoc} />
           </div>
 
-          <label className="field-label">How buyers reach you</label>
-          {availableMethods.length === 0 ? (
+          {availableMethods.length === 0 && (
             <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, color: 'var(--accent)' }}>
-              Add a contact method in your profile first.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {availableMethods.map((k) => {
-                const on = contactMethods.includes(k);
-                return (
-                  <button
-                    key={k}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setContactMethods((prev) =>
-                      prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k])}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 8,
-                      border: `1.5px solid ${on ? 'var(--ink)' : 'var(--rule)'}`,
-                      background: on ? 'var(--ink)' : '#fff',
-                      color: on ? '#fff' : 'var(--ink)',
-                      borderRadius: 999, padding: '8px 14px', cursor: 'pointer',
-                      fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5,
-                    }}
-                  >
-                    <Icon name={CONTACT_METHOD_ICONS[k]} size={15} color={on ? '#fff' : 'var(--muted)'} />
-                    {CONTACT_METHOD_LABELS[k]}
-                  </button>
-                );
-              })}
+              Add a contact method in your profile before publishing.
             </div>
           )}
         </div>
@@ -1890,7 +1900,9 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
 
   const goFeed = () => { setView('feed'); setSelected(null); };
   const goDetail = (l: Listing) => { setSelected(l); setView('detail'); };
-  const onSearch = (q: string) => { setQuery(q); if (view !== 'feed') setView('feed'); };
+  // captureSearch is debounced and fire-and-forget — it records the query for
+  // the daily digest and never blocks or fails the search itself.
+  const onSearch = (q: string) => { setQuery(q); captureSearch(q); if (view !== 'feed') setView('feed'); };
   const approve = (id: string) => store.respondReveal(id, 'approve');
   const decline = (id: string) => store.respondReveal(id, 'decline');
 
@@ -1928,7 +1940,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
           onCancel={goFeed}
           onPublish={async (fd) => {
             const created = await store.addListing(fd);
-            if (!created) throw new Error('Publish failed — no listing returned.');
+            if (!created) throw new Error('Publish failed. No listing was returned.');
           }}
         />
       )}

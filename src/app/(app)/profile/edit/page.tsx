@@ -73,7 +73,7 @@ export default function ProfileEditPage() {
           class_year: year,
           school_unit: unit,
           bio,
-          contact_method: primaryMethod({ instagram: null, phone: null, email: contacts.email.trim() || null }),
+          contact_method: primaryMethod({ instagram: null, email: contacts.email.trim() || null }),
           contact_email: contacts.email.trim() || null,
           notify_prefs: prefs,
         }),
