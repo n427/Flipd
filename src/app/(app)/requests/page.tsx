@@ -429,6 +429,10 @@ function RequestsInner() {
           <Button kind="outline" onClick={() => store.respondReveal(a.id, 'complete')}>
             Mark completed
           </Button>
+          {/* Agreeing to talk is not agreeing to sell. Without this an approved
+              request could only be completed, so a seller who changed their
+              mind had no way to close it. The conversation is left alone. */}
+          <Button kind="outline" onClick={() => setDeclining(a)}>Decline</Button>
           {a.threadId && (
             <Link href={conversationHref(a.threadId)} className="btn btn-outline" style={{ gap: 7 }}>
               <Icon name="chat" size={15} /> Open chat

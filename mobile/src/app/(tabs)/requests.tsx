@@ -32,6 +32,11 @@ function Badge({ status }: { status: string }) {
   );
 }
 
+// Finished business: still listed, but no longer counted in a tab badge.
+// Mirrors the RESOLVED set the web inbox already uses, plus 'completed', which
+// is just as done as the other two.
+const RESOLVED = new Set(['declined', 'expired', 'completed']);
+
 // Offered when declining. Matches DECLINE_REASONS in the reveals API.
 const DECLINE_REASONS = [
   { id: 'bad_timing', label: 'Bad timing' },
@@ -60,7 +65,10 @@ function Row({
   onRate?: () => void;
   busy?: boolean;
 }) {
-  const canRespond = !!onRespond && item.status === 'pending';
+  const canApprove = !!onRespond && item.status === 'pending';
+  // Declining outlives approval. Agreeing to talk is not agreeing to sell, and
+  // previously an approved request could only be completed — never closed.
+  const canDecline = !!onRespond && (item.status === 'pending' || item.status === 'approved');
   // Either party can close out an approved deal.
   const canComplete = !!onComplete && item.status === 'approved';
   const sub = [item.counterpart?.display_name, item.offer != null ? `Offer $${item.offer}` : null]
@@ -102,7 +110,7 @@ function Row({
         </Text>
       ) : null}
 
-      {canRespond && onReview ? (
+      {canApprove && onReview ? (
         <Pressable
           onPress={onReview}
           style={{
@@ -122,7 +130,7 @@ function Row({
       ) : null}
 
       {/* Actions sit side by side: the primary one filled, the rest outlined. */}
-      {item.thread_id || canRespond || canComplete || (item.can_rate && onRate) ? (
+      {item.thread_id || canApprove || canDecline || canComplete || (item.can_rate && onRate) ? (
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
           {item.thread_id ? (
             <Pressable
@@ -145,44 +153,45 @@ function Row({
             </Pressable>
           ) : null}
 
-          {canRespond ? (
-            <>
-              <Pressable
-                onPress={() => onRespond!('approve')}
-                disabled={busy}
-                style={{
-                  flex: 1,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: T.cardinal,
-                  borderRadius: 12,
-                  paddingVertical: 13,
-                  opacity: busy ? 0.5 : 1,
-                }}
-              >
-                {busy ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: '#fff' }}>Approve</Text>
-                )}
-              </Pressable>
-              <Pressable
-                onPress={() => onRespond!('decline')}
-                disabled={busy}
-                style={{
-                  flex: 1,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: T.rule,
-                  paddingVertical: 13,
-                  opacity: busy ? 0.5 : 1,
-                }}
-              >
-                <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.muted }}>Decline</Text>
-              </Pressable>
-            </>
+          {canApprove ? (
+            <Pressable
+              onPress={() => onRespond!('approve')}
+              disabled={busy}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: T.cardinal,
+                borderRadius: 12,
+                paddingVertical: 13,
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: '#fff' }}>Approve</Text>
+              )}
+            </Pressable>
+          ) : null}
+
+          {canDecline ? (
+            <Pressable
+              onPress={() => onRespond!('decline')}
+              disabled={busy}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: T.rule,
+                paddingVertical: 13,
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.muted }}>Decline</Text>
+            </Pressable>
           ) : null}
 
           {canComplete ? (
@@ -432,10 +441,15 @@ export default function Requests() {
   // same thing on every tab.
   const visibleThreads = threads.filter((t) => inWindow(t.last_message_at));
 
+  // The tab badge counts requests that are still live. A declined, expired or
+  // completed request is finished business, and counting it meant the number
+  // beside "You sent" never moved when one was turned down. The rows still
+  // list everything — the count is attention, the list is history.
+  const isLive = (r: RevealRequest) => !RESOLVED.has(r.status);
   const counts: Record<Tab, number> = {
     conversations: visibleThreads.length,
-    incoming: visibleIncoming.length,
-    outgoing: visibleOutgoing.length,
+    incoming: visibleIncoming.filter(isLive).length,
+    outgoing: visibleOutgoing.filter(isLive).length,
   };
 
   const rows = tab === 'incoming' ? visibleIncoming : tab === 'outgoing' ? visibleOutgoing : [];
