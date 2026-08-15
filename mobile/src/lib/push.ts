@@ -10,14 +10,22 @@ import { supabase } from './supabase';
 // IMPORTANT: remote push requires a native dev/production build with an EAS
 // projectId. In Expo Go (SDK 53+) there is no push support, so this no-ops
 // cleanly rather than throwing.
+// Why registration stopped, for the dev console. Every branch below is a silent
+// return in production — push is a nice-to-have and must never break the app —
+// but silence made "push doesn't work" undiagnosable: permission denied, a
+// missing projectId and an RLS rejection all looked identical from outside.
+function why(reason: string) {
+  if (__DEV__) console.warn(`[push] not registered: ${reason}`);
+}
+
 export async function registerForPush(userId: string): Promise<void> {
   // Simulators/web can't receive push.
-  if (!Device.isDevice || Platform.OS === 'web') return;
+  if (!Device.isDevice || Platform.OS === 'web') return why('not a physical device');
 
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   // No projectId (e.g. Expo Go, or EAS not initialized) → can't mint a token.
-  if (!projectId) return;
+  if (!projectId) return why('no EAS projectId in the app config');
 
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
@@ -25,7 +33,9 @@ export async function registerForPush(userId: string): Promise<void> {
     if (status !== 'granted') {
       status = (await Notifications.requestPermissionsAsync()).status;
     }
-    if (status !== 'granted') return;
+    // The common one: the system prompt is shown once. Dismissed or denied,
+    // every later call returns denied and only Settings can undo it.
+    if (status !== 'granted') return why(`notification permission is "${status}"`);
 
     // Android needs a channel for notifications to display.
     if (Platform.OS === 'android') {
@@ -36,13 +46,19 @@ export async function registerForPush(userId: string): Promise<void> {
     }
 
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    if (!token) return;
+    if (!token) return why('Expo returned no push token');
 
-    await supabase
+    // The upsert's error was previously discarded, so an RLS rejection or a
+    // token owned by another account left no token row and no clue.
+    const { error } = await supabase
       .from('push_tokens')
       .upsert({ user_id: userId, token, platform: Platform.OS }, { onConflict: 'token' });
-  } catch {
+    if (error) return why(`storing the token failed: ${error.message}`);
+
+    if (__DEV__) console.log('[push] registered', token.slice(0, 24) + '…');
+  } catch (e) {
     // Push is a nice-to-have — never let registration break the app.
+    why(e instanceof Error ? e.message : String(e));
   }
 }
 
