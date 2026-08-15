@@ -13,7 +13,7 @@ import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, 
 import { CATEGORIES } from '@/lib/data';
 import { classYearLabel, filterListings, formatPostedDate, photoCropStyle, useFlipdStore, type FlipdStore } from '@/lib/store';
 import { captureSearch } from '@/lib/digest/capture';
-import { timeLeftLabel, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom, findContactInfo, profilePath, conversationHref, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
+import { timeLeftLabel, parseEventWindow, formatEventWindow, fillZoom, findContactInfo, profilePath, conversationHref, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import type { ActivityItem, ActivityStatus, FeedRange, Listing, PhotoTone, Profile, RatingSummary } from '@/lib/types';
 import { FeedSkeleton } from '@/components/Skeletons';
 
@@ -1134,10 +1134,6 @@ export function WebCreate({
     e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
-  // Nudge to zoom when the selected photo is far enough from the crop frame's
-  // shape that cover-fitting leaves bars / crops heavily. See shouldHintZoom.
-  const showAspectHint = shouldHintZoom(photos[cropIndex]?.aspect, Number(photoZoom[cropIndex]) || 1);
-
   const missing = [
     categories.length === 0 && 'a category',
     photos.length === 0 && 'a photo',
@@ -1418,10 +1414,11 @@ export function WebCreate({
               )}
             </div>
           )}
-          <p style={{ fontFamily: 'var(--sans)', fontSize: 12, lineHeight: 1.5, margin: '6px 0 0', color: showAspectHint ? 'var(--accent)' : 'var(--muted)' }}>
-            {showAspectHint
-              ? "This photo isn't square. Drag Zoom to fill the frame and crop the bars."
-              : 'Drag to reposition. Wide photos are zoomed to fill automatically. Adjust with the slider.'}
+          {/* One neutral instruction. The accent-coloured "this photo isn't
+              square" variant read as an error on a photo that crops fine — the
+              zoom already fills the frame automatically. */}
+          <p style={{ fontFamily: 'var(--sans)', fontSize: 12, lineHeight: 1.5, margin: '6px 0 0', color: 'var(--muted)' }}>
+            Drag to reposition. Wide photos are zoomed to fill automatically. Adjust with the slider.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 10 }}>

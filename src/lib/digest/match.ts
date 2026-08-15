@@ -46,7 +46,9 @@ Return only listings that student would plausibly want. Returning nothing is the
 
 Weight the signals: a saved item is the strongest, a listing they messaged about is nearly as strong, a search is weaker and may be stale. Prefer the same category or a close substitute over a loose thematic link.
 
-Give at most ${MAX_MATCHES} matches. Each reason is one short clause naming the specific prior interest it echoes, written to the student ("similar to the desk lamp you saved").`;
+Give at most ${MAX_MATCHES} matches. Each reason is one short clause naming the specific prior interest it echoes ("echoes the desk lamp they saved").
+
+The reason is never shown to the student — it exists to keep you honest. If you cannot name the specific prior interest a listing echoes, that is the signal it does not belong in the list.`;
 
 // Never throws: the digest is best-effort, and a malformed response should
 // cost one user one email, not break the sweep.
