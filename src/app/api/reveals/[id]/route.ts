@@ -37,6 +37,14 @@ export async function PATCH(
     if (status !== 'approved') {
       return NextResponse.json({ error: `only approved requests can be completed (this one is ${status})` }, { status: 409 });
     }
+  } else if (action === 'decline') {
+    // Decline stays available after approval: talking to someone is not a
+    // commitment, and without this a seller who changed their mind had no way
+    // to close the request. The thread is deliberately left alone — a
+    // conversation outlives the request that created it.
+    if (status !== 'pending' && status !== 'approved') {
+      return NextResponse.json({ error: `request is already ${status}` }, { status: 409 });
+    }
   } else if (status !== 'pending') {
     return NextResponse.json({ error: `request is already ${status}` }, { status: 409 });
   }

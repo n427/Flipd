@@ -13,6 +13,7 @@ import {
   Figtree_900Black,
 } from '@expo-google-fonts/figtree';
 import { SessionProvider, useSession } from '@/lib/session';
+import { openDeepLink } from '@/lib/nav';
 import { UnreadProvider } from '@/lib/unread';
 import { T } from '@/lib/theme';
 
@@ -53,18 +54,31 @@ function AuthWatcher() {
     }
   }, [session, loading, onboarded, segments, router]);
 
-  // Tapping a reveal push (new request / approval) opens the Requests tab.
+  // Tapping a reveal push (new request / approval) opens Requests. Routed
+  // through openDeepLink so a cold start — the common case for a notification —
+  // lands with a screen behind it and back is never a dead button.
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((res) => {
       const type = res.notification.request.content.data?.type;
       if (type === 'new_request' || type === 'approval') {
-        router.push('/(tabs)/requests');
+        openDeepLink('/(tabs)/requests');
       }
     });
     return () => sub.remove();
-  }, [router]);
+  }, []);
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        gestureEnabled: true,
+        // iOS: let the drag start anywhere, not just the 20pt edge. This is the
+        // behaviour the hand-rolled EdgeSwipeBackGesture was approximating.
+        fullScreenGestureEnabled: true,
+      }}
+    />
+  );
 }
 
 export default function RootLayout() {
@@ -77,10 +91,12 @@ export default function RootLayout() {
     Figtree_900Black,
   });
 
-  // Hold on a cardinal splash until Figtree is ready — avoids a flash of the
-  // system font on the first screen someone sees.
+  // Hold on a white field until Figtree is ready — avoids a flash of the
+  // system font on the first screen someone sees. White matches both the
+  // native splash before it and the wordmark screen after, so the whole
+  // cold start is one uninterrupted background.
   if (!fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: T.cardinal }} />;
+    return <View style={{ flex: 1, backgroundColor: T.bg }} />;
   }
 
   return (

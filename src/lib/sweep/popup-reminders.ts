@@ -1,6 +1,13 @@
 import { admin } from '@/lib/supabase/admin';
 import { formatEventStart, formatEventWindow } from '@/lib/validation';
-import { popupReminderEmail, sendEmail, verifiedEmailFor, wantsEmail } from '@/lib/notify';
+import {
+  popupReminderEmail,
+  sendEmail,
+  sendPush,
+  verifiedEmailFor,
+  wantsEmail,
+  wantsPush,
+} from '@/lib/notify';
 import { dueReminders, stampColumn, type ReminderListing, type ReminderRow } from './due-reminders';
 import type { Producer } from './index';
 
@@ -85,6 +92,21 @@ async function run(): Promise<Record<string, number>> {
         await sendEmail(to, subject, html);
         sent++;
       }
+    }
+
+    // Push runs off the same suppression rule as email, and independently of
+    // whether a verified address existed — this event had email only, so the
+    // popup_reminder toggle did nothing for anyone relying on push.
+    if (!d.suppress && wantsPush(prefsById.get(d.user_id), 'popup_reminder')) {
+      const when = listing.event_end
+        ? formatEventWindow(listing.event_start, listing.event_end)
+        : formatEventStart(listing.event_start);
+      void sendPush(
+        d.user_id,
+        d.stage === '1h' ? 'Starting soon' : 'Tomorrow',
+        `${listing.title} · ${when}`,
+        { type: 'popup_reminder' },
+      );
     }
 
     // Stamp regardless of outcome — suppressed, opted out, or no verified

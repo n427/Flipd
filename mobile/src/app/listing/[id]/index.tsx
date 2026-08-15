@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, Alert, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { goBackTo, leaveAfterDelete, backTarget } from '@/lib/nav';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { leaveAfterDelete } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import {
   fetchListing,
@@ -29,18 +28,16 @@ import { T, F, S } from '@/lib/theme';
 import { containsContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
 import { SafetyCard } from '@/components/SafetyCard';
-import { EdgeSwipeBack } from '@/components/EdgeSwipeBack';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ListingDetailSkeleton } from '@/components/Skeletons';
 import { MapPreview } from '@/components/MapPreview';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
 
 const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 export default function ListingDetailScreen() {
-  // `from` records which tab opened this listing, so back returns there
-  // rather than always dumping the user on the feed.
-  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { user } = useSession();
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error' | 'notfound'>('loading');
@@ -153,7 +150,7 @@ export default function ListingDetailScreen() {
           setBusy(true);
           try {
             await deleteListing(listing.id);
-            leaveAfterDelete(backTarget(from));
+            leaveAfterDelete();
           } catch (e) {
             setBusy(false);
             Alert.alert('Could not delete', e instanceof Error ? e.message : 'Try again.');
@@ -246,7 +243,15 @@ export default function ListingDetailScreen() {
     }
   };
 
-  if (state === 'loading') return <View style={c.center}><ActivityIndicator color={T.cardinal} /></View>;
+  // The floating header rides on top of the skeleton too, so the way back is
+  // available while the listing is still loading.
+  if (state === 'loading')
+    return (
+      <View style={{ flex: 1 }}>
+        <ListingDetailSkeleton />
+        <ScreenHeader floating />
+      </View>
+    );
   if (state === 'error') return <View style={c.center}><Text style={{ fontFamily: F.medium, color: T.muted }}>Couldn&apos;t load this listing.</Text></View>;
   if (state === 'notfound' || !listing) return <View style={c.center}><Text style={{ fontFamily: F.medium, color: T.muted }}>Listing not found.</Text></View>;
 
@@ -257,30 +262,13 @@ export default function ListingDetailScreen() {
     .join(' · ');
 
   return (
-    <EdgeSwipeBack onBack={() => goBackTo(backTarget(from))}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} style={{ backgroundColor: T.bg }}>
         <View>
           <PhotoCarousel photos={listing.photo_urls} />
-          {/* Floating back button. The photo carousel runs to the top of the
-              screen with no header, so without this there's no way back from a
-              listing except the system swipe gesture. */}
-          <Pressable
-            onPress={() => goBackTo(backTarget(from))}
-            hitSlop={10}
-            style={{
-              position: 'absolute',
-              top: insets.top + 8,
-              left: 14,
-              width: 34,
-              height: 34,
-              borderRadius: 17,
-              backgroundColor: 'rgba(255,255,255,0.92)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="chevron-back" size={21} color={T.ink} />
-          </Pressable>
+          {/* The carousel runs full-bleed to the top, so this uses the floating
+              variant — same chevron and label as every other screen, just in a
+              pill over the photo instead of a solid row above it. */}
+          <ScreenHeader floating />
         </View>
 
         <View style={{ padding: 20 }}>
@@ -381,7 +369,7 @@ export default function ListingDetailScreen() {
             <>
               <Text style={sectionLabel}>Seller</Text>
               <Pressable
-                onPress={() => router.push(`/(tabs)/u/${listing.seller_id}`)}
+                onPress={() => router.push(`/u/${listing.seller_id}`)}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -418,12 +406,12 @@ export default function ListingDetailScreen() {
               {listing.archived ? (
                 <View style={{ backgroundColor: T.fieldbg, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
                   <Text style={{ fontFamily: F.bold, color: T.muted, fontSize: 13 }}>
-                    Sold — hidden from the feed
+                    Sold, hidden from the feed
                   </Text>
                 </View>
               ) : null}
               <Pressable
-                onPress={() => router.push(`/(tabs)/listing/${listing.id}/edit`)}
+                onPress={() => router.push(`/listing/${listing.id}/edit`)}
                 disabled={busy}
                 style={{ backgroundColor: T.cardinal, borderRadius: 14, paddingVertical: 16, alignItems: 'center', opacity: busy ? 0.6 : 1 }}
               >
@@ -453,7 +441,7 @@ export default function ListingDetailScreen() {
               {/* An open conversation outranks the request CTA: someone who
                   already has a thread wants back into it, not to start over. */}
               <Pressable
-                onPress={threadId ? () => router.push(`/(tabs)/messages/${threadId}`) : requested ? undefined : openSheet}
+                onPress={threadId ? () => router.push(`/messages/${threadId}`) : requested ? undefined : openSheet}
                 disabled={!threadId && requested}
                 style={{
                   backgroundColor: !threadId && requested ? T.fieldbg : T.cardinal,
@@ -605,7 +593,6 @@ export default function ListingDetailScreen() {
           </View>
         </Sheet>
       </ScrollView>
-    </EdgeSwipeBack>
   );
 }
 

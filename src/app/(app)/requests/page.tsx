@@ -16,6 +16,7 @@ import { useStore, } from '@/lib/store-context';
 import { rangeSince } from '@/lib/store';
 import { timeLeftLabel, swapCountLabel, conversationHref } from '@/lib/validation';
 import type { ActivityItem, FeedRange } from '@/lib/types';
+import { ListRowsSkeleton } from '@/components/Skeletons';
 
 // Offered when declining. Optional — declining stays a single tap — but a
 // reason keeps the loop useful for the buyer without feeling punitive.
@@ -202,9 +203,7 @@ function ConversationList({
   // "none in this window" do not read as the same thing.
   hiddenByRange?: boolean;
 }) {
-  if (threads === null) {
-    return <div style={{ padding: '28px 18px', color: 'var(--muted)', fontSize: 13 }}>Loading…</div>;
-  }
+  if (threads === null) return <ListRowsSkeleton count={4} />;
   if (threads.length === 0) {
     return (
       <div style={{ padding: '40px 22px', textAlign: 'center' }}>
@@ -323,7 +322,7 @@ function RequestsInner() {
   );
   // Requests pile up and old ones are rarely what you came for, so the list
   // opens on the last week. Same options and helper as the feed's Posted filter.
-  const [range, setRange] = React.useState<FeedRange>('week');
+  const [range, setRange] = React.useState<FeedRange>('month');
   const [threads, setThreads] = React.useState<ThreadRow[] | null>(null);
   const [openThread, setOpenThread] = React.useState<string | null>(wantedThread);
   const [confirmSold, setConfirmSold] = React.useState<ActivityItem | null>(null);
@@ -430,6 +429,10 @@ function RequestsInner() {
           <Button kind="outline" onClick={() => store.respondReveal(a.id, 'complete')}>
             Mark completed
           </Button>
+          {/* Agreeing to talk is not agreeing to sell. Without this an approved
+              request could only be completed, so a seller who changed their
+              mind had no way to close it. The conversation is left alone. */}
+          <Button kind="outline" onClick={() => setDeclining(a)}>Decline</Button>
           {a.threadId && (
             <Link href={conversationHref(a.threadId)} className="btn btn-outline" style={{ gap: 7 }}>
               <Icon name="chat" size={15} /> Open chat
@@ -713,7 +716,7 @@ function RequestsInner() {
 // the boundary is explicit.
 export default function RequestsPage() {
   return (
-    <React.Suspense fallback={<div style={{ padding: 48, color: 'var(--muted)', fontSize: 13 }}>Loading…</div>}>
+    <React.Suspense fallback={<ListRowsSkeleton />}>
       <RequestsInner />
     </React.Suspense>
   );

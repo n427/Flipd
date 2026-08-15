@@ -52,7 +52,7 @@ export default function Feed() {
   const [sort, setSort] = useState<FeedSort>('recent');
   // Default to the past week: the feed is for what's currently for sale, and
   // an unbounded list surfaces stale listings first-time users can't act on.
-  const [range, setRange] = useState<FeedRange>('week');
+  const [range, setRange] = useState<FeedRange>('month');
   const [rangeOpen, setRangeOpen] = useState(false);
 
   // Blocked ids rarely change — fetch once and reuse across queries.
@@ -270,26 +270,29 @@ export default function Feed() {
     </View>
   );
 
-  // Skeleton grid shown under the header while the first page loads, so the
-  // page renders content-shaped immediately instead of a lone spinner.
-  if (loading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-        <View style={{ paddingHorizontal: 10 }}>{header}</View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10 }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <View key={i} style={{ width: '50%' }}>
-              <SkeletonCard />
-            </View>
-          ))}
+  // The skeleton renders INSIDE the list rather than replacing the screen.
+  // A separate loading branch meant the header lived in a different element
+  // tree with its own padding, so the chips and cards shifted every time a
+  // category changed — and re-mounting the header reset the chip row's scroll
+  // position too. Same component, same container, no shift.
+  const skeletonGrid = (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <View key={i} style={{ width: '50%' }}>
+          <SkeletonCard />
         </View>
-      </SafeAreaView>
-    );
-  }
+      ))}
+    </View>
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
       <FlatList
+        // Results stay on screen while a refined query runs. Every search
+        // keystroke and filter change sets loading, so clearing the data here
+        // blanked the grid to skeletons and repopulated it each time — the
+        // skeleton is for having nothing to show, not for having something
+        // slightly out of date.
         data={listings}
         keyExtractor={(l) => l.id}
         numColumns={2}
@@ -303,14 +306,18 @@ export default function Feed() {
           loadingMore ? <ActivityIndicator color={T.cardinal} style={{ marginVertical: 20 }} /> : null
         }
         ListEmptyComponent={
-          <View style={{ alignItems: 'center', justifyContent: 'center', padding: 48 }}>
-            <Text style={{ fontFamily: F.medium, color: T.muted }}>
-              {error ? 'Couldn’t load. Pull to retry.' : debounced || cat !== 'all' ? 'Nothing matches that.' : 'No listings yet.'}
-            </Text>
-          </View>
+          loading ? (
+            skeletonGrid
+          ) : (
+            <View style={{ alignItems: 'center', justifyContent: 'center', padding: 48 }}>
+              <Text style={{ fontFamily: F.medium, color: T.muted }}>
+                {error ? 'Couldn’t load. Pull to retry.' : debounced || cat !== 'all' ? 'Nothing matches that.' : 'No listings yet.'}
+              </Text>
+            </View>
+          )
         }
         renderItem={({ item }) => (
-          <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}?from=feed`)} />
+          <ListingCard listing={item} onPress={() => router.push(`/listing/${item.id}`)} />
         )}
       />
 

@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { Modal, View, Pressable, StyleProp, ViewStyle } from 'react-native';
+import { Modal, View, Pressable, StyleProp, ViewStyle, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -81,16 +81,27 @@ export function SwipeSheet({
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={close}>
-      {/* Scrim fades in place. It must not be inside a sliding container, or
-          the black rectangle travels up the screen with the sheet. */}
-      <Animated.View style={[{ flex: 1 }, scrimStyle]}>
-        <Pressable style={{ flex: 1, backgroundColor: SCRIM }} onPress={close} />
-      </Animated.View>
-      <GestureDetector gesture={pan}>
-        <Animated.View onLayout={(e) => setTravel(e.nativeEvent.layout.height)} style={sheetStyle}>
-          <View style={[sheetBody, contentStyle]}>{children}</View>
+      <View style={{ flex: 1 }}>
+        {/* Scrim fills the whole modal and fades in place. It must not be inside
+            a sliding container, or the black rectangle travels up with the
+            sheet. */}
+        <Animated.View style={[StyleSheet.absoluteFill, scrimStyle]}>
+          <Pressable style={{ flex: 1, backgroundColor: SCRIM }} onPress={close} />
         </Animated.View>
-      </GestureDetector>
+        {/* Pinned to the bottom rather than laid out as a flex sibling. As a
+            sibling it reserved its own height at the bottom of the screen, and
+            the entry animation then translated it out of that box — leaving a
+            sheet-height strip of nothing, showing through the transparent modal
+            to the screen behind, until the sheet slid up into it. */}
+        <GestureDetector gesture={pan}>
+          <Animated.View
+            onLayout={(e) => setTravel(e.nativeEvent.layout.height)}
+            style={[{ position: 'absolute', left: 0, right: 0, bottom: 0 }, sheetStyle]}
+          >
+            <View style={[sheetBody, contentStyle]}>{children}</View>
+          </Animated.View>
+        </GestureDetector>
+      </View>
     </Modal>
   );
 }

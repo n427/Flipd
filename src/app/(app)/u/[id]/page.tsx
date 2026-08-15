@@ -6,6 +6,7 @@ import { Avatar, ListingCard } from '@/components/ui';
 import { Stars } from '@/components/WebApp';
 import { formatPostedDate, mapDbListing } from '@/lib/store';
 import type { Listing } from '@/lib/types';
+import { ProfileSkeleton } from '@/components/Skeletons';
 
 type PublicProfile = {
   id: string;
@@ -46,7 +47,9 @@ export default function PublicProfilePage({ params }: { params: { id: string } }
       </div>
     );
   }
-  if (!data) return <div style={{ maxWidth: 1040, margin: '0 auto', padding: '40px 24px' }} />;
+  // Was an empty div, so the page sat blank until the fetch landed and then
+  // snapped into existence. The skeleton occupies the same box instead.
+  if (!data) return <ProfileSkeleton />;
 
   const { profile, listings, ratings } = data;
   const name = profile.display_name ?? 'Flipd member';

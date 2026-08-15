@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, Switch, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, Switch, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,8 @@ import { goBack } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { fetchListing, updateListing, generateDescription } from '@/lib/listings';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { FormSkeleton } from '@/components/Skeletons';
 import { FormScroll } from '@/components/FormScroll';
 import { Field } from '@/components/Field';
 import { MapPreview } from '@/components/MapPreview';
@@ -165,7 +167,7 @@ export default function EditListingScreen() {
         lng: coords?.lng ?? null,
         photos,
       });
-      goBack(`/(tabs)/listing/${id}`);
+      goBack(`/listing/${id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save. Try again.');
       setSaving(false);
@@ -174,9 +176,10 @@ export default function EditListingScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <ScreenHeader />
+        <FormSkeleton fields={5} />
+      </SafeAreaView>
     );
   }
   if (denied) {
@@ -191,7 +194,8 @@ export default function EditListingScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-      <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingTop: S.screenTop, paddingBottom: S.screenBottom + 32 }}>
+      <ScreenHeader />
+      <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: S.screenBottom + 32 }}>
         <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 18 }}>
           Edit listing
         </Text>
@@ -341,7 +345,7 @@ export default function EditListingScreen() {
         >
           <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>{saving ? 'Saving…' : 'Save changes'}</Text>
         </Pressable>
-        <Pressable onPress={() => goBack(`/(tabs)/listing/${id}`)} style={{ marginTop: 14, alignItems: 'center' }}>
+        <Pressable onPress={() => goBack(`/listing/${id}`)} style={{ marginTop: 14, alignItems: 'center' }}>
           <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
         </Pressable>
       </FormScroll>

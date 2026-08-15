@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ConversationSkeleton } from '@/components/Skeletons';
 import { supabase } from '@/lib/supabase';
 import {
   fetchThread,
@@ -118,6 +120,10 @@ export default function ThreadScreen() {
     load();
   }, [load]);
 
+  // Newest first, because the list is inverted. Memoised so the reversal isn't
+  // a fresh array on every render, which would defeat FlatList's diffing.
+  const ordered = useMemo(() => [...messages].reverse(), [messages]);
+
   // Realtime. A dropped socket falls back to the reload above rather than
   // leaving a dead screen, and signed attachment URLs expire anyway, so a
   // refetch is the right response to a stale view either way.
@@ -189,9 +195,10 @@ export default function ThreadScreen() {
 
   if (state === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <ScreenHeader />
+        <ConversationSkeleton />
+      </SafeAreaView>
     );
   }
 
@@ -210,27 +217,20 @@ export default function ThreadScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+      <ScreenHeader />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
-        <View style={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop }}>
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={10}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 }}
-          >
-            <Ionicons name="chevron-back" size={20} color={T.muted} />
-            <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.muted }}>Back</Text>
-          </Pressable>
+        <View style={{ paddingHorizontal: S.gutter }}>
 
           {/* Pinned listing header: the subject is never ambiguous, and it is
               the way back to the post. */}
           <Pressable
             onPress={() =>
               head.listing_id && !head.listing_removed
-                ? router.push(`/(tabs)/listing/${head.listing_id}`)
+                ? router.push(`/listing/${head.listing_id}`)
                 : undefined
             }
             style={{
@@ -270,11 +270,18 @@ export default function ThreadScreen() {
 
         <FlatList
           ref={listRef}
-          data={messages}
+          // Inverted: the list is rendered bottom-up, so the newest message is
+          // at scroll offset 0 and the thread simply opens at the bottom. Two
+          // attempts at scrolling there manually both failed on timing —
+          // scrollToEnd is a no-op before the list is measured — and this
+          // removes the race rather than guessing at when to fire.
+          inverted
+          data={ordered}
           keyExtractor={(m) => m.id}
-          contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: 12 }}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-          ListHeaderComponent={
+          contentContainerStyle={{ paddingHorizontal: S.gutter, paddingVertical: 12 }}
+          // Everything is flipped, so the footer is what renders at the visual
+          // top: the original request belongs above the oldest message.
+          ListFooterComponent={
             head.intro_message ? (
               <View style={{ backgroundColor: T.fieldbg, borderRadius: 12, padding: 12, marginBottom: 14 }}>
                 <Text style={{ fontFamily: F.bold, fontSize: 10.5, color: T.muted, letterSpacing: 0.6, marginBottom: 5 }}>

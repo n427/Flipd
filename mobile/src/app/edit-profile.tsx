@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, Switch, SwitchProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { FormSkeleton } from '@/components/Skeletons';
 import { FormScroll } from '@/components/FormScroll';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { goBackTo } from '@/lib/nav';
-import { EdgeSwipeBack } from '@/components/EdgeSwipeBack';
 import { useSession } from '@/lib/session';
 import { fetchMyProfile, updateMyProfile, uploadAvatar, NotifyEvent, NotifyPrefs } from '@/lib/listings';
 import { T, F, S } from '@/lib/theme';
@@ -122,7 +121,7 @@ export default function EditProfile() {
         contact_email: email.trim() || null,
         notify_prefs: prefs,
       });
-      goBackTo('/(tabs)/profile');
+      router.back();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save. Try again.');
       setSaving(false);
@@ -131,9 +130,10 @@ export default function EditProfile() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <ScreenHeader />
+        <FormSkeleton avatar fields={4} />
+      </SafeAreaView>
     );
   }
 
@@ -149,17 +149,9 @@ export default function EditProfile() {
   }
 
   return (
-    <EdgeSwipeBack onBack={() => goBackTo('/(tabs)/profile')}>
       <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-        <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}>
-          <Pressable
-            onPress={() => goBackTo('/(tabs)/profile')}
-            hitSlop={10}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 10, alignSelf: 'flex-start' }}
-          >
-            <Ionicons name="chevron-back" size={20} color={T.ink} />
-            <Text style={{ fontFamily: F.bold, fontSize: 15.5, color: T.ink }}>Profile</Text>
-          </Pressable>
+        <ScreenHeader />
+        <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: S.screenBottom }}>
           <Text style={{ fontFamily: F.black, fontSize: 26, color: T.ink, letterSpacing: -0.8, marginBottom: 20 }}>
             Edit profile
           </Text>
@@ -308,12 +300,11 @@ export default function EditProfile() {
         >
           <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>{saving ? 'Saving…' : 'Save'}</Text>
         </Pressable>
-        <Pressable onPress={() => goBackTo('/(tabs)/profile')} style={{ marginTop: 14, alignItems: 'center' }}>
+        <Pressable onPress={() => router.back()} style={{ marginTop: 14, alignItems: 'center' }}>
           <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
         </Pressable>
         </FormScroll>
       </SafeAreaView>
-    </EdgeSwipeBack>
   );
 }
 

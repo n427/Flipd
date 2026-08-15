@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MyProfileSkeleton } from '@/components/Skeletons';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { fetchMyProfile, fetchMyListings, MyProfile, FeedListing } from '@/lib/listings';
@@ -89,7 +90,12 @@ export default function Profile() {
     }, [load]),
   );
 
-  if (state === 'loading') return <View style={c.center}><ActivityIndicator color={T.cardinal} /></View>;
+  if (state === 'loading')
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <MyProfileSkeleton />
+      </SafeAreaView>
+    );
 
   // Full error screen with retry when we have nothing to show.
   if (state === 'error' && !profile) {
@@ -138,7 +144,7 @@ export default function Profile() {
             {state === 'error' ? <Text style={{ fontFamily: F.medium, color: T.danger }}>Couldn&apos;t load your profile.</Text> : null}
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
               <Pressable
-                onPress={() => router.push('/(tabs)/edit-profile')}
+                onPress={() => router.push('/edit-profile')}
                 style={{ backgroundColor: T.cardinal, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20 }}
               >
                 <Text style={{ fontFamily: F.bold, color: '#fff' }}>Edit profile</Text>
@@ -153,8 +159,8 @@ export default function Profile() {
             </View>
 
             <View style={{ marginTop: 22, gap: 10 }}>
-              <LinkRow icon="bookmark" label="Saved" onPress={() => router.push('/(tabs)/saved')} />
-              <LinkRow icon="star-outline" label="Reviews" onPress={() => router.push('/(tabs)/reviews')} />
+              <LinkRow icon="bookmark" label="Saved" onPress={() => router.push('/saved')} />
+              <LinkRow icon="star-outline" label="Reviews" onPress={() => router.push('/reviews')} />
             </View>
 
             <View
@@ -170,7 +176,7 @@ export default function Profile() {
               {/* Always available: past (sold) listings and reviews only live
                   on that screen, so gating it on the preview overflowing left
                   them unreachable for anyone with four listings or fewer. */}
-              <Pressable onPress={() => router.push('/(tabs)/my-listings')} hitSlop={8}>
+              <Pressable onPress={() => router.push('/my-listings')} hitSlop={8}>
                 <Text style={{ fontFamily: F.semibold, fontSize: 13.5, color: T.cardinal }}>
                   See all{listings.length > PREVIEW_COUNT ? ` ${listings.length}` : ''}
                 </Text>
@@ -186,14 +192,14 @@ export default function Profile() {
           ) : null
         }
         renderItem={({ item }) => (
-          <ListingCard listing={item} onPress={() => router.push(`/(tabs)/listing/${item.id}?from=profile`)} />
+          <ListingCard listing={item} onPress={() => router.push(`/listing/${item.id}`)} />
         )}
         ListFooterComponent={
           <View style={{ padding: 10, paddingTop: 24, gap: 8 }}>
             <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink, marginBottom: 2 }}>About</Text>
-            <LinkRow icon="help-circle-outline" label="Support" onPress={() => router.push('/(tabs)/support')} />
-            <LinkRow icon="document-text-outline" label="Terms of Service" onPress={() => router.push('/(tabs)/terms')} />
-            <LinkRow icon="lock-closed-outline" label="Privacy Policy" onPress={() => router.push('/(tabs)/privacy')} />
+            <LinkRow icon="help-circle-outline" label="Support" onPress={() => router.push('/support')} />
+            <LinkRow icon="document-text-outline" label="Terms of Service" onPress={() => router.push('/terms')} />
+            <LinkRow icon="lock-closed-outline" label="Privacy Policy" onPress={() => router.push('/privacy')} />
             <Text style={{ fontFamily: F.regular, fontSize: 12, color: T.muted, textAlign: 'center', marginTop: 10 }}>
               © 2026 Flipd
             </Text>

@@ -8,7 +8,7 @@
     "scheme": "flipd",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.flipd.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -33,9 +33,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#FFFFFF"
         }
       ],
       "expo-secure-store",

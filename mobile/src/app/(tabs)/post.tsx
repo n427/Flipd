@@ -154,7 +154,7 @@ export default function Post() {
       setError(
         !eventDate.trim() || !eventStartTime.trim() || !eventEndTime.trim()
           ? 'Add the date and start/end time for your popup.'
-          : 'Check the popup times — it must end after it starts, same day.',
+          : 'Check the popup times: it must end after it starts, same day.',
       );
       return;
     }
@@ -179,7 +179,7 @@ export default function Post() {
         event_start: eventWindow?.start ?? null,
         event_end: eventWindow?.end ?? null,
       });
-      router.replace(`/(tabs)/listing/${id}`);
+      router.replace(`/listing/${id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not post. Try again.');
       setSubmitting(false);
@@ -202,7 +202,7 @@ export default function Post() {
       : !locName.trim()
         ? 'Add a meetup spot so buyers know where to go'
         : isPopup && !eventWindow
-          ? 'Add when your popup runs — date, start and end time'
+          ? 'Add when your popup runs: date, start and end time'
           : null;
 
   return (

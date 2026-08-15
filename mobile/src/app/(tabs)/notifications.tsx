@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, SectionList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
+import { View, Text, SectionList, Pressable, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { fetchFeed, FeedListing, priceLabel } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
 import { groupByDay } from '@/lib/day';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ListRowsSkeleton } from '@/components/Skeletons';
 import { T, F, S } from '@/lib/theme';
 
 // Event feed: recent campus activity (new listings). Distinct from the chat
@@ -48,9 +49,9 @@ export default function Notifications() {
 
   if (state === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <ListRowsSkeleton />
+      </SafeAreaView>
     );
   }
 
@@ -96,7 +97,7 @@ export default function Notifications() {
           const who = item.seller?.display_name?.split(' ')[0] || 'A Trojan';
           return (
             <Pressable
-              onPress={() => router.push(`/(tabs)/listing/${item.id}?from=notifications`)}
+              onPress={() => router.push(`/listing/${item.id}`)}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',

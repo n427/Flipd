@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { Modal, View, Pressable, StyleProp, ViewStyle, Animated, Easing } from 'react-native';
+import { Modal, View, Pressable, StyleProp, ViewStyle, Animated, Easing, StyleSheet } from 'react-native';
 import { GESTURES_SUPPORTED } from '@/lib/gestures';
 import { T } from '@/lib/theme';
 
@@ -74,21 +74,31 @@ function StaticSheet({
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
-      {/* Scrim fades in place. It must not be inside a sliding container, or
-          the black rectangle travels up the screen with the sheet. */}
-      <Animated.View style={{ flex: 1, opacity: anim }}>
-        <Pressable style={{ flex: 1, backgroundColor: SCRIM }} onPress={onClose} />
-      </Animated.View>
-      <Animated.View
-        onLayout={(e) => setTravel(e.nativeEvent.layout.height)}
-        style={{
-          transform: [
-            { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [travel, 0] }) },
-          ],
-        }}
-      >
-        <View style={[sheetBody, contentStyle]}>{children}</View>
-      </Animated.View>
+      <View style={{ flex: 1 }}>
+        {/* Scrim fills the whole modal and fades in place. It must not be inside
+            a sliding container, or the black rectangle travels up with the
+            sheet. */}
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: anim }]}>
+          <Pressable style={{ flex: 1, backgroundColor: SCRIM }} onPress={onClose} />
+        </Animated.View>
+        {/* Pinned to the bottom, not a flex sibling — see the note in
+            SwipeSheet: as a sibling it reserved a sheet-height strip that the
+            entry animation left empty and see-through. */}
+        <Animated.View
+          onLayout={(e) => setTravel(e.nativeEvent.layout.height)}
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: [
+              { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [travel, 0] }) },
+            ],
+          }}
+        >
+          <View style={[sheetBody, contentStyle]}>{children}</View>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }

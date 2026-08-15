@@ -13,8 +13,9 @@ import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, 
 import { CATEGORIES } from '@/lib/data';
 import { classYearLabel, filterListings, formatPostedDate, photoCropStyle, useFlipdStore, type FlipdStore } from '@/lib/store';
 import { captureSearch } from '@/lib/digest/capture';
-import { timeLeftLabel, parseEventWindow, formatEventWindow, shouldHintZoom, fillZoom, findContactInfo, profilePath, conversationHref, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
+import { timeLeftLabel, parseEventWindow, formatEventWindow, fillZoom, findContactInfo, profilePath, conversationHref, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import type { ActivityItem, ActivityStatus, FeedRange, Listing, PhotoTone, Profile, RatingSummary } from '@/lib/types';
+import { FeedSkeleton } from '@/components/Skeletons';
 
 const TITLE_MAX = 80;
 
@@ -383,27 +384,6 @@ export function WebNotifications({
 }
 
 // ── Feed ─────────────────────────────────────────────────────────────
-// ── Loading skeletons ────────────────────────────────────────────────
-function CardSkeleton() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ aspectRatio: '1 / 1', borderRadius: 'var(--r-img)', background: 'var(--surface)', animation: 'flipdPulse 1.4s ease-in-out infinite' }} />
-      <div style={{ height: 13, width: '80%', borderRadius: 5, background: 'var(--surface)', animation: 'flipdPulse 1.4s ease-in-out infinite' }} />
-      <div style={{ height: 12, width: '45%', borderRadius: 5, background: 'var(--surface)', animation: 'flipdPulse 1.4s ease-in-out infinite' }} />
-    </div>
-  );
-}
-
-export function FeedSkeleton() {
-  return (
-    <div style={{ padding: '32px 32px 64px', maxWidth: 1280, margin: '0 auto' }}>
-      <div style={{ height: 30, width: 260, borderRadius: 8, background: 'var(--surface)', animation: 'flipdPulse 1.4s ease-in-out infinite', marginBottom: 28 }} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
-        {Array.from({ length: 10 }).map((_, i) => <CardSkeleton key={i} />)}
-      </div>
-    </div>
-  );
-}
 
 export function WebAppFeed({
   store, activeCat, setActiveCat, onListing, query, sort, setSort, range, setRange, priceMin, setPriceMin, priceMax, setPriceMax,
@@ -1154,10 +1134,6 @@ export function WebCreate({
     e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
-  // Nudge to zoom when the selected photo is far enough from the crop frame's
-  // shape that cover-fitting leaves bars / crops heavily. See shouldHintZoom.
-  const showAspectHint = shouldHintZoom(photos[cropIndex]?.aspect, Number(photoZoom[cropIndex]) || 1);
-
   const missing = [
     categories.length === 0 && 'a category',
     photos.length === 0 && 'a photo',
@@ -1438,10 +1414,11 @@ export function WebCreate({
               )}
             </div>
           )}
-          <p style={{ fontFamily: 'var(--sans)', fontSize: 12, lineHeight: 1.5, margin: '6px 0 0', color: showAspectHint ? 'var(--accent)' : 'var(--muted)' }}>
-            {showAspectHint
-              ? "This photo isn't square. Drag Zoom to fill the frame and crop the bars."
-              : 'Drag to reposition. Wide photos are zoomed to fill automatically. Adjust with the slider.'}
+          {/* One neutral instruction. The accent-coloured "this photo isn't
+              square" variant read as an error on a photo that crops fine — the
+              zoom already fills the frame automatically. */}
+          <p style={{ fontFamily: 'var(--sans)', fontSize: 12, lineHeight: 1.5, margin: '6px 0 0', color: 'var(--muted)' }}>
+            Drag to reposition. Wide photos are zoomed to fill automatically. Adjust with the slider.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 10 }}>
@@ -1882,7 +1859,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState('recent');
   // Matches the app's default: the feed is for what's currently for sale.
-  const [range, setRange] = React.useState<FeedRange>('week');
+  const [range, setRange] = React.useState<FeedRange>('month');
   const [priceMin, setPriceMin] = React.useState('');
   const [priceMax, setPriceMax] = React.useState('');
   const [notifOpen, setNotifOpen] = React.useState(false);
