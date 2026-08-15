@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { WebAppFeed, FeedSkeleton } from '@/components/WebApp';
+import { WebAppFeed } from '@/components/WebApp';
+import { FeedSkeleton } from '@/components/Skeletons';
 import { useStore } from '@/lib/store-context';
 import type { FeedRange } from '@/lib/types';
 

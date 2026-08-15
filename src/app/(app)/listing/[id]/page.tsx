@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { WebListingDetail, RevealModal } from '@/components/WebApp';
 import { useStore } from '@/lib/store-context';
 import type { Listing } from '@/lib/types';
+import { ListingDetailSkeleton } from '@/components/Skeletons';
 
 // Where "back" goes, keyed by the ?from= param the linking surface sets. Using
 // an explicit origin rather than router.back() means a directly-opened or
@@ -35,13 +36,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
     // Re-run when the loaded set changes (e.g. archive/restore updates state).
   }, [params.id, store.listings]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) {
-    return (
-      <div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--muted)', fontFamily: 'var(--sans)', fontSize: 13 }}>
-        Loading…
-      </div>
-    );
-  }
+  if (loading) return <ListingDetailSkeleton />;
 
   if (!listing) {
     return (
