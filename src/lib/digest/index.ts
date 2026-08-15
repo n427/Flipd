@@ -37,7 +37,7 @@ export const digestProducer: Producer = {
     // same for everyone, only the ranking differs.
     const { data: listings, error: listErr } = await admin
       .from('listings')
-      .select('id, title, price, category, seller_id')
+      .select('id, title, price, category, seller_id, photo_urls')
       .eq('archived', false)
       .gte('created_at', dayAgo)
       .order('created_at', { ascending: false })
@@ -47,7 +47,13 @@ export const digestProducer: Producer = {
 
     // seller_id is fetched to filter own-listings, then stripped before the
     // prompt — the model has no use for it and it is not ours to hand over.
-    const candidates = listings as (Candidate & { seller_id: string })[];
+    // photo_urls rides along the same way: the email renders a thumbnail from
+    // it, while the model ranks on title/price/category and would only be
+    // spending tokens on image URLs it cannot see.
+    const candidates = listings as (Candidate & {
+      seller_id: string;
+      photo_urls: string[] | null;
+    })[];
 
     // profiles has no `email` column — only `contact_email`, which is
     // user-editable. Like every sibling notifier, the address comes from
@@ -115,18 +121,21 @@ export const digestProducer: Producer = {
         // to ignore all of them.
         if (!profile) { skipped++; continue; }
 
-        // Never show someone their own listing back to them, and strip
-        // seller_id on the way into the prompt.
-        const pool: Candidate[] = candidates
-          .filter((c) => c.seller_id !== user.id)
-          .map(({ id, title, price, category }) => ({ id, title, price, category }));
-        if (!pool.length) { skipped++; continue; }
+        // Never show someone their own listing back to them.
+        const theirs = candidates.filter((c) => c.seller_id !== user.id);
+        if (!theirs.length) { skipped++; continue; }
+
+        // Two views of the same listings: `pool` is the prompt's, stripped to
+        // what the model ranks on; `theirs` keeps photo_urls for the email.
+        const pool: Candidate[] = theirs.map(({ id, title, price, category }) => ({
+          id, title, price, category,
+        }));
 
         const matches = await matchListings(profile, pool);
         // No matches is a successful run that sends nothing.
         if (!matches.length) { skipped++; continue; }
 
-        await digestEmail(to, matches, pool);
+        await digestEmail(to, matches, theirs);
         sent++;
       } catch (err) {
         // user.id only — never the email, never the search text.

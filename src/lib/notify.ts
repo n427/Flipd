@@ -11,7 +11,16 @@ export type NotifyEvent = 'new_request' | 'approval' | 'reminder' | 'expiry' | '
 // the digest feature — see the same rationale on popupReminderEmail's stage
 // union below.
 type DigestMatch = { id: string; reason: string };
-type DigestListing = { id: string; title: string; price: number; category: string };
+// photo_urls is deliberately absent from the matcher's Candidate type: the
+// model ranks on title, price and category, and image URLs would spend prompt
+// tokens on something it cannot look at. The email is the only consumer.
+type DigestListing = {
+  id: string;
+  title: string;
+  price: number;
+  category: string;
+  photo_urls?: string[] | null;
+};
 
 // `app` is what the preference UI writes for push. `push` is the older key
 // from before in-app notifications had a name in the UI; it is still honoured
@@ -208,17 +217,25 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/+$/, '');
 const priceLabel = (price: number) =>
   price > 0 ? `$${price.toLocaleString('en-US')}` : 'Free';
 
+// Capitalise the first letter of each word, but only when it is already
+// lowercase. Titles are typed by students and arrive in every casing there is;
+// a plain toLowerCase-then-capitalise would turn "GMAT tutoring" into "Gmat
+// tutoring", which reads as a typo rather than a fix. Display only — the
+// stored title is never rewritten.
+export function titleCase(s: string): string {
+  return s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+
 // Buyer, opt-in: today's picks from what they saved, messaged about, and
-// searched. Unlike the single-listing emails above, this one already knows
-// its own recipient and sends itself — by the time the digest producer has
-// matches in hand there is no `{ subject, html }` pair left for it to do
-// anything else with, so — unlike its siblings — this is the one email
-// function in this file that calls sendEmail() itself.
-export async function digestEmail(
-  email: string,
+// searched.
+//
+// Split from the sender below so the markup is testable: every other email in
+// this file is a pure `{ subject, html }` builder, and this one was the lone
+// exception that sent itself, which left its HTML impossible to assert on.
+export function digestEmailBody(
   matches: DigestMatch[],
   pool: DigestListing[],
-): Promise<void> {
+): { subject: string; html: string } {
   const byId = new Map(pool.map((l) => [l.id, l]));
   const rows = matches
     .map((m) => {
@@ -226,14 +243,31 @@ export async function digestEmail(
       // Defensive only: matchListings/parseMatches already validate every id
       // against this same pool, so this should never be hit.
       if (!listing) return '';
+      const name = titleCase(listing.title);
       const href = SITE_URL ? `${SITE_URL}/listing/${listing.id}` : null;
       const title = href
-        ? `<a href="${href}" style="color:#111;text-decoration:underline">${esc(listing.title)}</a>`
-        : `<strong>${esc(listing.title)}</strong>`;
-      return `<p style="margin:0 0 16px">
-        ${title} — ${priceLabel(listing.price)}<br/>
-        <span style="color:#5a6169">${esc(m.reason)}</span>
-      </p>`;
+        ? `<a href="${href}" style="color:#111;text-decoration:underline">${esc(name)}</a>`
+        : `<strong>${esc(name)}</strong>`;
+      const photo = listing.photo_urls?.[0];
+      // A table, not flex or grid: Outlook renders neither, and this is the
+      // one layout primitive every mail client still agrees on. Images are
+      // blocked by default in many clients, so the text cell has to stand on
+      // its own — hence alt text and no dependence on the image for meaning.
+      const thumb = photo
+        ? `<td width="96" style="padding:0 12px 0 0;vertical-align:top">
+             <img src="${esc(photo)}" alt="${esc(name)}" width="96" height="96"
+                  style="width:96px;height:96px;object-fit:cover;border-radius:10px;display:block;border:0" />
+           </td>`
+        : '';
+      return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;width:100%">
+        <tr>
+          ${thumb}
+          <td style="vertical-align:top">
+            ${title}<br/>
+            <span style="color:#5a6169">${priceLabel(listing.price)}</span>
+          </td>
+        </tr>
+      </table>`;
     })
     .filter(Boolean)
     .join('');
@@ -243,5 +277,16 @@ export async function digestEmail(
     `<p>Based on what you've saved, messaged about, and searched for:</p>
      ${rows}`,
   );
+  return { subject, html };
+}
+
+// The digest producer already knows its recipient, so this sends rather than
+// handing a pair back to a caller that has nothing left to do with it.
+export async function digestEmail(
+  email: string,
+  matches: DigestMatch[],
+  pool: DigestListing[],
+): Promise<void> {
+  const { subject, html } = digestEmailBody(matches, pool);
   await sendEmail(email, subject, html);
 }
