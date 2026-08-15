@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, RefreshControl } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ListRowsSkeleton } from '@/components/Skeletons';
 import { useSession } from '@/lib/session';
 import { fetchRatings, RatingSummary } from '@/lib/listings';
 import { Stars } from '@/components/Stars';
@@ -38,9 +39,10 @@ export default function Reviews() {
 
   if (state === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <ScreenHeader />
+        <ListRowsSkeleton />
+      </SafeAreaView>
     );
   }
 

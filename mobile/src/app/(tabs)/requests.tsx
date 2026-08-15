@@ -261,7 +261,7 @@ export default function Requests() {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [tab, setTab] = useState<Tab>('conversations');
   // Defaults to the past week, matching the web page.
-  const [range, setRange] = useState<FeedRange>('week');
+  const [range, setRange] = useState<FeedRange>('month');
   const [rangeOpen, setRangeOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

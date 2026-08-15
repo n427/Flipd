@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ProfileSkeleton } from '@/components/Skeletons';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { fetchMyProfile, fetchMyListings, MyProfile, FeedListing } from '@/lib/listings';
@@ -89,7 +90,12 @@ export default function Profile() {
     }, [load]),
   );
 
-  if (state === 'loading') return <View style={c.center}><ActivityIndicator color={T.cardinal} /></View>;
+  if (state === 'loading')
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <ProfileSkeleton />
+      </SafeAreaView>
+    );
 
   // Full error screen with retry when we have nothing to show.
   if (state === 'error' && !profile) {

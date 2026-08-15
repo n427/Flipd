@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, Alert, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { leaveAfterDelete } from '@/lib/nav';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/session';
 import {
   fetchListing,
@@ -29,6 +28,8 @@ import { T, F, S } from '@/lib/theme';
 import { containsContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
 import { SafetyCard } from '@/components/SafetyCard';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ListingDetailSkeleton } from '@/components/Skeletons';
 import { MapPreview } from '@/components/MapPreview';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
 
@@ -37,7 +38,6 @@ const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { user } = useSession();
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error' | 'notfound'>('loading');
@@ -243,7 +243,15 @@ export default function ListingDetailScreen() {
     }
   };
 
-  if (state === 'loading') return <View style={c.center}><ActivityIndicator color={T.cardinal} /></View>;
+  // The floating header rides on top of the skeleton too, so the way back is
+  // available while the listing is still loading.
+  if (state === 'loading')
+    return (
+      <View style={{ flex: 1 }}>
+        <ListingDetailSkeleton />
+        <ScreenHeader floating />
+      </View>
+    );
   if (state === 'error') return <View style={c.center}><Text style={{ fontFamily: F.medium, color: T.muted }}>Couldn&apos;t load this listing.</Text></View>;
   if (state === 'notfound' || !listing) return <View style={c.center}><Text style={{ fontFamily: F.medium, color: T.muted }}>Listing not found.</Text></View>;
 
@@ -257,26 +265,10 @@ export default function ListingDetailScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} style={{ backgroundColor: T.bg }}>
         <View>
           <PhotoCarousel photos={listing.photo_urls} />
-          {/* Floating back button rather than a ScreenHeader: the carousel runs
-              full-bleed to the top of the screen, so a solid header row would
-              push the photo down. Pops the stack like every other back. */}
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={10}
-            style={{
-              position: 'absolute',
-              top: insets.top + 8,
-              left: 14,
-              width: 34,
-              height: 34,
-              borderRadius: 17,
-              backgroundColor: 'rgba(255,255,255,0.92)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="chevron-back" size={21} color={T.ink} />
-          </Pressable>
+          {/* The carousel runs full-bleed to the top, so this uses the floating
+              variant — same chevron and label as every other screen, just in a
+              pill over the photo instead of a solid row above it. */}
+          <ScreenHeader floating />
         </View>
 
         <View style={{ padding: 20 }}>

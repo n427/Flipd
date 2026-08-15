@@ -91,10 +91,12 @@ export default function RootLayout() {
     Figtree_900Black,
   });
 
-  // Hold on a cardinal splash until Figtree is ready — avoids a flash of the
-  // system font on the first screen someone sees.
+  // Hold on a white field until Figtree is ready — avoids a flash of the
+  // system font on the first screen someone sees. White matches both the
+  // native splash before it and the wordmark screen after, so the whole
+  // cold start is one uninterrupted background.
   if (!fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: T.cardinal }} />;
+    return <View style={{ flex: 1, backgroundColor: T.bg }} />;
   }
 
   return (

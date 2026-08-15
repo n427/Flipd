@@ -323,7 +323,7 @@ function RequestsInner() {
   );
   // Requests pile up and old ones are rarely what you came for, so the list
   // opens on the last week. Same options and helper as the feed's Posted filter.
-  const [range, setRange] = React.useState<FeedRange>('week');
+  const [range, setRange] = React.useState<FeedRange>('month');
   const [threads, setThreads] = React.useState<ThreadRow[] | null>(null);
   const [openThread, setOpenThread] = React.useState<string | null>(wantedThread);
   const [confirmSold, setConfirmSold] = React.useState<ActivityItem | null>(null);

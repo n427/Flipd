@@ -52,7 +52,7 @@ export default function Feed() {
   const [sort, setSort] = useState<FeedSort>('recent');
   // Default to the past week: the feed is for what's currently for sale, and
   // an unbounded list surfaces stale listings first-time users can't act on.
-  const [range, setRange] = useState<FeedRange>('week');
+  const [range, setRange] = useState<FeedRange>('month');
   const [rangeOpen, setRangeOpen] = useState(false);
 
   // Blocked ids rarely change — fetch once and reuse across queries.

@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ConversationSkeleton } from '@/components/Skeletons';
 import { supabase } from '@/lib/supabase';
 import {
   fetchThread,
@@ -102,6 +103,11 @@ export default function ThreadScreen() {
   const [pending, setPending] = useState<OutgoingAttachment[]>([]);
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
+  // The first content-size change is the conversation painting for the first
+  // time. Animating that scroll is what read as the thread "jumping" on open —
+  // it should already be at the bottom. Later changes (a message arriving)
+  // still animate, so new content slides in rather than teleporting.
+  const didInitialScroll = useRef(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -190,9 +196,10 @@ export default function ThreadScreen() {
 
   if (state === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <ScreenHeader />
+        <ConversationSkeleton />
+      </SafeAreaView>
     );
   }
 
@@ -267,7 +274,10 @@ export default function ThreadScreen() {
           data={messages}
           keyExtractor={(m) => m.id}
           contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: 12 }}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => {
+            listRef.current?.scrollToEnd({ animated: didInitialScroll.current });
+            didInitialScroll.current = true;
+          }}
           ListHeaderComponent={
             head.intro_message ? (
               <View style={{ backgroundColor: T.fieldbg, borderRadius: 12, padding: 12, marginBottom: 14 }}>

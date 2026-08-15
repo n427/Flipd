@@ -15,7 +15,7 @@ function FeedPageInner() {
   const [activeCat, setActiveCat] = React.useState('all');
   const [sort, setSort] = React.useState('recent');
   // Matches the app's default: the feed is for what's currently for sale.
-  const [range, setRange] = React.useState<FeedRange>('week');
+  const [range, setRange] = React.useState<FeedRange>('month');
   const [priceMin, setPriceMin] = React.useState('');
   const [priceMax, setPriceMax] = React.useState('');
 

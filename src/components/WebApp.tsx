@@ -1882,7 +1882,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState('recent');
   // Matches the app's default: the feed is for what's currently for sale.
-  const [range, setRange] = React.useState<FeedRange>('week');
+  const [range, setRange] = React.useState<FeedRange>('month');
   const [priceMin, setPriceMin] = React.useState('');
   const [priceMax, setPriceMax] = React.useState('');
   const [notifOpen, setNotifOpen] = React.useState(false);
