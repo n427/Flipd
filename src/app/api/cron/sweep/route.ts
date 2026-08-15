@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runSweep } from '@/lib/sweep';
 import { popupRemindersProducer } from '@/lib/sweep/popup-reminders';
+import { requestLifecycleProducer } from '@/lib/sweep/request-lifecycle';
 import { digestProducer } from '@/lib/digest';
 
 // Secret-guarded sweep, called hourly by Supabase pg_cron with
@@ -18,6 +19,10 @@ export async function GET(req: NextRequest) {
   // producer-agnostic so its isolation guarantee is testable without a
   // database. Each producer isolates its own failures, so adding one cannot
   // break the others.
-  const result = await runSweep([popupRemindersProducer, digestProducer]);
+  const result = await runSweep([
+    popupRemindersProducer,
+    requestLifecycleProducer,
+    digestProducer,
+  ]);
   return NextResponse.json(result);
 }
