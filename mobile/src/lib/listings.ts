@@ -1,6 +1,7 @@
 import { File } from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from './supabase';
+import { orFilterForSearch } from './searchTerm';
 
 export type FeedSeller = {
   id: string;
@@ -70,9 +71,9 @@ export async function fetchFeed(opts: FeedQuery = {}): Promise<{ listings: FeedL
     .eq('archived', false);
 
   if (opts.category && opts.category !== 'all') q = q.eq('category', opts.category);
-  if (opts.query && opts.query.trim()) {
-    const term = `%${opts.query.trim().replace(/[%_]/g, '')}%`;
-    q = q.or(`title.ilike.${term},description.ilike.${term}`);
+  if (opts.query) {
+    const filter = orFilterForSearch(opts.query);
+    if (filter) q = q.or(filter);
   }
   // Exclude blocked sellers server-side so paging counts stay correct.
   if (opts.blockedIds && opts.blockedIds.length) {
