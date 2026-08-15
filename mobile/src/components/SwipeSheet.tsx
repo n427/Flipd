@@ -10,7 +10,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import { sheetBody, SCRIM, OPEN_MS, CLOSE_MS, SHEET_TRAVEL_FALLBACK } from './Sheet';
+import { sheetBody, SCRIM, OPEN_MS, CLOSE_MS, SHEET_TRAVEL_FALLBACK, useKeyboardInset } from './Sheet';
 
 const DISMISS_DISTANCE = 120; // px dragged before we let go of it
 const DISMISS_VELOCITY = 800; // or a fast flick, whichever comes first
@@ -37,6 +37,7 @@ export function SwipeSheet({
   // exit animation off. Latch it open until the animation finishes.
   const [mounted, setMounted] = useState(visible);
   const [travel, setTravel] = useState(SHEET_TRAVEL_FALLBACK);
+  const keyboard = useKeyboardInset();
 
   useEffect(() => {
     if (visible) {
@@ -96,7 +97,7 @@ export function SwipeSheet({
         <GestureDetector gesture={pan}>
           <Animated.View
             onLayout={(e) => setTravel(e.nativeEvent.layout.height)}
-            style={[{ position: 'absolute', left: 0, right: 0, bottom: 0 }, sheetStyle]}
+            style={[{ position: 'absolute', left: 0, right: 0, bottom: keyboard }, sheetStyle]}
           >
             <View style={[sheetBody, contentStyle]}>{children}</View>
           </Animated.View>

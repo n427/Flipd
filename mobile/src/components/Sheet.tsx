@@ -1,5 +1,16 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { Modal, View, Pressable, StyleProp, ViewStyle, Animated, Easing, StyleSheet } from 'react-native';
+import {
+  Modal,
+  View,
+  Pressable,
+  StyleProp,
+  ViewStyle,
+  Animated,
+  Easing,
+  StyleSheet,
+  Keyboard,
+  Platform,
+} from 'react-native';
 import { GESTURES_SUPPORTED } from '@/lib/gestures';
 import { T } from '@/lib/theme';
 
@@ -31,6 +42,34 @@ export function Sheet(props: {
   return <StaticSheet {...props} />;
 }
 
+/**
+ * Height of the on-screen keyboard, for sheets that hold a text field.
+ *
+ * A sheet is pinned to the bottom of the screen, which is exactly where the
+ * keyboard appears — so without this the keyboard covers the very inputs the
+ * sheet exists to collect. The message-the-seller sheet was unusable for that
+ * reason: you could focus the field but not see what you typed.
+ *
+ * `Will` events on iOS so the sheet moves with the keyboard rather than after
+ * it; Android only emits the `Did` pair.
+ */
+export function useKeyboardInset() {
+  const [inset, setInset] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, (e) => setInset(e.endCoordinates.height));
+    const hide = Keyboard.addListener(hideEvent, () => setInset(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  return inset;
+}
+
 /** No-gesture fallback. Same layout, dismissed via scrim tap or a close control. */
 function StaticSheet({
   visible,
@@ -48,6 +87,7 @@ function StaticSheet({
   const [mounted, setMounted] = useState(visible);
   const anim = useRef(new Animated.Value(0)).current;
   const [travel, setTravel] = useState(SHEET_TRAVEL_FALLBACK);
+  const keyboard = useKeyboardInset();
 
   useEffect(() => {
     if (visible) {
@@ -90,7 +130,7 @@ function StaticSheet({
             position: 'absolute',
             left: 0,
             right: 0,
-            bottom: 0,
+            bottom: keyboard,
             transform: [
               { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [travel, 0] }) },
             ],

@@ -426,6 +426,14 @@ function RequestsInner() {
     if (a.status === 'APPROVED') {
       return (
         <>
+          {/* Open chat leads: once a request is approved, talking is the thing
+              you actually came here to do. Completing and declining are both
+              endings, and they belong after it. */}
+          {a.threadId && (
+            <Link href={conversationHref(a.threadId)} className="btn btn-outline" style={{ gap: 7 }}>
+              <Icon name="chat" size={15} /> Open chat
+            </Link>
+          )}
           <Button kind="outline" onClick={() => store.respondReveal(a.id, 'complete')}>
             Mark completed
           </Button>
@@ -433,11 +441,6 @@ function RequestsInner() {
               request could only be completed, so a seller who changed their
               mind had no way to close it. The conversation is left alone. */}
           <Button kind="outline" onClick={() => setDeclining(a)}>Decline</Button>
-          {a.threadId && (
-            <Link href={conversationHref(a.threadId)} className="btn btn-outline" style={{ gap: 7 }}>
-              <Icon name="chat" size={15} /> Open chat
-            </Link>
-          )}
         </>
       );
     }
