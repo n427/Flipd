@@ -4,13 +4,14 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedKeyboard,
   withTiming,
   withSpring,
   runOnJS,
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import { sheetBody, SCRIM, OPEN_MS, CLOSE_MS, SHEET_TRAVEL_FALLBACK, useKeyboardInset } from './Sheet';
+import { sheetBody, SCRIM, OPEN_MS, CLOSE_MS, SHEET_TRAVEL_FALLBACK } from './Sheet';
 
 const DISMISS_DISTANCE = 120; // px dragged before we let go of it
 const DISMISS_VELOCITY = 800; // or a fast flick, whichever comes first
@@ -37,7 +38,10 @@ export function SwipeSheet({
   // exit animation off. Latch it open until the animation finishes.
   const [mounted, setMounted] = useState(visible);
   const [travel, setTravel] = useState(SHEET_TRAVEL_FALLBACK);
-  const keyboard = useKeyboardInset();
+  // Tracked on the UI thread. Driving this from a React state update made the
+  // sheet teleport to its new position on re-render instead of travelling with
+  // the keyboard — the jumpiness.
+  const keyboard = useAnimatedKeyboard();
 
   useEffect(() => {
     if (visible) {
@@ -69,9 +73,10 @@ export function SwipeSheet({
       }
     });
 
-  // Entry/exit offset plus whatever the finger has dragged.
+  // Entry/exit offset, the drag, and the keyboard — all one transform, so the
+  // sheet rides the keyboard's own animation curve frame for frame.
   const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: y.value + (1 - progress.value) * travel }],
+    transform: [{ translateY: y.value + (1 - progress.value) * travel - keyboard.height.value }],
   }));
   // Fade the scrim as the sheet travels, so the dismiss reads as one motion.
   const scrimStyle = useAnimatedStyle(() => ({
@@ -97,7 +102,7 @@ export function SwipeSheet({
         <GestureDetector gesture={pan}>
           <Animated.View
             onLayout={(e) => setTravel(e.nativeEvent.layout.height)}
-            style={[{ position: 'absolute', left: 0, right: 0, bottom: keyboard }, sheetStyle]}
+            style={[{ position: 'absolute', left: 0, right: 0, bottom: 0 }, sheetStyle]}
           >
             <View style={[sheetBody, contentStyle]}>{children}</View>
           </Animated.View>

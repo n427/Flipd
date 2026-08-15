@@ -30,41 +30,36 @@ export function SafetyCard({ review, loading }: { review: SafetyReview | null; l
   if (!review) return null;
 
   const meta = META[review.verdict] ?? META.thin;
+  // Compact on purpose. This sits inside the request sheet, above the message
+  // box, and every line it takes is a line of the thing someone actually came
+  // to write. The verdict plus a two-line summary is the decision-useful part;
+  // the signals list behind it was detail nobody reads mid-flow.
   return (
     <View style={card}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-        <Ionicons name={meta.icon} size={16} color={meta.color} />
-        <Text style={{ fontFamily: F.bold, fontSize: 13, color: meta.color }}>{meta.label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+        <Ionicons name={meta.icon} size={15} color={meta.color} />
+        <Text style={{ fontFamily: F.bold, fontSize: 12.5, color: meta.color }}>{meta.label}</Text>
         <View style={{ flex: 1 }} />
-        <Text style={{ fontFamily: F.semibold, fontSize: 10.5, color: T.muted, letterSpacing: 0.5 }}>
+        <Text style={{ fontFamily: F.semibold, fontSize: 10, color: T.muted, letterSpacing: 0.5 }}>
           AI REVIEW
         </Text>
       </View>
 
-      <Text style={{ fontFamily: F.regular, fontSize: 13.5, color: T.ink, lineHeight: 19.5 }}>
+      <Text
+        numberOfLines={2}
+        style={{ fontFamily: F.regular, fontSize: 13, color: T.ink, lineHeight: 18 }}
+      >
         {review.summary}
       </Text>
-
-      {review.signals?.length ? (
-        <View style={{ marginTop: 10, gap: 5 }}>
-          {review.signals.map((s) => (
-            <View key={s} style={{ flexDirection: 'row', gap: 7 }}>
-              <Text style={{ fontFamily: F.regular, fontSize: 12.5, color: T.muted }}>•</Text>
-              <Text style={{ flex: 1, fontFamily: F.regular, fontSize: 12.5, color: T.muted, lineHeight: 18 }}>
-                {s}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 }
 
 const card = {
   backgroundColor: T.fieldbg,
-  borderRadius: 14,
+  borderRadius: 12,
   borderWidth: 1,
   borderColor: T.rule,
-  padding: 14,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
 } as const;
