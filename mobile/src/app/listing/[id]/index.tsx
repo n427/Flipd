@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, Alert, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, Alert, TextInput, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -31,7 +31,7 @@ import { SafetyCard, SafetyPill } from '@/components/SafetyCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ListingDetailSkeleton } from '@/components/Skeletons';
 import { MapPreview } from '@/components/MapPreview';
-import { Sheet, SheetGrabber } from '@/components/Sheet';
+import { Sheet, SheetGrabber, CLOSE_MS } from '@/components/Sheet';
 
 const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -164,6 +164,20 @@ export default function ListingDetailScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+
+  // The two sheets hand off rather than overlap — see the note on the review
+  // Sheet below. The wait lets the outgoing sheet finish its close animation,
+  // so the swap reads as one movement instead of a flicker.
+  const openReview = useCallback(() => {
+    Keyboard.dismiss();
+    setSheetOpen(false);
+    setTimeout(() => setReviewOpen(true), CLOSE_MS + 40);
+  }, []);
+
+  const closeReview = useCallback(() => {
+    setReviewOpen(false);
+    setTimeout(() => setSheetOpen(true), CLOSE_MS + 40);
+  }, []);
   const [reporting, setReporting] = useState(false);
   const [reportToast, setReportToast] = useState<string | null>(null);
 
@@ -493,17 +507,19 @@ export default function ListingDetailScreen() {
           </View>
         ) : null}
 
-        {/* The review popup. Opens over the request sheet, which stays mounted
-            behind it, so dismissing returns to a half-written message rather
-            than losing it. */}
-        <Sheet visible={reviewOpen} onClose={() => setReviewOpen(false)}>
+        {/* The review popup swaps with the request sheet rather than stacking
+            on top of it: two Modals visible at once are siblings in the same
+            tree, which iOS presents unreliably — the popup simply never
+            appeared. The draft is safe either way, because `intro` is state on
+            this screen, not on the sheet that unmounts. */}
+        <Sheet visible={reviewOpen} onClose={closeReview}>
           <SheetGrabber />
           <Text style={{ fontFamily: F.extrabold, fontSize: 18, color: T.ink, marginBottom: 12 }}>
             About {listing.seller?.display_name?.split(' ')[0] || 'this seller'}
           </Text>
           <SafetyCard review={safety} loading={safetyLoading} />
           <Pressable
-            onPress={() => setReviewOpen(false)}
+            onPress={closeReview}
             style={{ marginTop: 16, alignItems: 'center', paddingVertical: 12 }}
           >
             <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.cardinal }}>Done</Text>
@@ -537,11 +553,7 @@ export default function ListingDetailScreen() {
                   the full text opens on tap instead of pushing the composer
                   down the screen. */}
               <View style={{ marginTop: 14 }}>
-                <SafetyPill
-                  review={safety}
-                  loading={safetyLoading}
-                  onPress={() => setReviewOpen(true)}
-                />
+                <SafetyPill review={safety} loading={safetyLoading} onPress={openReview} />
               </View>
 
               <TextInput
@@ -553,6 +565,10 @@ export default function ListingDetailScreen() {
                 style={{
                   marginTop: 16,
                   minHeight: 96,
+                  // Without a ceiling the box grew with the text and pushed the
+                  // send button off the sheet. A multiline TextInput scrolls
+                  // its own content once its height is bounded.
+                  maxHeight: 150,
                   borderWidth: 1,
                   borderColor: introBlocked ? T.danger : T.rule,
                   borderRadius: 12,
