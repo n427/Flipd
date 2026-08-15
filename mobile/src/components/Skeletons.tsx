@@ -116,6 +116,51 @@ export function ProfileSkeleton() {
   );
 }
 
+/**
+ * Your own profile tab, which is laid out nothing like someone else's: a
+ * left-aligned 56px avatar in a row, two action buttons, two link rows and a
+ * section heading before the grid. Reusing ProfileSkeleton here put a centred
+ * 72px avatar above content that lands left-aligned, so everything jumped.
+ */
+export function MyProfileSkeleton() {
+  const pulse = usePulse();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: S.screenTop }}>
+      <View style={{ padding: 10, gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 2 }}>
+          <Bar pulse={pulse} w={56} h={56} r={28} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <Bar pulse={pulse} w="55%" h={17} />
+            <Bar pulse={pulse} w="35%" h={12} />
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+          <Bar pulse={pulse} w={116} h={40} r={10} />
+          <Bar pulse={pulse} w={98} h={40} r={10} />
+        </View>
+
+        <View style={{ marginTop: 22, gap: 10 }}>
+          <Bar pulse={pulse} w="100%" h={46} r={12} />
+          <Bar pulse={pulse} w="100%" h={46} r={12} />
+        </View>
+
+        <Bar pulse={pulse} w={110} h={20} style={{ marginTop: 30, marginBottom: 4 }} />
+      </View>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10 }}>
+        {[0, 1].map((i) => (
+          <View key={i} style={{ width: '50%', padding: 6 }}>
+            <Bar pulse={pulse} w="100%" h={150} r={12} />
+            <Bar pulse={pulse} w="80%" h={13} style={{ marginTop: 10 }} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 /** Alternating bubbles, so the thread reads as a conversation before it loads. */
 export function ConversationSkeleton() {
   const pulse = usePulse();

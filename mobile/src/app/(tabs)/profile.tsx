@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ProfileSkeleton } from '@/components/Skeletons';
+import { MyProfileSkeleton } from '@/components/Skeletons';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { fetchMyProfile, fetchMyListings, MyProfile, FeedListing } from '@/lib/listings';
@@ -93,7 +93,7 @@ export default function Profile() {
   if (state === 'loading')
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-        <ProfileSkeleton />
+        <MyProfileSkeleton />
       </SafeAreaView>
     );
 

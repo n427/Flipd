@@ -55,7 +55,9 @@ export async function registerForPush(userId: string): Promise<void> {
       .upsert({ user_id: userId, token, platform: Platform.OS }, { onConflict: 'token' });
     if (error) return why(`storing the token failed: ${error.message}`);
 
-    if (__DEV__) console.log('[push] registered', token.slice(0, 24) + '…');
+    // Full token in dev: it is a delivery address rather than a credential, and
+    // having it makes an end-to-end test possible without a database round trip.
+    if (__DEV__) console.log('[push] registered', token);
   } catch (e) {
     // Push is a nice-to-have — never let registration break the app.
     why(e instanceof Error ? e.message : String(e));

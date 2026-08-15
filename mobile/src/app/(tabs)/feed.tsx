@@ -270,27 +270,25 @@ export default function Feed() {
     </View>
   );
 
-  // Skeleton grid shown under the header while the first page loads, so the
-  // page renders content-shaped immediately instead of a lone spinner.
-  if (loading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-        <View style={{ paddingHorizontal: 10 }}>{header}</View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10 }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <View key={i} style={{ width: '50%' }}>
-              <SkeletonCard />
-            </View>
-          ))}
+  // The skeleton renders INSIDE the list rather than replacing the screen.
+  // A separate loading branch meant the header lived in a different element
+  // tree with its own padding, so the chips and cards shifted every time a
+  // category changed — and re-mounting the header reset the chip row's scroll
+  // position too. Same component, same container, no shift.
+  const skeletonGrid = (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <View key={i} style={{ width: '50%' }}>
+          <SkeletonCard />
         </View>
-      </SafeAreaView>
-    );
-  }
+      ))}
+    </View>
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
       <FlatList
-        data={listings}
+        data={loading ? [] : listings}
         keyExtractor={(l) => l.id}
         numColumns={2}
         style={{ backgroundColor: T.bg }}
@@ -303,11 +301,15 @@ export default function Feed() {
           loadingMore ? <ActivityIndicator color={T.cardinal} style={{ marginVertical: 20 }} /> : null
         }
         ListEmptyComponent={
-          <View style={{ alignItems: 'center', justifyContent: 'center', padding: 48 }}>
-            <Text style={{ fontFamily: F.medium, color: T.muted }}>
-              {error ? 'Couldn’t load. Pull to retry.' : debounced || cat !== 'all' ? 'Nothing matches that.' : 'No listings yet.'}
-            </Text>
-          </View>
+          loading ? (
+            skeletonGrid
+          ) : (
+            <View style={{ alignItems: 'center', justifyContent: 'center', padding: 48 }}>
+              <Text style={{ fontFamily: F.medium, color: T.muted }}>
+                {error ? 'Couldn’t load. Pull to retry.' : debounced || cat !== 'all' ? 'Nothing matches that.' : 'No listings yet.'}
+              </Text>
+            </View>
+          )
         }
         renderItem={({ item }) => (
           <ListingCard listing={item} onPress={() => router.push(`/listing/${item.id}`)} />
