@@ -45,10 +45,10 @@ export function SafetyCard({ review, loading }: { review: SafetyReview | null; l
         </Text>
       </View>
 
-      <Text
-        numberOfLines={3}
-        style={{ fontFamily: F.regular, fontSize: 13, color: T.ink, lineHeight: 18 }}
-      >
+      {/* No numberOfLines: clipping mid-sentence is worse than a slightly
+          taller card. The length is constrained at the source instead — the
+          safety prompt asks for one sentence, 25 words at most. */}
+      <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.ink, lineHeight: 18 }}>
         {review.summary}
       </Text>
     </View>
