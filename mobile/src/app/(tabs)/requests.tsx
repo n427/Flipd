@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ListRowsSkeleton } from '@/components/Skeletons';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { SafetyCard } from '@/components/SafetyCard';
 import { fetchThreads, ThreadSummary } from '@/lib/messages';
@@ -409,9 +410,9 @@ export default function Requests() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <ListRowsSkeleton titleWidth={148} pills={3} />
+      </SafeAreaView>
     );
   }
 

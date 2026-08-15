@@ -138,12 +138,38 @@ export function ConversationSkeleton() {
   );
 }
 
-/** Stacked rows for the list screens (notifications, requests, reviews). */
-export function ListRowsSkeleton({ count = 6 }: { count?: number }) {
+/**
+ * Stacked rows for the list screens (notifications, requests, reviews).
+ *
+ * `titleWidth` and `pills` reproduce a page title and filter tabs where the
+ * loaded screen has them, so the rows start at the same y position in both
+ * states and nothing shifts on arrival.
+ */
+export function ListRowsSkeleton({
+  count = 6,
+  titleWidth,
+  pills = 0,
+}: {
+  count?: number;
+  titleWidth?: number;
+  pills?: number;
+}) {
   const pulse = usePulse();
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg, paddingHorizontal: S.gutter, paddingTop: 4 }}>
+      {titleWidth ? (
+        <Bar pulse={pulse} w={titleWidth} h={26} style={{ marginTop: S.screenTop, marginBottom: 12 }} />
+      ) : null}
+
+      {pills > 0 ? (
+        <View style={{ flexDirection: 'row', gap: 7, marginBottom: 6 }}>
+          {Array.from({ length: pills }, (_, i) => (
+            <Bar key={i} pulse={pulse} w={86} h={33} r={999} />
+          ))}
+        </View>
+      ) : null}
+
       {Array.from({ length: count }, (_, i) => (
         <View
           key={i}
@@ -156,6 +182,32 @@ export function ListRowsSkeleton({ count = 6 }: { count?: number }) {
           </View>
         </View>
       ))}
+    </View>
+  );
+}
+
+/** Title, optional avatar, then labelled field rows — for the two edit forms. */
+export function FormSkeleton({ avatar = false, fields = 5 }: { avatar?: boolean; fields?: number }) {
+  const pulse = usePulse();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: T.bg, paddingHorizontal: 20, paddingTop: S.screenTop }}>
+      <Bar pulse={pulse} w={180} h={28} />
+
+      {avatar ? (
+        <View style={{ alignItems: 'center', marginTop: 24 }}>
+          <Bar pulse={pulse} w={96} h={96} r={48} />
+        </View>
+      ) : null}
+
+      <View style={{ gap: 18, marginTop: avatar ? 20 : 26 }}>
+        {Array.from({ length: fields }, (_, i) => (
+          <View key={i} style={{ gap: 8 }}>
+            <Bar pulse={pulse} w={110} h={12} />
+            <Bar pulse={pulse} w="100%" h={46} r={12} />
+          </View>
+        ))}
+      </View>
     </View>
   );
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, Switch, SwitchProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { FormSkeleton } from '@/components/Skeletons';
 import { FormScroll } from '@/components/FormScroll';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -129,9 +130,10 @@ export default function EditProfile() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
-        <ActivityIndicator color={T.cardinal} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+        <ScreenHeader />
+        <FormSkeleton avatar fields={4} />
+      </SafeAreaView>
     );
   }
 
