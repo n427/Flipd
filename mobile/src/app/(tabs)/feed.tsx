@@ -288,7 +288,12 @@ export default function Feed() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
       <FlatList
-        data={loading ? [] : listings}
+        // Results stay on screen while a refined query runs. Every search
+        // keystroke and filter change sets loading, so clearing the data here
+        // blanked the grid to skeletons and repopulated it each time — the
+        // skeleton is for having nothing to show, not for having something
+        // slightly out of date.
+        data={listings}
         keyExtractor={(l) => l.id}
         numColumns={2}
         style={{ backgroundColor: T.bg }}

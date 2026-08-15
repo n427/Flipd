@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -103,11 +103,6 @@ export default function ThreadScreen() {
   const [pending, setPending] = useState<OutgoingAttachment[]>([]);
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
-  // The first content-size change is the conversation painting for the first
-  // time. Animating that scroll is what read as the thread "jumping" on open —
-  // it should already be at the bottom. Later changes (a message arriving)
-  // still animate, so new content slides in rather than teleporting.
-  const didInitialScroll = useRef(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -124,6 +119,10 @@ export default function ThreadScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Newest first, because the list is inverted. Memoised so the reversal isn't
+  // a fresh array on every render, which would defeat FlatList's diffing.
+  const ordered = useMemo(() => [...messages].reverse(), [messages]);
 
   // Realtime. A dropped socket falls back to the reload above rather than
   // leaving a dead screen, and signed attachment URLs expire anyway, so a
@@ -271,22 +270,18 @@ export default function ThreadScreen() {
 
         <FlatList
           ref={listRef}
-          data={messages}
+          // Inverted: the list is rendered bottom-up, so the newest message is
+          // at scroll offset 0 and the thread simply opens at the bottom. Two
+          // attempts at scrolling there manually both failed on timing —
+          // scrollToEnd is a no-op before the list is measured — and this
+          // removes the race rather than guessing at when to fire.
+          inverted
+          data={ordered}
           keyExtractor={(m) => m.id}
-          contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: 12 }}
-          onContentSizeChange={() => {
-            listRef.current?.scrollToEnd({ animated: didInitialScroll.current });
-          }}
-          // onLayout is the guarantee. An unanimated scrollToEnd fired before
-          // the list has a size silently does nothing, which left the thread
-          // sitting at the top; by layout the list is measured, so this one
-          // lands. It also flips the flag, so only scrolls after the thread is
-          // on screen — a message arriving — animate.
-          onLayout={() => {
-            listRef.current?.scrollToEnd({ animated: false });
-            didInitialScroll.current = true;
-          }}
-          ListHeaderComponent={
+          contentContainerStyle={{ paddingHorizontal: S.gutter, paddingVertical: 12 }}
+          // Everything is flipped, so the footer is what renders at the visual
+          // top: the original request belongs above the oldest message.
+          ListFooterComponent={
             head.intro_message ? (
               <View style={{ backgroundColor: T.fieldbg, borderRadius: 12, padding: 12, marginBottom: 14 }}>
                 <Text style={{ fontFamily: F.bold, fontSize: 10.5, color: T.muted, letterSpacing: 0.6, marginBottom: 5 }}>
