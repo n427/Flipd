@@ -1,4 +1,4 @@
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafetyReview } from '@/lib/listings';
 import { T, F } from '@/lib/theme';
@@ -13,10 +13,56 @@ const META: Record<SafetyReview['verdict'], { label: string; icon: keyof typeof 
 };
 
 /**
- * AI review of the counterparty, shown before someone commits to a request.
+ * One tappable line: the verdict, and nothing else.
  *
- * Renders nothing when `review` is null — the review is advisory, so a failed
- * fetch quietly disappears rather than blocking or alarming.
+ * For places where the review is context rather than the point — the request
+ * sheet, where the thing someone came to do is write a message. The full
+ * review opens on tap, so it costs one line instead of a paragraph.
+ *
+ * Renders nothing when there is no review: it is advisory, so a failed fetch
+ * disappears rather than showing a broken row.
+ */
+export function SafetyPill({
+  review,
+  loading,
+  onPress,
+}: {
+  review: SafetyReview | null;
+  loading?: boolean;
+  onPress: () => void;
+}) {
+  if (loading) {
+    return (
+      <View style={[pill, { justifyContent: 'flex-start' }]}>
+        <ActivityIndicator size="small" color={T.muted} />
+        <Text style={{ fontFamily: F.medium, fontSize: 13, color: T.muted }}>
+          Checking their profile…
+        </Text>
+      </View>
+    );
+  }
+  if (!review) return null;
+
+  const meta = META[review.verdict] ?? META.thin;
+  return (
+    <Pressable onPress={onPress} style={pill}>
+      <Ionicons name={meta.icon} size={15} color={meta.color} />
+      <Text style={{ fontFamily: F.bold, fontSize: 12.5, color: meta.color }}>{meta.label}</Text>
+      <View style={{ flex: 1 }} />
+      <Text style={{ fontFamily: F.semibold, fontSize: 10, color: T.muted, letterSpacing: 0.5 }}>
+        AI REVIEW
+      </Text>
+      <Ionicons name="chevron-forward" size={14} color={T.muted} />
+    </Pressable>
+  );
+}
+
+/**
+ * The full review: verdict, summary, and the supporting signals.
+ *
+ * For surfaces with room to show it — the seller's review sheet, and the popup
+ * SafetyPill opens. Nothing is truncated here; a summary cut mid-sentence is
+ * worse than a taller card.
  */
 export function SafetyCard({ review, loading }: { review: SafetyReview | null; loading?: boolean }) {
   if (loading) {
@@ -30,36 +76,53 @@ export function SafetyCard({ review, loading }: { review: SafetyReview | null; l
   if (!review) return null;
 
   const meta = META[review.verdict] ?? META.thin;
-  // Compact on purpose. This sits inside the request sheet, above the message
-  // box, and every line it takes is a line of the thing someone actually came
-  // to write. The verdict plus a two-line summary is the decision-useful part;
-  // the signals list behind it was detail nobody reads mid-flow.
   return (
     <View style={card}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-        <Ionicons name={meta.icon} size={15} color={meta.color} />
-        <Text style={{ fontFamily: F.bold, fontSize: 12.5, color: meta.color }}>{meta.label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+        <Ionicons name={meta.icon} size={16} color={meta.color} />
+        <Text style={{ fontFamily: F.bold, fontSize: 13, color: meta.color }}>{meta.label}</Text>
         <View style={{ flex: 1 }} />
-        <Text style={{ fontFamily: F.semibold, fontSize: 10, color: T.muted, letterSpacing: 0.5 }}>
+        <Text style={{ fontFamily: F.semibold, fontSize: 10.5, color: T.muted, letterSpacing: 0.5 }}>
           AI REVIEW
         </Text>
       </View>
 
-      {/* No numberOfLines: clipping mid-sentence is worse than a slightly
-          taller card. The length is constrained at the source instead — the
-          safety prompt asks for one sentence, 25 words at most. */}
-      <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.ink, lineHeight: 18 }}>
+      <Text style={{ fontFamily: F.regular, fontSize: 13.5, color: T.ink, lineHeight: 19.5 }}>
         {review.summary}
       </Text>
+
+      {review.signals?.length ? (
+        <View style={{ marginTop: 10, gap: 5 }}>
+          {review.signals.map((s) => (
+            <View key={s} style={{ flexDirection: 'row', gap: 7 }}>
+              <Text style={{ fontFamily: F.regular, fontSize: 12.5, color: T.muted }}>•</Text>
+              <Text style={{ flex: 1, fontFamily: F.regular, fontSize: 12.5, color: T.muted, lineHeight: 18 }}>
+                {s}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
 
-const card = {
+const pill = {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 7,
   backgroundColor: T.fieldbg,
-  borderRadius: 12,
+  borderRadius: 10,
   borderWidth: 1,
   borderColor: T.rule,
   paddingHorizontal: 12,
   paddingVertical: 10,
+} as const;
+
+const card = {
+  backgroundColor: T.fieldbg,
+  borderRadius: 14,
+  borderWidth: 1,
+  borderColor: T.rule,
+  padding: 14,
 } as const;

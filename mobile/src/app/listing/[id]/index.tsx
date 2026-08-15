@@ -27,7 +27,7 @@ import { formatEventWindow } from '@/lib/events';
 import { T, F, S } from '@/lib/theme';
 import { containsContactInfo, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import { PhotoCarousel } from '@/components/PhotoCarousel';
-import { SafetyCard } from '@/components/SafetyCard';
+import { SafetyCard, SafetyPill } from '@/components/SafetyCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ListingDetailSkeleton } from '@/components/Skeletons';
 import { MapPreview } from '@/components/MapPreview';
@@ -162,6 +162,7 @@ export default function ListingDetailScreen() {
 
   // --- Buyer reveal flow ---
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportToast, setReportToast] = useState<string | null>(null);
@@ -492,6 +493,23 @@ export default function ListingDetailScreen() {
           </View>
         ) : null}
 
+        {/* The review popup. Opens over the request sheet, which stays mounted
+            behind it, so dismissing returns to a half-written message rather
+            than losing it. */}
+        <Sheet visible={reviewOpen} onClose={() => setReviewOpen(false)}>
+          <SheetGrabber />
+          <Text style={{ fontFamily: F.extrabold, fontSize: 18, color: T.ink, marginBottom: 12 }}>
+            About {listing.seller?.display_name?.split(' ')[0] || 'this seller'}
+          </Text>
+          <SafetyCard review={safety} loading={safetyLoading} />
+          <Pressable
+            onPress={() => setReviewOpen(false)}
+            style={{ marginTop: 16, alignItems: 'center', paddingVertical: 12 }}
+          >
+            <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.cardinal }}>Done</Text>
+          </Pressable>
+        </Sheet>
+
         <Sheet visible={reportOpen} onClose={() => setReportOpen(false)}>
           <SheetGrabber />
           <ReportForm
@@ -514,8 +532,16 @@ export default function ListingDetailScreen() {
                 They see your name, school, and year with your message, and have 72 hours to reply.
               </Text>
 
+              {/* One line, not a paragraph. The review is context for a
+                  decision, but writing the message is why the sheet is open —
+                  the full text opens on tap instead of pushing the composer
+                  down the screen. */}
               <View style={{ marginTop: 14 }}>
-                <SafetyCard review={safety} loading={safetyLoading} />
+                <SafetyPill
+                  review={safety}
+                  loading={safetyLoading}
+                  onPress={() => setReviewOpen(true)}
+                />
               </View>
 
               <TextInput
