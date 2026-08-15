@@ -17,6 +17,8 @@ export type FeedListing = {
   price: number;
   location: string | null;
   photo_urls: string[];
+  photo_focus: string[] | null;
+  photo_zoom: string[] | null;
   seller_id: string;
   category: string | null;
   created_at: string;
@@ -67,7 +69,7 @@ export async function fetchFeed(opts: FeedQuery = {}): Promise<{ listings: FeedL
 
   let q = supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, seller_id, category, created_at')
+    .select('id, title, price, location, photo_urls, photo_focus, photo_zoom, seller_id, category, created_at')
     .eq('archived', false);
 
   if (opts.category && opts.category !== 'all') q = q.eq('category', opts.category);
@@ -110,6 +112,8 @@ export async function fetchFeed(opts: FeedQuery = {}): Promise<{ listings: FeedL
       ...l,
       price: l.price ?? 0,
       photo_urls: l.photo_urls ?? [],
+      photo_focus: l.photo_focus ?? null,
+      photo_zoom: l.photo_zoom ?? null,
       seller: sellerMap.get(l.seller_id) ?? null,
     })),
     hasMore,
@@ -125,6 +129,8 @@ export type ListingDetail = {
   category: string | null;
   location: string | null;
   photo_urls: string[];
+  photo_focus: string[] | null;
+  photo_zoom: string[] | null;
   lat: number | null;
   lng: number | null;
   place_name: string | null;
@@ -141,7 +147,7 @@ export async function fetchListing(id: string): Promise<ListingDetail | null> {
   const { data: row, error } = await supabase
     .from('listings')
     .select(
-      'id, title, price, negotiable, description, category, location, photo_urls, lat, lng, place_name, event_start, event_end, archived, seller_id',
+      'id, title, price, negotiable, description, category, location, photo_urls, photo_focus, photo_zoom, lat, lng, place_name, event_start, event_end, archived, seller_id',
     )
     .eq('id', id)
     .maybeSingle();
@@ -160,6 +166,8 @@ export async function fetchListing(id: string): Promise<ListingDetail | null> {
     price: row.price ?? 0,
     negotiable: row.negotiable ?? false,
     photo_urls: row.photo_urls ?? [],
+    photo_focus: row.photo_focus ?? null,
+    photo_zoom: row.photo_zoom ?? null,
     archived: row.archived ?? false,
     seller: (s as FeedSeller) ?? null,
   };

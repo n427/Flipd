@@ -1,10 +1,9 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { Modal, View, Pressable, StyleProp, ViewStyle, StyleSheet } from 'react-native';
+import { Modal, View, Pressable, StyleProp, ViewStyle, StyleSheet, Keyboard } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedKeyboard,
   withTiming,
   withSpring,
   runOnJS,
@@ -38,10 +37,39 @@ export function SwipeSheet({
   // exit animation off. Latch it open until the animation finishes.
   const [mounted, setMounted] = useState(visible);
   const [travel, setTravel] = useState(SHEET_TRAVEL_FALLBACK);
-  // Tracked on the UI thread. Driving this from a React state update made the
-  // sheet teleport to its new position on re-render instead of travelling with
-  // the keyboard — the jumpiness.
-  const keyboard = useAnimatedKeyboard();
+  // Keyboard height as a shared value, animated with the keyboard's OWN
+  // duration from the event.
+  //
+  // Two earlier attempts were worse. A React state update re-rendered the sheet
+  // into its new position, which teleported. useAnimatedKeyboard is the right
+  // tool generally, but it misreports inside a RN Modal — a separate native
+  // window, so the keyboard frames it observes do not line up — which showed up
+  // as a bounce. withTiming over e.duration has no spring to overshoot and
+  // matches the system curve closely enough to read as one motion.
+  const keyboard = useSharedValue(0);
+
+  useEffect(() => {
+    // iOS emits the `Will` pair before the keyboard moves, with a duration to
+    // match; Android only has the `Did` pair and no useful duration.
+    const show = Keyboard.addListener('keyboardWillShow', (e) => {
+      keyboard.value = withTiming(e.endCoordinates.height, { duration: e.duration || 250 });
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', (e) => {
+      keyboard.value = withTiming(0, { duration: e.duration || 250 });
+    });
+    const showAndroid = Keyboard.addListener('keyboardDidShow', (e) => {
+      keyboard.value = withTiming(e.endCoordinates.height, { duration: 180 });
+    });
+    const hideAndroid = Keyboard.addListener('keyboardDidHide', () => {
+      keyboard.value = withTiming(0, { duration: 180 });
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+      showAndroid.remove();
+      hideAndroid.remove();
+    };
+  }, [keyboard]);
 
   useEffect(() => {
     if (visible) {
@@ -76,7 +104,7 @@ export function SwipeSheet({
   // Entry/exit offset, the drag, and the keyboard — all one transform, so the
   // sheet rides the keyboard's own animation curve frame for frame.
   const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: y.value + (1 - progress.value) * travel - keyboard.height.value }],
+    transform: [{ translateY: y.value + (1 - progress.value) * travel - keyboard.value }],
   }));
   // Fade the scrim as the sheet travels, so the dismiss reads as one motion.
   const scrimStyle = useAnimatedStyle(() => ({

@@ -46,7 +46,7 @@ export function SafetyCard({ review, loading }: { review: SafetyReview | null; l
       </View>
 
       <Text
-        numberOfLines={2}
+        numberOfLines={3}
         style={{ fontFamily: F.regular, fontSize: 13, color: T.ink, lineHeight: 18 }}
       >
         {review.summary}

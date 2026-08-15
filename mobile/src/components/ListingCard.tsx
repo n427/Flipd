@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { FeedListing, priceLabel } from '@/lib/listings';
+import { photoCrop } from '@/lib/photoCrop';
 import { isPopupCategory } from '@/lib/events';
 import { T, F } from '@/lib/theme';
 
 export function ListingCard({ listing, onPress }: { listing: FeedListing; onPress: () => void }) {
   const [failed, setFailed] = useState(false);
   const photo = listing.photo_urls[0];
+  const crop = photoCrop(listing.photo_focus?.[0], listing.photo_zoom?.[0]);
   const sellerLine =
     [
       listing.seller?.display_name?.split(' ')[0],
@@ -26,8 +28,11 @@ export function ListingCard({ listing, onPress }: { listing: FeedListing; onPres
         {photo && !failed ? (
           <Image
             source={{ uri: photo }}
-            style={{ width: '100%', height: '100%' }}
+            // Same crop the seller framed, so a card and its listing show the
+            // same photo. The wrapper already clips, so a zoom stays in frame.
+            style={{ width: '100%', height: '100%', transform: [{ scale: crop.scale }] }}
             contentFit="cover"
+            contentPosition={crop.contentPosition}
             onError={() => setFailed(true)}
           />
         ) : (

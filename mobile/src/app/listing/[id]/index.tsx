@@ -264,7 +264,11 @@ export default function ListingDetailScreen() {
   return (
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} style={{ backgroundColor: T.bg }}>
         <View>
-          <PhotoCarousel photos={listing.photo_urls} />
+          <PhotoCarousel
+            photos={listing.photo_urls}
+            focus={listing.photo_focus}
+            zoom={listing.photo_zoom}
+          />
           {/* The carousel runs full-bleed to the top, so this uses the floating
               variant — same chevron and label as every other screen, just in a
               pill over the photo instead of a solid row above it. */}
