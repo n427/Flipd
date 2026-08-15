@@ -276,6 +276,14 @@ export default function ThreadScreen() {
           contentContainerStyle={{ paddingHorizontal: S.gutter, paddingBottom: 12 }}
           onContentSizeChange={() => {
             listRef.current?.scrollToEnd({ animated: didInitialScroll.current });
+          }}
+          // onLayout is the guarantee. An unanimated scrollToEnd fired before
+          // the list has a size silently does nothing, which left the thread
+          // sitting at the top; by layout the list is measured, so this one
+          // lands. It also flips the flag, so only scrolls after the thread is
+          // on screen — a message arriving — animate.
+          onLayout={() => {
+            listRef.current?.scrollToEnd({ animated: false });
             didInitialScroll.current = true;
           }}
           ListHeaderComponent={

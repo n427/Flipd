@@ -57,7 +57,7 @@ export default function MyListings() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
         <ScreenHeader />
-        <CardGridSkeleton />
+        <CardGridSkeleton titleWidth={148} pills={2} />
       </SafeAreaView>
     );
   }

@@ -43,7 +43,7 @@ export default function Saved() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
         <ScreenHeader />
-        <CardGridSkeleton />
+        <CardGridSkeleton titleWidth={92} />
       </SafeAreaView>
     );
   }
