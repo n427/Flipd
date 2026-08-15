@@ -54,7 +54,6 @@ function Nav() {
       {[
         { label: 'How it works', id: 'how' },
         { label: 'Buyers & sellers', id: 'both-sides' },
-        { label: 'Categories', id: 'categories' },
         { label: 'Trust', id: 'trust' },
       ].map((l) => (
         <a
@@ -253,38 +252,6 @@ function BothSides() {
   );
 }
 
-function Categories() {
-  const cats = [
-    { icon: 'services', label: 'Services' },
-    { icon: 'event', label: 'Popups' },
-    { icon: 'goods', label: 'Goods' },
-    { icon: 'housing', label: 'Housing' },
-  ];
-  return (
-    <section id="categories" className="landing-section" style={{ padding: '96px 24px', scrollMarginTop: 60 }}>
-      <div style={{ maxWidth: 980, margin: '0 auto' }}>
-        <Reveal>
-          <h2 className="landing-h2" style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.035em', textAlign: 'center', margin: '0 0 48px' }}>
-            Whatever campus is selling.
-          </h2>
-        </Reveal>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-          {cats.map((c, i) => (
-            <Reveal key={c.label} delay={i * 80}>
-              <div style={{ border: '1px solid var(--rule)', borderRadius: 16, padding: '24px 18px', minHeight: 140, display: 'flex', flexDirection: 'column' }}>
-                <Icon name={c.icon} size={24} stroke={1.6} color="var(--ink)" />
-                <div style={{ marginTop: 'auto' }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: '-0.01em' }}>{c.label}</h3>
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function Trust() {
   const stats = [
     { stat: '100%', label: 'verified @usc.edu accounts' },
@@ -447,7 +414,6 @@ export function Landing() {
       <Hero />
       <HowItWorks />
       <BothSides />
-      <Categories />
       <Trust />
       <JoinCTA />
       <Footer />

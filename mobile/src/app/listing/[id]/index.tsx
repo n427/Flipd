@@ -406,7 +406,7 @@ export default function ListingDetailScreen() {
               {listing.archived ? (
                 <View style={{ backgroundColor: T.fieldbg, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
                   <Text style={{ fontFamily: F.bold, color: T.muted, fontSize: 13 }}>
-                    Sold — hidden from the feed
+                    Sold, hidden from the feed
                   </Text>
                 </View>
               ) : null}
