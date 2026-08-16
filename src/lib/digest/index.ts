@@ -4,7 +4,7 @@
 // An aliased import would make that test suite fail to resolve modules.
 import type { Producer } from '../sweep';
 import { admin } from '../supabase/admin';
-import { isInSendWindow, isDue } from './window';
+import { isInSendWindow, isSendDay, isDue, DIGEST_GAP_MS, CANDIDATE_WINDOW_MS } from './window';
 import { buildProfile } from './profile';
 import { matchListings, type Candidate } from './match';
 import { wantsEmail, digestEmail, verifiedEmailFor } from '../notify';
@@ -26,12 +26,17 @@ export const digestProducer: Producer = {
   // number> on its own; only the union inference needed steering.
   async run(): Promise<Record<string, number>> {
     const now = new Date();
-    // Cheapest gate first: outside the window there is nothing to do, and no
-    // row should be read or stamped.
+    // Cheapest gates first: on six days out of seven, and outside the window on
+    // the seventh, there is nothing to do and no row should be read or stamped.
+    if (!isSendDay(now)) return { digests: 0, skipped_day: 1 };
     if (!isInSendWindow(now)) return { digests: 0, skipped_window: 1 };
 
-    const dayAgo = new Date(now.getTime() - 24 * 3600_000).toISOString();
-    const dueBefore = new Date(now.getTime() - 20 * 3600_000).toISOString();
+    // The candidate window must match the cadence. At 24h a weekly digest would
+    // only ever show what was posted since yesterday and silently drop six days
+    // of listings — the same week the digest is meant to summarise.
+    const since = new Date(now.getTime() - CANDIDATE_WINDOW_MS).toISOString();
+    // Coarse pre-filter; isDue() below is what actually guards a repeat send.
+    const dueBefore = new Date(now.getTime() - DIGEST_GAP_MS).toISOString();
 
     // One candidate set shared by every user this tick — the listings are the
     // same for everyone, only the ranking differs.
@@ -39,7 +44,7 @@ export const digestProducer: Producer = {
       .from('listings')
       .select('id, title, price, category, seller_id, photo_urls')
       .eq('archived', false)
-      .gte('created_at', dayAgo)
+      .gte('created_at', since)
       .order('created_at', { ascending: false })
       .limit(CANDIDATE_CAP);
     if (listErr) throw new Error(`candidate query failed: ${listErr.message}`);
