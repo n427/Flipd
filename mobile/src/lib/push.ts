@@ -18,24 +18,38 @@ function why(reason: string) {
   if (__DEV__) console.warn(`[push] not registered: ${reason}`);
 }
 
-export async function registerForPush(userId: string): Promise<void> {
+export type PushRegistrationResult = 'registered' | 'permission-needed' | 'denied' | 'unavailable' | 'error';
+
+export async function registerForPush(
+  userId: string,
+  options: { requestPermission: boolean } = { requestPermission: false },
+): Promise<PushRegistrationResult> {
   // Simulators/web can't receive push.
-  if (!Device.isDevice || Platform.OS === 'web') return why('not a physical device');
+  if (!Device.isDevice || Platform.OS === 'web') {
+    why('not a physical device');
+    return 'unavailable';
+  }
 
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   // No projectId (e.g. Expo Go, or EAS not initialized) → can't mint a token.
-  if (!projectId) return why('no EAS projectId in the app config');
+  if (!projectId) {
+    why('no EAS projectId in the app config');
+    return 'unavailable';
+  }
 
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;
-    if (status !== 'granted') {
+    if (status !== 'granted' && options.requestPermission) {
       status = (await Notifications.requestPermissionsAsync()).status;
     }
     // The common one: the system prompt is shown once. Dismissed or denied,
     // every later call returns denied and only Settings can undo it.
-    if (status !== 'granted') return why(`notification permission is "${status}"`);
+    if (status !== 'granted') {
+      why(`notification permission is "${status}"`);
+      return status === 'undetermined' ? 'permission-needed' : 'denied';
+    }
 
     // Android needs a channel for notifications to display.
     if (Platform.OS === 'android') {
@@ -46,21 +60,29 @@ export async function registerForPush(userId: string): Promise<void> {
     }
 
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    if (!token) return why('Expo returned no push token');
+    if (!token) {
+      why('Expo returned no push token');
+      return 'error';
+    }
 
     // The upsert's error was previously discarded, so an RLS rejection or a
     // token owned by another account left no token row and no clue.
     const { error } = await supabase
       .from('push_tokens')
       .upsert({ user_id: userId, token, platform: Platform.OS }, { onConflict: 'token' });
-    if (error) return why(`storing the token failed: ${error.message}`);
+    if (error) {
+      why(`storing the token failed: ${error.message}`);
+      return 'error';
+    }
 
     // Full token in dev: it is a delivery address rather than a credential, and
     // having it makes an end-to-end test possible without a database round trip.
     if (__DEV__) console.log('[push] registered', token);
+    return 'registered';
   } catch (e) {
     // Push is a nice-to-have — never let registration break the app.
     why(e instanceof Error ? e.message : String(e));
+    return 'error';
   }
 }
 

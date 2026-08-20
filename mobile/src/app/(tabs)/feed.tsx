@@ -16,6 +16,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { fetchFeed, fetchBlockedIds, FeedListing, FeedSort, FeedRange } from '@/lib/listings';
 import { captureSearch } from '@/lib/searchCapture';
 import { ListingCard } from '@/components/ListingCard';
+import { NotificationExplainer } from '@/components/NotificationExplainer';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { CATEGORIES } from '@/lib/catalog';
 import { T, F, S } from '@/lib/theme';
@@ -320,6 +321,8 @@ export default function Feed() {
           <ListingCard listing={item} onPress={() => router.push(`/listing/${item.id}`)} />
         )}
       />
+
+      <NotificationExplainer ready={!loading && !error} />
 
       {/* Range picker. A custom sheet rather than a native picker so it matches
           the rest of the app on both platforms. */}

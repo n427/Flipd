@@ -52,10 +52,10 @@ export function UnreadProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refresh]);
 
-  // Register this device for push once we have a user (no-op in Expo Go / when
-  // EAS isn't configured — see push.ts).
+  // Register silently only when permission is already granted. The Feed owns
+  // the contextual explainer that may open the native prompt.
   useEffect(() => {
-    if (user) registerForPush(user.id);
+    if (user) void registerForPush(user.id, { requestPermission: false });
   }, [user]);
 
   return (
