@@ -18,7 +18,8 @@ const ORIGINS: Record<string, { href: string; label: string }> = {
   listings: { href: '/profile/listings', label: 'Back to my listings' },
 };
 
-export default function ListingPage({ params }: { params: { id: string } }) {
+export default function ListingPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
   const origin = ORIGINS[searchParams.get('from') ?? ''] ?? { href: '/feed', label: 'Back to feed' };
@@ -29,12 +30,12 @@ export default function ListingPage({ params }: { params: { id: string } }) {
 
   React.useEffect(() => {
     let alive = true;
-    store.getListing(params.id).then((l) => {
+    store.getListing(id).then((l) => {
       if (alive) { setListing(l); setLoading(false); }
     });
     return () => { alive = false; };
     // Re-run when the loaded set changes (e.g. archive/restore updates state).
-  }, [params.id, store.listings]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, store.listings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return <ListingDetailSkeleton />;
 

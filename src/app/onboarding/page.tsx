@@ -12,7 +12,6 @@ const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', '
 const CONTACT_FIELDS = [
   { id: 'email', valueLabel: 'Email', placeholder: 'you@usc.edu' },
 ] as const;
-type MethodId = (typeof CONTACT_FIELDS)[number]['id'];
 
 // Delivery channels the user can opt into, per the notify_prefs jsonb shape.
 const CHANNEL_OPTIONS = [
@@ -52,7 +51,6 @@ export default function OnboardingPage() {
   const [contacts, setContacts] = React.useState<{ email: string }>({ email: '' });
   // In-app on by default: it's the channel that always works and costs nothing.
   const [channels, setChannels] = React.useState<ChannelId[]>(['app', 'email']);
-  const [verifiedEmail, setVerifiedEmail] = React.useState('');
   const [error, setError] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -66,7 +64,6 @@ export default function OnboardingPage() {
         const hasContact = Boolean(profile?.contact_email);
         if (profile?.display_name && hasContact) { router.replace('/feed'); return; }
         if (profile?.contact_email) {
-          setVerifiedEmail(profile.contact_email);
           setContacts((c) => ({ ...c, email: profile.contact_email }));
         }
         if (profile?.display_name) setName(profile.display_name);

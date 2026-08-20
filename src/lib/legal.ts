@@ -10,7 +10,7 @@
 export const SUPPORT_EMAIL = 'support@flipdcampus.com';
 
 /** Effective date shown on Terms and Privacy. */
-export const LEGAL_UPDATED = 'August 3, 2026';
+export const LEGAL_UPDATED = 'August 16, 2026';
 
 export type LegalSection = {
   heading: string;
@@ -68,7 +68,8 @@ export const TERMS: LegalDoc = {
     {
       heading: 'Prohibited conduct',
       body: [
-        'You may not use Flipd to sell anything illegal, unsafe, or prohibited under USC policy, harass or impersonate other users, create multiple or fraudulent accounts, send unsolicited advertising through messages, or attempt to circumvent the verification, approval, or messaging systems.',
+        'You may not use Flipd to sell anything illegal, unsafe, counterfeit, recalled, age-restricted, or prohibited under USC policy. This includes weapons, drugs, alcohol, tobacco or nicotine products, stolen goods, fraudulent housing offers, unsafe or falsely described food, academic cheating services, and regulated services offered without required licenses.',
+        'You may not harass, threaten, discriminate against, sexually exploit, impersonate, or defraud another person; create multiple or fraudulent accounts; send unsolicited advertising; manipulate reviews; or attempt to circumvent verification, reporting, blocking, approval, or messaging safeguards.',
       ],
     },
     {
@@ -137,7 +138,7 @@ export const PRIVACY: LegalDoc = {
     {
       heading: 'Your choices',
       body: [
-        'You can update your listings, change your notification settings, or delete your account at any time. You can contact us to request a copy of your data or to ask that it be deleted.',
+        'You can update or remove your listings and change your notification settings from your account. To request a copy of your data or deletion of your account and associated personal information, contact support@flipdcampus.com from your verified USC address. We will confirm the request and explain any information we must retain for legal, fraud-prevention, or safety reasons.',
       ],
     },
     {
@@ -214,6 +215,53 @@ export const SUPPORT_FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'How do I delete my account?',
-    a: `Contact us at ${SUPPORT_EMAIL} and we’ll process your request.`,
+    a: `Email ${SUPPORT_EMAIL} from your verified USC address. We’ll confirm your request and process deletion of your account and associated personal information, except records we must retain for legal, fraud-prevention, or safety reasons.`,
   },
 ];
+
+export const COMMUNITY_GUIDELINES: LegalDoc = {
+  title: 'Community Guidelines',
+  updated: LEGAL_UPDATED,
+  intro:
+    'Flipd is a student marketplace built around verified identity, respectful communication, and safer campus exchanges. These rules apply to listings, profiles, requests, messages, reviews, and in-person conduct connected to Flipd.',
+  sections: [
+    {
+      heading: 'Be honest and respectful',
+      body: [
+        'Describe items and services accurately, use your real identity, honor agreed prices and meetup details, and communicate respectfully. Do not harass, threaten, discriminate against, sexually exploit, impersonate, shame, or pressure another person.',
+      ],
+    },
+    {
+      heading: 'What cannot be listed',
+      body: [
+        'Do not list illegal, stolen, counterfeit, recalled, age-restricted, or unsafe goods. Weapons, drugs, alcohol, tobacco or nicotine products, controlled substances, forged documents, account credentials, and products prohibited by USC policy are not allowed.',
+        'Food must be described honestly, including relevant ingredients or known allergens. Housing listings must be genuine and authorized. Academic cheating, completed assignments for sale, exam materials obtained improperly, and unlicensed regulated services are not allowed.',
+      ],
+    },
+    {
+      heading: 'Keep transactions safe',
+      body: [
+        'Meet in public, well-lit, well-trafficked campus locations when possible. Inspect an item before paying, do not send deposits to unverified third parties, and stop an exchange if details change unexpectedly or you feel unsafe.',
+        'Keep early communication inside Flipd. Never pressure someone to share private contact, financial, identity, or location information.',
+      ],
+    },
+    {
+      heading: 'Reporting and blocking',
+      body: [
+        'Use the Report control on a listing or profile when something appears fraudulent, unsafe, abusive, or against these Guidelines. Use Block to prevent further contact and hide each other’s marketplace activity. For immediate danger, contact campus public safety or emergency services before contacting Flipd.',
+      ],
+    },
+    {
+      heading: 'Enforcement',
+      body: [
+        'Flipd may remove content, limit features, suspend accounts, preserve relevant records, or permanently remove users when we identify violations or credible safety concerns. Serious or repeated violations may be escalated to USC or law enforcement when legally required or necessary to protect someone from harm.',
+      ],
+    },
+    {
+      heading: 'Contact',
+      body: [
+        `Questions or urgent safety reports can be sent to ${SUPPORT_EMAIL}. Include the listing or profile involved and enough detail for us to investigate, but do not email passwords, verification codes, or sensitive financial information.`,
+      ],
+    },
+  ],
+};

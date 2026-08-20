@@ -41,6 +41,9 @@ export default function SupportPage() {
       >
         Still need help?
       </h2>
+      <p style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--ink-2)', margin: '0 0 12px' }}>
+        Review our <a href="/community-guidelines" style={{ color: 'var(--accent)', fontWeight: 600 }}>Community Guidelines</a> for marketplace rules, prohibited listings, reporting, and blocking.
+      </p>
       <p style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--ink-2)', margin: '0 0 18px' }}>
         Email us and we&rsquo;ll get back to you.
       </p>

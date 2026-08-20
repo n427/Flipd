@@ -16,6 +16,9 @@ const CANDIDATE_CAP = 100;
 const USER_CAP = 25;
 const SIGNAL_CAP = 20;
 
+type ListingTitleRow = { listings: { title: string } | null };
+type SearchRow = { query: string | null };
+
 export const digestProducer: Producer = {
   name: 'digest',
   // Explicit return type: without it, TS infers the union of each individual
@@ -117,9 +120,9 @@ export const digestProducer: Producer = {
         ]);
 
         const profile = buildProfile({
-          saved: (saved.data ?? []).map((r: any) => r.listings?.title).filter(Boolean),
-          messaged: (messaged.data ?? []).map((r: any) => r.listings?.title).filter(Boolean),
-          searched: (searched.data ?? []).map((r: any) => r.query).filter(Boolean),
+          saved: ((saved.data ?? []) as unknown as ListingTitleRow[]).map((r) => r.listings?.title).filter((v): v is string => Boolean(v)),
+          messaged: ((messaged.data ?? []) as unknown as ListingTitleRow[]).map((r) => r.listings?.title).filter((v): v is string => Boolean(v)),
+          searched: ((searched.data ?? []) as SearchRow[]).map((r) => r.query).filter((v): v is string => Boolean(v)),
         });
         // Cold start: no signals means no digest, ever. Never fall back to
         // "here are some listings" — an unasked-for email is how people learn

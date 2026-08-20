@@ -22,7 +22,8 @@ type PublicProfile = {
 // Ratings are anonymous — the rater is deliberately not carried here.
 type Review = { score: number; text: string | null; created_at: string };
 
-export default function PublicProfilePage({ params }: { params: { id: string } }) {
+export default function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
   const router = useRouter();
   const [tab, setTab] = React.useState<'listings' | 'reviews'>('listings');
   const [data, setData] = React.useState<{
@@ -33,12 +34,12 @@ export default function PublicProfilePage({ params }: { params: { id: string } }
   const [notFound, setNotFound] = React.useState(false);
 
   React.useEffect(() => {
-    fetch(`/api/users/${params.id}`)
+    fetch(`/api/users/${id}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('not found'))))
       // The API returns raw DB rows; ListingCard needs mapped Listings.
       .then((d) => setData({ ...d, listings: (d.listings ?? []).map((r: never) => mapDbListing(r, null)) }))
       .catch(() => setNotFound(true));
-  }, [params.id]);
+  }, [id]);
 
   if (notFound) {
     return (

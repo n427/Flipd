@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-labelledby="title">
+  <title id="title">Fresh sourdough loaves</title>
+  <rect width="400" height="400" fill="#f1e4d2"/>
+  <ellipse cx="205" cy="318" rx="142" ry="34" fill="#d2b999" opacity=".45"/>
+  <path d="M86 263c0-88 54-153 122-153s116 62 116 153c0 43-238 43-238 0Z" fill="#b66c32"/>
+  <path d="M109 241c9-70 50-112 101-112 54 0 88 43 94 112" fill="none" stroke="#e7b878" stroke-width="18" stroke-linecap="round"/>
+  <path d="m151 159 30 35m-2-62 30 38m2-43 31 39m8-16 27 38" stroke="#f7dbad" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="125" cy="211" r="6" fill="#7b431f"/><circle cx="271" cy="221" r="6" fill="#7b431f"/><circle cx="188" cy="229" r="5" fill="#7b431f"/>
+</svg>

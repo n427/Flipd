@@ -12,11 +12,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // Deliberately excludes contact fields. Email is a notification destination
 // now and is never shown to another user, so this endpoint must never become
 // a way to read it.
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: routeId } = await params;
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  const key = decodeURIComponent(params.id);
+  const key = decodeURIComponent(routeId);
   const base = admin
     .from('profiles')
     .select('id, display_name, handle, school_unit, class_year, bio, avatar_url, is_demo, created_at');

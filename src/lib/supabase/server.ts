@@ -3,8 +3,8 @@ import { cookies } from 'next/headers';
 
 // Anon-key client bound to the request's auth cookies. Used only to read the
 // caller's identity and run the auth flows — data access goes through admin.
-export function createSessionClient() {
-  const cookieStore = cookies();
+export async function createSessionClient() {
+  const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -28,7 +28,7 @@ export function createSessionClient() {
 }
 
 export async function getSessionUser(): Promise<{ id: string; email: string } | null> {
-  const supabase = createSessionClient();
+  const supabase = await createSessionClient();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
   return { id: data.user.id, email: data.user.email ?? '' };

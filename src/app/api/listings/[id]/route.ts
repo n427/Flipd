@@ -7,8 +7,9 @@ const SELLER_JOIN = '*, seller:profiles!listings_seller_id_fkey(id, display_name
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   // Web cookie session OR mobile Bearer token.
   const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -16,7 +17,7 @@ export async function GET(
   const { data, error } = await supabase
     .from('listings')
     .select(SELLER_JOIN)
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (error || !data) return NextResponse.json({ error: 'not found' }, { status: 404 });
@@ -28,15 +29,16 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { data: existing } = await supabase
     .from('listings')
     .select('seller_id')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
   if (!existing) return NextResponse.json({ error: 'not found' }, { status: 404 });
   if (existing.seller_id !== user.id) {
@@ -54,7 +56,7 @@ export async function PATCH(
     const { data, error } = await supabase
       .from('listings')
       .update({ archived: body.archived })
-      .eq('id', params.id)
+      .eq('id', id)
       .select(SELLER_JOIN)
       .single();
     if (error || !data) {
@@ -98,7 +100,7 @@ export async function PATCH(
     const buffer = Buffer.from(await file.arrayBuffer());
     const extMatch = /\.([a-zA-Z0-9]+)$/.exec(file.name);
     const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
-    const path = `${params.id}/photo-${Date.now()}-${i}.${ext}`;
+    const path = `${id}/photo-${Date.now()}-${i}.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from('listing-photos')
       .upload(path, buffer, { contentType: file.type, upsert: true });
@@ -126,7 +128,7 @@ export async function PATCH(
       photo_focus: focusArr,
       photo_zoom: zoomArr,
     })
-    .eq('id', params.id)
+    .eq('id', id)
     .select(SELLER_JOIN)
     .single();
 
@@ -138,15 +140,16 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { data: existing } = await supabase
     .from('listings')
     .select('seller_id, title')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
   if (!existing) return NextResponse.json({ error: 'not found' }, { status: 404 });
   if (existing.seller_id !== user.id) {
@@ -157,19 +160,19 @@ export async function DELETE(
   await supabase
     .from('reveal_requests')
     .update({ listing_title: existing.title })
-    .eq('listing_id', params.id);
+    .eq('listing_id', id);
   await supabase
     .from('reveal_requests')
     .update({ status: 'declined', resolved_at: new Date().toISOString() })
-    .eq('listing_id', params.id)
+    .eq('listing_id', id)
     .eq('status', 'pending');
 
   // Best-effort photo cleanup, then the row (FK sets request listing_id null).
-  const { data: files } = await supabase.storage.from('listing-photos').list(params.id);
+  const { data: files } = await supabase.storage.from('listing-photos').list(id);
   if (files && files.length > 0) {
-    await supabase.storage.from('listing-photos').remove(files.map((f) => `${params.id}/${f.name}`));
+    await supabase.storage.from('listing-photos').remove(files.map((f) => `${id}/${f.name}`));
   }
-  const { error } = await supabase.from('listings').delete().eq('id', params.id);
+  const { error } = await supabase.from('listings').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

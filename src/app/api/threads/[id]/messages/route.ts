@@ -22,13 +22,14 @@ import { newMessageEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail, wan
 // cannot be bypassed by a client that skips its own checks.
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   // Web cookie session OR mobile Bearer token.
   const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  const thread = await loadThreadForUser(params.id, user.id);
+  const thread = await loadThreadForUser(id, user.id);
   if (!thread) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
   const contentType = req.headers.get('content-type') ?? '';

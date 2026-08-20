@@ -5,30 +5,13 @@
 import React from 'react';
 import { Icon } from './Icon';
 import { Wordmark } from './ui';
+import { validateLandingEmail } from '@/lib/landing-auth';
+import { landingTiles, revealStyle } from '@/lib/landing-release';
 
 // Scroll-reveal wrapper: fades content up the first time it enters the viewport.
 function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const ref = React.useRef<HTMLDivElement>(null);
-  const [shown, setShown] = React.useState(false);
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setShown(true); obs.disconnect(); } },
-      { threshold: 0.15 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
   return (
-    <div
-      ref={ref}
-      style={{
-        opacity: shown ? 1 : 0,
-        transform: shown ? 'translateY(0)' : 'translateY(24px)',
-        transition: `opacity 700ms cubic-bezier(.2,.7,.3,1) ${delay}ms, transform 700ms cubic-bezier(.2,.7,.3,1) ${delay}ms`,
-      }}
-    >
+    <div style={revealStyle(delay)}>
       {children}
     </div>
   );
@@ -76,13 +59,7 @@ function Nav() {
 
 // Mini feed mockup used as the hero visual.
 function HeroAppVisual() {
-  const tiles = [
-    { price: '$12', title: 'Sourdough loaves', img: 'https://picsum.photos/seed/flipd-bread/400/400' },
-    { price: '$35', title: 'Press-on nails', img: 'https://picsum.photos/seed/flipd-nails/400/400' },
-    { price: '$90', title: 'IKEA Markus chair', img: 'https://picsum.photos/seed/flipd-chair/400/400' },
-    { price: '$7', title: 'Matcha drinks', img: 'https://picsum.photos/seed/flipd-matcha/400/400' },
-  ];
-  const floatCard = (t: typeof tiles[number], dur: string) => (
+  const floatCard = (t: typeof landingTiles[number], dur: string) => (
     <div className="card hero-float" style={{ width: 168, animation: `drift ${dur} ease-in-out infinite`, boxShadow: 'var(--shadow-strong)' }}>
       <img src={t.img} alt="" style={{ width: '100%', height: 96, objectFit: 'cover', display: 'block' }} />
       <div style={{ padding: '8px 12px 12px' }}>
@@ -94,7 +71,7 @@ function HeroAppVisual() {
   return (
     <div className="hero-visual" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28, padding: '56px 24px 0', animation: 'riseIn 1s cubic-bezier(.2,.7,.3,1) both 500ms' }}>
       <div style={{ display: 'none' }} className="hide-sm" />
-      {floatCard(tiles[2], '5.4s')}
+      {floatCard(landingTiles[2], '5.4s')}
       <div className="card hero-phone" style={{ width: 300, boxShadow: 'var(--shadow-strong)' }}>
         <div style={{ padding: '14px 16px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Wordmark size={17} />
@@ -106,7 +83,7 @@ function HeroAppVisual() {
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px 18px' }}>
-          {tiles.slice(0, 2).map((t) => (
+          {landingTiles.slice(0, 2).map((t) => (
             <div key={t.title}>
               <img src={t.img} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10, display: 'block' }} />
               <div style={{ fontWeight: 800, fontSize: 13, marginTop: 6 }}>{t.price}</div>
@@ -115,7 +92,7 @@ function HeroAppVisual() {
           ))}
         </div>
       </div>
-      {floatCard(tiles[3], '6.1s')}
+      {floatCard(landingTiles[3], '6.1s')}
     </div>
   );
 }
@@ -292,12 +269,18 @@ function JoinCTA() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validated = validateLandingEmail(email);
+    if (typeof validated === 'string') {
+      setError(validated);
+      setState('idle');
+      return;
+    }
     setState('sending');
     setError('');
     const res = await fetch('/api/auth/signin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email: validated.email }),
     }).catch(() => null);
     if (res?.ok) { setState('sent'); setCode(''); return; }
     const body = await res?.json().catch(() => ({}));
@@ -328,10 +311,10 @@ function JoinCTA() {
     <section id="join" className="landing-section" style={{ padding: '110px 24px', textAlign: 'center', scrollMarginTop: 60 }}>
       <Reveal>
         <h2 style={{ fontSize: 'clamp(30px, 5vw, 44px)', fontWeight: 800, letterSpacing: '-0.04em', margin: '0 0 12px' }}>
-          Got an @usc.edu email?<br />You're already in.
+          Got an @usc.edu email?<br />You&apos;re already in.
         </h2>
         <p style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 500, margin: '0 0 30px' }}>
-          Enter it below and we'll email you a 6-digit sign-in code. That's the whole sign-up.
+          Enter it below and we&apos;ll email you a 6-digit sign-in code. That&apos;s the whole sign-up.
         </p>
         {state === 'sent' || state === 'verifying' ? (
           <div style={{ maxWidth: 420, margin: '0 auto', background: 'var(--surface)', borderRadius: 14, padding: '22px 26px', textAlign: 'left' }}>
@@ -401,6 +384,7 @@ function Footer() {
         <a href="/terms" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Terms</a>
         <a href="/privacy" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Privacy</a>
         <a href="/support" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Support</a>
+        <a href="/community-guidelines" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Guidelines</a>
         <span>© 2026 · made in University Park</span>
       </div>
     </footer>

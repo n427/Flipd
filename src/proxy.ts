@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const PROTECTED = ['/feed', '/post', '/profile', '/listing', '/onboarding', '/u'];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   let res = NextResponse.next({ request: req });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

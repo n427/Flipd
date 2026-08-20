@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  const supabase = createSessionClient();
+  const supabase = await createSessionClient();
   const origin = req.nextUrl.origin;
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),

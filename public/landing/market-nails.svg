@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-labelledby="title">
+  <title id="title">Handmade press-on nails</title>
+  <rect width="400" height="400" fill="#eee8e5"/>
+  <rect x="65" y="68" width="270" height="264" rx="30" fill="#fff" stroke="#d9dadd" stroke-width="5"/>
+  <g fill="#990000">
+    <rect x="96" y="116" width="34" height="104" rx="17" transform="rotate(-10 113 168)"/>
+    <rect x="140" y="97" width="36" height="128" rx="18" transform="rotate(-4 158 161)"/>
+    <rect x="184" y="91" width="36" height="134" rx="18" transform="rotate(3 202 158)"/>
+    <rect x="229" y="105" width="35" height="119" rx="18" transform="rotate(8 246 164)"/>
+    <rect x="273" y="129" width="31" height="92" rx="16" transform="rotate(14 288 175)"/>
+  </g>
+  <path d="M111 265h178" stroke="#ececee" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="145" cy="287" r="8" fill="#111"/><circle cx="176" cy="287" r="8" fill="#990000"/><circle cx="207" cy="287" r="8" fill="#d8a7a1"/><circle cx="238" cy="287" r="8" fill="#e9d5c4"/>
+</svg>

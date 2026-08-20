@@ -9,12 +9,12 @@ import Link from 'next/link';
 import { Icon } from './Icon';
 import { LocationPicker } from './LocationPicker';
 import { SafetyCard, type SafetyReview } from './SafetyCard';
-import { Avatar, Button, Callout, CategoryChip, ImageWithFallback, ListingCard, Placeholder, Wordmark } from './ui';
+import { Avatar, Button, CategoryChip, ImageWithFallback, ListingCard, Placeholder, Wordmark } from './ui';
 import { CATEGORIES } from '@/lib/data';
 import { classYearLabel, filterListings, formatPostedDate, photoCropStyle, useFlipdStore, type FlipdStore } from '@/lib/store';
 import { captureSearch } from '@/lib/digest/capture';
 import { timeLeftLabel, parseEventWindow, formatEventWindow, fillZoom, findContactInfo, profilePath, conversationHref, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
-import type { ActivityItem, ActivityStatus, FeedRange, Listing, PhotoTone, Profile, RatingSummary } from '@/lib/types';
+import type { ActivityItem, ActivityStatus, FeedRange, Listing, Profile, RatingSummary } from '@/lib/types';
 import { FeedSkeleton } from '@/components/Skeletons';
 
 const TITLE_MAX = 80;
@@ -386,7 +386,7 @@ export function WebNotifications({
 // ── Feed ─────────────────────────────────────────────────────────────
 
 export function WebAppFeed({
-  store, activeCat, setActiveCat, onListing, query, sort, setSort, range, setRange, priceMin, setPriceMin, priceMax, setPriceMax,
+  store, activeCat, setActiveCat, query, sort, setSort, range, setRange, priceMin, setPriceMin, priceMax, setPriceMax,
 }: {
   store: FlipdStore; activeCat: string; setActiveCat: (c: string) => void;
   onListing: (l: Listing) => void; query: string;
@@ -1601,7 +1601,7 @@ function EmptyState({ icon, title, sub }: { icon: string; title: string; sub: st
 
 // ── Profile (web) ───────────────────────────────────────────────────
 export function WebProfile({
-  store, onListing, onApprove, onDecline, onEdit,
+  store, onEdit,
 }: { store: FlipdStore; onListing: (l: Listing) => void; onApprove: (id: string) => void; onDecline: (id: string) => void; onEdit: () => void }) {
   const [tab, setTab] = React.useState<'listings' | 'past' | 'saved' | 'reviews'>('listings');
   const displayName = store.me?.display_name ?? 'Your profile';
@@ -1741,7 +1741,7 @@ function ModalScrim({ children, onClose }: { children: React.ReactNode; onClose:
   );
 }
 
-export function RevealModal({ listing, me, onClose, onContinue }: { listing: Listing; me: Profile | null; onClose: () => void; onContinue: (offer: number | undefined, introMessage: string) => void }) {
+export function RevealModal({ listing, onClose, onContinue }: { listing: Listing; me: Profile | null; onClose: () => void; onContinue: (offer: number | undefined, introMessage: string) => void }) {
   const [offerText, setOfferText] = React.useState('');
   const [intro, setIntro] = React.useState('');
   const [touched, setTouched] = React.useState(false);

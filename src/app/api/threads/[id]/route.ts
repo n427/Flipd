@@ -7,15 +7,16 @@ import { loadThreadForUser, signAttachments, markThreadSeen, type AttachmentRow 
 // URLs, which is why this cannot be a plain client-side Supabase read.
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   // Web cookie session OR mobile Bearer token.
   const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   // 404 rather than 403 for a non-participant: whether a thread exists is
   // itself information a stranger shouldn't get.
-  const thread = await loadThreadForUser(params.id, user.id);
+  const thread = await loadThreadForUser(id, user.id);
   if (!thread) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
   const [{ data: messages }, { data: request }, { data: listing }, { data: counterpart }] = await Promise.all([

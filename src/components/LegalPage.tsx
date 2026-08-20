@@ -2,6 +2,7 @@
 // LegalDoc from @/lib/legal and renders it, so the three routes stay identical
 // in layout and only differ in copy.
 import type { LegalDoc } from '@/lib/legal';
+import Link from 'next/link';
 
 export function LegalPage({ doc, children }: { doc: LegalDoc; children?: React.ReactNode }) {
   return (
@@ -13,9 +14,9 @@ export function LegalPage({ doc, children }: { doc: LegalDoc; children?: React.R
         fontFamily: 'var(--sans)',
       }}
     >
-      <a href="/" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
+      <Link href="/" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
         &larr; Back
-      </a>
+      </Link>
 
       <h1
         style={{

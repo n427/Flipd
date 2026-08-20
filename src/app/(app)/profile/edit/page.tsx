@@ -13,7 +13,6 @@ const UNITS = ['Marshall', 'Annenberg', 'Viterbi', 'Dornsife', 'SCA', 'Roski', '
 const METHODS = [
   { id: 'email', valueLabel: 'Email', placeholder: 'you@usc.edu' },
 ] as const;
-type MethodId = (typeof METHODS)[number]['id'];
 
 const NOTIFY_EVENTS = [
   { id: 'new_request', label: 'New request on your listing' },

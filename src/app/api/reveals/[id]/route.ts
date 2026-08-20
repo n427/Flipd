@@ -8,8 +8,9 @@ const DECLINE_REASONS = ['bad_timing', 'already_sold', 'not_enough_info'];
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   // Web cookie session OR mobile Bearer token.
   const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -26,7 +27,7 @@ export async function PATCH(
   const { data: existing } = await admin
     .from('reveal_requests')
     .select('id, listing_id, listing_title, buyer_id, seller_id, status, expires_at')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
   if (!existing) return NextResponse.json({ error: 'not found' }, { status: 404 });
   if (existing.seller_id !== user.id) {
@@ -56,7 +57,7 @@ export async function PATCH(
       resolved_at: new Date().toISOString(),
       ...(action === 'decline' && decline_reason ? { decline_reason } : {}),
     })
-    .eq('id', params.id)
+    .eq('id', id)
     .select('id, status')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -117,7 +118,7 @@ export async function PATCH(
       .update({ status: 'declined', resolved_at: new Date().toISOString() })
       .eq('listing_id', existing.listing_id)
       .eq('status', 'pending')
-      .neq('id', params.id);
+      .neq('id', id);
   }
 
   // thread_id lets the client navigate straight into the conversation instead

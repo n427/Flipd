@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Enter the sign-in code from your email.' }, { status: 400 });
   }
 
-  const supabase = createSessionClient();
+  const supabase = await createSessionClient();
   const { data, error } = await supabase.auth.verifyOtp({
     email: email.trim().toLowerCase(),
     token: code.trim(),

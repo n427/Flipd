@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const origin = req.nextUrl.origin;
   if (!code) return NextResponse.redirect(`${origin}/?auth=error`);
 
-  const supabase = createSessionClient();
+  const supabase = await createSessionClient();
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error || !data.user) return NextResponse.redirect(`${origin}/?auth=error`);
 
