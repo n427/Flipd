@@ -82,5 +82,14 @@ eas build --platform ios --profile production
 
 ## Verification evidence
 
-Not recorded yet. The final release-gate task must add the date, commit SHA, exact commands, exit status, test counts, audit result, export path, and remaining operator gates without marking device or Apple-account work complete.
+Recorded 2026-08-20 against source commit `b390c9b` on
+`feature/mobile-app-store-readiness`:
 
+- `npm test && npx tsc --noEmit && npm run lint && npm run build` at the repository root exited successfully: 22 test files and 172 tests passed, TypeScript and ESLint passed, and the Next.js production build completed.
+- `npm test && npx tsc --noEmit && npm run lint && npm run store:validate && npx expo-doctor` in `mobile/` exited successfully: 8 test files and 35 tests passed, TypeScript and Expo lint passed, all six store documents validated, and Expo Doctor passed 18/18 checks.
+- `npx expo config --type public --json` confirmed app version `1.0.0`, bundle ID `com.flipd.app`, branded icon/splash configuration, camera/photo usage descriptions, and `ITSAppUsesNonExemptEncryption: false`.
+- `npx expo export --platform ios` succeeded with production-shaped placeholder public environment variables at `/tmp/flipd-final-export.6BFZWD`. This proves bundling only; it does not validate real production credentials or services.
+- Root `npm audit --omit=dev` reported 0 vulnerabilities. Mobile `npm audit --omit=dev` reported 27 transitive findings (14 moderate, 13 high); the available npm remediations require an Expo SDK major upgrade and must be handled as a separately tested upgrade rather than a forced pre-release change. The full mobile audit reported one additional moderate development-only finding through `@expo/ngrok`.
+- `git diff --check` passed. The tracked-file credential-pattern scan found only environment-variable names/examples and server-side references, not committed values. The largest tracked file was 581 KB; no unexpectedly large release artifact was found.
+
+Remaining operator gates: deploy the three migrations and matching web API, supply and verify real production public configuration/signing/push credentials, make a signed EAS build, complete the TestFlight device and accessibility passes, capture real screenshots, verify privacy and age-rating answers in App Store Connect, add private review credentials/contact details, and submit the processed build. Do not mark those checkboxes complete from source verification alone.
