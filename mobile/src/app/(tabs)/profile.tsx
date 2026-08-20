@@ -25,6 +25,8 @@ function LinkRow({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
       style={{
         flexDirection: 'row',
         alignItems: 'center',

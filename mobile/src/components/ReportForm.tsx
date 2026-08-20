@@ -46,6 +46,8 @@ export function ReportForm({
             <Pressable
               key={r.key}
               onPress={() => setReason(r.key)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: on }}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -66,6 +68,7 @@ export function ReportForm({
       </View>
 
       <TextInput
+        accessibilityLabel="Report details, optional"
         value={note}
         onChangeText={setNote}
         placeholder="Add details (optional)"
@@ -89,6 +92,8 @@ export function ReportForm({
       <Pressable
         onPress={() => reason && onSubmit(reason, note)}
         disabled={submitting || !reason}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: submitting || !reason, busy: submitting }}
         style={{
           backgroundColor: T.cardinal,
           borderRadius: 14,
@@ -102,7 +107,7 @@ export function ReportForm({
           {submitting ? 'Sending…' : 'Submit report'}
         </Text>
       </Pressable>
-      <Pressable onPress={onCancel} style={{ marginTop: 14, alignItems: 'center' }}>
+      <Pressable onPress={onCancel} accessibilityRole="button" style={{ minHeight: 44, marginTop: 14, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>{cancelLabel}</Text>
       </Pressable>
     </View>

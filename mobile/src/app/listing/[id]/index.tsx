@@ -272,10 +272,6 @@ export default function ListingDetailScreen() {
 
   const hasCoords = listing.lat != null && listing.lng != null;
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${listing.lat},${listing.lng}`;
-  const sellerLine = [listing.seller?.display_name, listing.seller?.school_unit, listing.seller?.class_year]
-    .filter(Boolean)
-    .join(' · ');
-
   return (
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} style={{ backgroundColor: T.bg }}>
         <View>

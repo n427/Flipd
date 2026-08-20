@@ -71,16 +71,18 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="feed"
-        options={{ tabBarIcon: ({ color, size }) => <Feather name="home" color={color} size={size} /> }}
+        options={{ title: 'Feed', tabBarAccessibilityLabel: 'Marketplace feed', tabBarIcon: ({ color, size }) => <Feather name="home" color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="requests"
-        options={{ tabBarIcon: ({ color, size }) => <RequestsIcon color={color} size={size} /> }}
+        options={{ title: 'Requests', tabBarAccessibilityLabel: 'Requests and messages', tabBarIcon: ({ color, size }) => <RequestsIcon color={color} size={size} /> }}
       />
       {/* Post — raised center button, rounded square, no glow */}
       <Tabs.Screen
         name="post"
         options={{
+          title: 'Post',
+          tabBarAccessibilityLabel: 'Create a listing',
           tabBarIcon: () => (
             <View
               style={{
@@ -100,11 +102,11 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="notifications"
-        options={{ tabBarIcon: ({ color, size }) => <NotificationsIcon color={color} size={size} /> }}
+        options={{ title: 'Notifications', tabBarAccessibilityLabel: 'Notifications', tabBarIcon: ({ color, size }) => <NotificationsIcon color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="profile"
-        options={{ tabBarIcon: ({ color, size }) => <Feather name="user" color={color} size={size} /> }}
+        options={{ title: 'Profile', tabBarAccessibilityLabel: 'Your profile', tabBarIcon: ({ color, size }) => <Feather name="user" color={color} size={size} /> }}
       />
     </Tabs>
   );

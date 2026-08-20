@@ -99,6 +99,7 @@ export default function SignIn() {
         <View style={{ paddingBottom: 8 }}>
           <Pressable
             onPress={() => router.push('/(auth)/email')}
+            accessibilityRole="button"
             style={{
               backgroundColor: T.cardinal,
               borderRadius: 16,
@@ -110,6 +111,7 @@ export default function SignIn() {
           </Pressable>
           <Pressable
             onPress={() => router.push('/(auth)/email')}
+            accessibilityRole="button"
             style={{
               backgroundColor: T.fieldbg,
               borderRadius: 16,

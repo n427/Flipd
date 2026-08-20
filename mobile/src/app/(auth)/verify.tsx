@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, Scrol
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { goBack } from '@/lib/nav';
 import { supabase } from '@/lib/supabase';
 import { VERIFY_HELP, SUPPORT_EMAIL } from '@/lib/legal';
@@ -13,7 +13,6 @@ const RESEND_SECONDS = 30;
 
 export default function Verify() {
   const { email } = useLocalSearchParams<{ email: string }>();
-  const router = useRouter();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -104,7 +103,7 @@ export default function Verify() {
       {/* Top bar: Back + step indicator, full progress bar */}
       <View style={{ paddingHorizontal: 28, paddingTop: 40 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable onPress={() => goBack('/(auth)/email')} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Pressable onPress={() => goBack('/(auth)/email')} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="chevron-back" size={20} color={T.ink} />
             <Text style={{ fontFamily: F.bold, fontSize: 15.5, color: T.ink }}>Back</Text>
           </Pressable>
@@ -133,6 +132,7 @@ export default function Verify() {
             <Text style={{ fontFamily: F.semibold, fontSize: 13, color: T.muted }}>{code.length}/8</Text>
           </View>
           <TextInput
+            accessibilityLabel="Verification code"
             value={code}
             onChangeText={(t) => {
               setCode(t.replace(/\D/g, '').slice(0, 8));
@@ -164,7 +164,7 @@ export default function Verify() {
             }}
           />
           {(error || notice) ? (
-            <Text style={{ fontFamily: F.regular, fontSize: 13, color: error ? T.danger : T.muted, marginTop: 8, lineHeight: 18 }}>
+            <Text accessibilityRole={error ? 'alert' : undefined} style={{ fontFamily: F.regular, fontSize: 13, color: error ? T.danger : T.muted, marginTop: 8, lineHeight: 18 }}>
               {error || notice}
             </Text>
           ) : null}
@@ -172,6 +172,8 @@ export default function Verify() {
           <Pressable
             onPress={submit}
             disabled={busy || !valid}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy || !valid, busy }}
             style={{
               backgroundColor: T.cardinal,
               borderRadius: 14,
@@ -187,7 +189,7 @@ export default function Verify() {
           {/* Resend with countdown */}
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 18 }}>
             <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted }}>Didn’t get it?</Text>
-            <Pressable onPress={resend} disabled={cooldown > 0} hitSlop={6}>
+            <Pressable onPress={resend} disabled={cooldown > 0} accessibilityRole="button" accessibilityState={{ disabled: cooldown > 0 }} hitSlop={6}>
               <Text style={{ fontFamily: F.bold, fontSize: 14, color: cooldown > 0 ? T.muted : T.cardinal }}>
                 {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
               </Text>
@@ -199,7 +201,7 @@ export default function Verify() {
       {/* Footer */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 28, paddingTop: 12, paddingBottom: 28 }}>
         <Text style={{ fontFamily: F.regular, fontSize: 13, color: T.muted }}>Code expires in 10 minutes</Text>
-        <Pressable onPress={() => setHelpOpen(true)} hitSlop={6}>
+        <Pressable onPress={() => setHelpOpen(true)} accessibilityRole="button" hitSlop={6}>
           <Text style={{ fontFamily: F.bold, fontSize: 13, color: T.cardinal }}>Need help?</Text>
         </Pressable>
       </View>
@@ -214,7 +216,7 @@ export default function Verify() {
             <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, letterSpacing: -0.4 }}>
               Need help?
             </Text>
-            <Pressable onPress={() => setHelpOpen(false)} hitSlop={10}>
+            <Pressable onPress={() => setHelpOpen(false)} accessibilityRole="button" accessibilityLabel="Close help" hitSlop={10}>
               <Ionicons name="close" size={22} color={T.muted} />
             </Pressable>
           </View>
@@ -231,6 +233,7 @@ export default function Verify() {
               setHelpOpen(false);
               Linking.openURL(`mailto:${SUPPORT_EMAIL}`);
             }}
+            accessibilityRole="link"
             style={{
               marginTop: 24,
               backgroundColor: T.fieldbg,

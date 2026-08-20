@@ -40,8 +40,11 @@ export function ScreenHeader({
   const back = (
     <Pressable
       onPress={onBack ?? (() => router.back())}
+      accessibilityRole="button"
+      accessibilityLabel="Go back"
       hitSlop={10}
       style={{
+        minHeight: 44,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,

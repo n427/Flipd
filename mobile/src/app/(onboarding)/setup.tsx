@@ -28,10 +28,7 @@ const CHANNELS: readonly { id: string; label: string; detailPrompt?: string }[] 
 
 // Where Flipd sends notifications. NOT shared with other users: conversations
 // happen in the app.
-const METHODS = [
-  { id: 'email', label: 'Email', placeholder: 'you@usc.edu' },
-] as const;
-type MethodId = (typeof METHODS)[number]['id'];
+type MethodId = 'email';
 
 const CHANNEL_OPTIONS = [
   { id: 'app', label: 'In the app', hint: 'Push notifications' },
@@ -282,7 +279,7 @@ export default function Setup() {
             <Text style={sub}>This is what other Trojans see when you buy or sell.</Text>
 
             <View style={{ alignItems: 'center', marginBottom: 24 }}>
-              <Pressable onPress={pickAvatar} disabled={uploading}>
+              <Pressable onPress={pickAvatar} disabled={uploading} accessibilityRole="button" accessibilityLabel="Choose profile photo" accessibilityState={{ disabled: uploading, busy: uploading }}>
                 {avatar ? (
                   <Image source={{ uri: avatar }} style={{ width: 96, height: 96, borderRadius: 48, borderWidth: 1, borderColor: T.rule }} contentFit="cover" />
                 ) : (
@@ -325,6 +322,7 @@ export default function Setup() {
 
             <Text style={label}>Full name</Text>
             <TextInput
+              accessibilityLabel="Full name"
               value={name}
               onChangeText={setName}
               placeholder="Your name"
@@ -335,7 +333,7 @@ export default function Setup() {
             <Text style={label}>Class year</Text>
             <View style={row}>
               {YEARS.map((y) => (
-                <Pressable key={y} onPress={() => setYear(y)} style={chip(year === y)}>
+                <Pressable key={y} onPress={() => setYear(y)} accessibilityRole="radio" accessibilityState={{ selected: year === y }} style={chip(year === y)}>
                   <Text style={chipText(year === y)}>{y}</Text>
                 </Pressable>
               ))}
@@ -344,7 +342,7 @@ export default function Setup() {
             <Text style={label}>School or major (optional)</Text>
             <View style={row}>
               {UNITS.map((u) => (
-                <Pressable key={u} onPress={() => setUnit(unit === u ? null : u)} style={chip(unit === u)}>
+                <Pressable key={u} onPress={() => setUnit(unit === u ? null : u)} accessibilityRole="checkbox" accessibilityState={{ checked: unit === u }} style={chip(unit === u)}>
                   <Text style={chipText(unit === u)}>{u}</Text>
                 </Pressable>
               ))}
@@ -353,13 +351,14 @@ export default function Setup() {
             <Text style={label}>How&apos;d you hear about Flipd?</Text>
             <View style={row}>
               {CHANNELS.map((c) => (
-                <Pressable key={c.id} onPress={() => pickChannel(c.id)} style={chip(heardId === c.id)}>
+                <Pressable key={c.id} onPress={() => pickChannel(c.id)} accessibilityRole="radio" accessibilityState={{ selected: heardId === c.id }} style={chip(heardId === c.id)}>
                   <Text style={chipText(heardId === c.id)}>{c.label}</Text>
                 </Pressable>
               ))}
             </View>
             {heardChannel?.detailPrompt ? (
               <TextInput
+                accessibilityLabel={heardChannel.detailPrompt}
                 value={heardDetail}
                 onChangeText={setHeardDetail}
                 placeholder={heardChannel.detailPrompt}
@@ -397,6 +396,8 @@ export default function Setup() {
                   onPress={() =>
                     setChannels((prev) => (on ? prev.filter((x) => x !== c.id) : [...prev, c.id]))
                   }
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on }}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -431,7 +432,7 @@ export default function Setup() {
               onPrivacy={() => router.push('/privacy')}
             />
 
-            {error ? <Text style={errText}>{error}</Text> : null}
+            {error ? <Text accessibilityRole="alert" style={errText}>{error}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Pressable
                 onPress={() => {
@@ -439,11 +440,13 @@ export default function Setup() {
                   setError('');
                 }}
                 disabled={saving}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: saving }}
                 style={{ borderRadius: 14, paddingVertical: 17, paddingHorizontal: 22, backgroundColor: T.fieldbg }}
               >
                 <Text style={{ fontFamily: F.bold, fontSize: 16, color: T.ink }}>Back</Text>
               </Pressable>
-              <Pressable onPress={finish} disabled={saving || !acceptedLegal} style={[primaryBtn, { flex: 1, opacity: saving || !acceptedLegal ? 0.55 : 1 }]}>
+              <Pressable onPress={finish} disabled={saving || !acceptedLegal} accessibilityRole="button" accessibilityState={{ disabled: saving || !acceptedLegal, busy: saving }} style={[primaryBtn, { flex: 1, opacity: saving || !acceptedLegal ? 0.55 : 1 }]}>
                 <Text style={primaryText}>{saving ? 'Saving…' : 'Enter Flipd'}</Text>
               </Pressable>
             </View>

@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, Switch, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { goBack } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { fetchListing, updateListing, generateDescription } from '@/lib/listings';
@@ -21,7 +21,6 @@ const MAX_PHOTOS = 6; // match the post screen
 
 export default function EditListingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const { user } = useSession();
 
   const [loading, setLoading] = useState(true);
@@ -172,7 +171,7 @@ export default function EditListingScreen() {
       setError(e instanceof Error ? e.message : 'Could not save. Try again.');
       setSaving(false);
     }
-  }, [id, title, price, description, category, negotiable, locName, coords, photos, router]);
+  }, [id, title, price, description, category, negotiable, locName, coords, photos]);
 
   if (loading) {
     return (

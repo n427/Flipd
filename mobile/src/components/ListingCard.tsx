@@ -5,6 +5,7 @@ import { FeedListing, priceLabel } from '@/lib/listings';
 import { photoCrop } from '@/lib/photoCrop';
 import { isPopupCategory } from '@/lib/events';
 import { T, F } from '@/lib/theme';
+import { listingCardAccessibilityLabel } from '@/lib/listingAccessibility';
 
 export function ListingCard({ listing, onPress }: { listing: FeedListing; onPress: () => void }) {
   const [failed, setFailed] = useState(false);
@@ -18,12 +19,22 @@ export function ListingCard({ listing, onPress }: { listing: FeedListing; onPres
     ]
       .filter(Boolean)
       .join(' · ') || (listing.location ?? 'USC · pickup');
+  const cardPrice = isPopupCategory(listing.category) ? 'Popup' : priceLabel(listing.price);
 
   return (
     // maxWidth caps a lone card at half the row. Without it `flex: 1` lets the
     // last item in an odd-length list stretch to full width, since there's no
     // sibling to share the row with.
-    <Pressable onPress={onPress} style={{ flex: 1, maxWidth: '50%', margin: 6, marginBottom: 22 }}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={listingCardAccessibilityLabel({
+        title: listing.title,
+        price: cardPrice,
+        seller: sellerLine,
+      })}
+      style={{ flex: 1, maxWidth: '50%', margin: 6, marginBottom: 22 }}
+    >
       <View style={{ aspectRatio: 1, borderRadius: 14, overflow: 'hidden', backgroundColor: '#f0efec' }}>
         {photo && !failed ? (
           <Image

@@ -381,6 +381,8 @@ export default function ThreadScreen() {
                   <Image source={{ uri: a.uri }} style={{ width: 56, height: 56, borderRadius: 8 }} contentFit="cover" />
                   <Pressable
                     onPress={() => setPending((prev) => prev.filter((_, j) => j !== i))}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove attachment ${i + 1}`}
                     hitSlop={8}
                     style={{
                       position: 'absolute',
@@ -403,6 +405,8 @@ export default function ThreadScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
             <Pressable
               onPress={pickAttachments}
+              accessibilityRole="button"
+              accessibilityLabel="Attach photos or video"
               hitSlop={8}
               style={{
                 width: 42,
@@ -417,6 +421,7 @@ export default function ThreadScreen() {
               <Ionicons name="image-outline" size={19} color={T.muted} />
             </Pressable>
             <TextInput
+              accessibilityLabel="Message"
               value={draft}
               onChangeText={(t) => setDraft(t.slice(0, 2000))}
               placeholder="Message"
@@ -441,6 +446,9 @@ export default function ThreadScreen() {
             <Pressable
               onPress={send}
               disabled={sending || (!draft.trim() && pending.length === 0)}
+              accessibilityRole="button"
+              accessibilityLabel="Send message"
+              accessibilityState={{ disabled: sending || (!draft.trim() && pending.length === 0), busy: sending }}
               style={{
                 width: 42,
                 height: 42,
