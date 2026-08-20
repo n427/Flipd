@@ -13,6 +13,13 @@ export function hasCurrentLegalAcceptance(row: LegalAcceptanceRow | null): boole
   );
 }
 
+export function legalAcceptanceState(
+  row: LegalAcceptanceRow | null,
+  readFailed: boolean,
+): 'yes' | 'no' {
+  return !readFailed && hasCurrentLegalAcceptance(row) ? 'yes' : 'no';
+}
+
 export async function fetchLegalAcceptance(userId: string): Promise<LegalAcceptanceRow | null> {
   const { supabase } = await import('./supabase');
   const { data, error } = await supabase

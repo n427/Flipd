@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { FormScroll } from '@/components/FormScroll';
 import { useSession } from '@/lib/session';
 import { fetchMyProfile, uploadAvatar, completeOnboarding } from '@/lib/listings';
+import { acceptCurrentLegalDocuments } from '@/lib/legalAcceptance';
 import { T, F, S } from '@/lib/theme';
 
 const YEARS = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Grad'];
@@ -42,9 +43,50 @@ type ChannelId = (typeof CHANNEL_OPTIONS)[number]['id'];
 // configuration than anyone wants before using the product once.
 const ALL_EVENTS = ['new_request', 'approval', 'reminder', 'expiry', 'new_message'] as const;
 
+function LegalAcceptanceRow({
+  checked,
+  onToggle,
+  onTerms,
+  onPrivacy,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  onTerms: () => void;
+  onPrivacy: () => void;
+}) {
+  return (
+    <View style={{ marginVertical: 18, gap: 10 }}>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked }}
+        accessibilityLabel="Accept the Terms of Service and Privacy Policy"
+        style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 44 }}
+      >
+        <Ionicons
+          name={checked ? 'checkbox' : 'square-outline'}
+          size={22}
+          color={checked ? T.cardinal : T.muted}
+        />
+        <Text style={{ flex: 1, fontFamily: F.regular, fontSize: 14, lineHeight: 20, color: T.ink }}>
+          I agree to Flipd&apos;s current Terms of Service and Privacy Policy.
+        </Text>
+      </Pressable>
+      <View style={{ flexDirection: 'row', gap: 18, paddingLeft: 32 }}>
+        <Pressable onPress={onTerms} accessibilityRole="link" hitSlop={8}>
+          <Text style={{ fontFamily: F.semibold, fontSize: 13, color: T.cardinal }}>Read Terms</Text>
+        </Pressable>
+        <Pressable onPress={onPrivacy} accessibilityRole="link" hitSlop={8}>
+          <Text style={{ fontFamily: F.semibold, fontSize: 13, color: T.cardinal }}>Read Privacy Policy</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export default function Setup() {
   const router = useRouter();
-  const { user, refreshOnboarded } = useSession();
+  const { user, profileComplete, legalAccepted, refreshOnboarded } = useSession();
   const [step, setStep] = useState<1 | 2>(1);
   const [checking, setChecking] = useState(true);
   const [name, setName] = useState('');
@@ -59,6 +101,8 @@ export default function Setup() {
   const [channels, setChannels] = useState<ChannelId[]>(['app', 'email']);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
+  const legalOnly = profileComplete === 'yes' && legalAccepted === 'no';
 
   // Prefill from the profile row the signup trigger created, and bounce anyone
   // who already finished. The gate in _layout also checks this, but a user can
@@ -71,7 +115,7 @@ export default function Setup() {
         if (!alive) return;
         // Instagram no longer counts: it can't receive a notification.
         const hasContact = Boolean(p?.contact_email);
-        if (p?.display_name && hasContact) {
+        if (p?.display_name && hasContact && legalAccepted === 'yes') {
           router.replace('/(tabs)/feed');
           return;
         }
@@ -88,7 +132,7 @@ export default function Setup() {
     return () => {
       alive = false;
     };
-  }, [user, router]);
+  }, [user, router, legalAccepted]);
 
   const heardChannel = CHANNELS.find((c) => c.id === heardId);
 
@@ -140,6 +184,23 @@ export default function Setup() {
   };
 
   const finish = async () => {
+    if (!acceptedLegal) {
+      setError('Accept the Terms and Privacy Policy to continue.');
+      return;
+    }
+    if (legalOnly) {
+      setSaving(true);
+      setError('');
+      try {
+        await acceptCurrentLegalDocuments(user!.id);
+        await refreshOnboarded();
+        router.replace('/(tabs)/feed');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not save your acceptance. Try again.');
+        setSaving(false);
+      }
+      return;
+    }
     if (!contacts.email.trim()) {
       setError('Add an email so we can reach you.');
       return;
@@ -165,6 +226,7 @@ export default function Setup() {
           }]),
         ),
       });
+      await acceptCurrentLegalDocuments(user!.id);
       // Re-read before navigating: the watcher would otherwise still see
       // onboarded === 'no' and bounce us straight back here.
       await refreshOnboarded();
@@ -190,7 +252,31 @@ export default function Setup() {
           Flipd<Text style={{ color: T.gold }}>.</Text>
         </Text>
 
-        {step === 1 ? (
+        {legalOnly ? (
+          <>
+            <Text style={heading}>Before you continue</Text>
+            <Text style={sub}>
+              Review and accept the current Terms of Service and Privacy Policy. Opening a document does not accept it.
+            </Text>
+            <LegalAcceptanceRow
+              checked={acceptedLegal}
+              onToggle={() => {
+                setAcceptedLegal((value) => !value);
+                setError('');
+              }}
+              onTerms={() => router.push('/terms')}
+              onPrivacy={() => router.push('/privacy')}
+            />
+            {error ? <Text style={errText}>{error}</Text> : null}
+            <Pressable
+              onPress={finish}
+              disabled={saving || !acceptedLegal}
+              style={[primaryBtn, { opacity: saving || !acceptedLegal ? 0.55 : 1 }]}
+            >
+              <Text style={primaryText}>{saving ? 'Saving…' : 'Accept and continue'}</Text>
+            </Pressable>
+          </>
+        ) : step === 1 ? (
           <>
             <Text style={heading}>Who are you?</Text>
             <Text style={sub}>This is what other Trojans see when you buy or sell.</Text>
@@ -335,6 +421,16 @@ export default function Setup() {
               );
             })}
 
+            <LegalAcceptanceRow
+              checked={acceptedLegal}
+              onToggle={() => {
+                setAcceptedLegal((value) => !value);
+                setError('');
+              }}
+              onTerms={() => router.push('/terms')}
+              onPrivacy={() => router.push('/privacy')}
+            />
+
             {error ? <Text style={errText}>{error}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Pressable
@@ -347,7 +443,7 @@ export default function Setup() {
               >
                 <Text style={{ fontFamily: F.bold, fontSize: 16, color: T.ink }}>Back</Text>
               </Pressable>
-              <Pressable onPress={finish} disabled={saving} style={[primaryBtn, { flex: 1, opacity: saving ? 0.7 : 1 }]}>
+              <Pressable onPress={finish} disabled={saving || !acceptedLegal} style={[primaryBtn, { flex: 1, opacity: saving || !acceptedLegal ? 0.55 : 1 }]}>
                 <Text style={primaryText}>{saving ? 'Saving…' : 'Enter Flipd'}</Text>
               </Pressable>
             </View>
