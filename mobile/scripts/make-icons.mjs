@@ -142,6 +142,8 @@ mkdirSync(OUT, { recursive: true });
 const jobs = [
   // Full-bleed white plate: iOS and the generic icon.
   ['icon.png', 1024, { plate: WHITE, markFraction: 0.62 }],
+  // Native launch image: generous whitespace keeps the mark calm and centred.
+  ['splash-icon.png', 1024, { plate: WHITE, markFraction: 0.32 }],
   // Android adaptive: foreground is transparent and must stay inside the mask.
   ['android-icon-foreground.png', 1024, { plate: null, markFraction: 0.42 }],
   ['android-icon-background.png', 1024, { plate: WHITE, markFraction: 0 }],

@@ -11,7 +11,9 @@
       "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.flipd.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Flipd uses the camera only when you photograph an item for a listing.",
+        "NSPhotoLibraryUsageDescription": "Flipd uses selected photos and videos when you add listing images, a profile photo, or a message attachment."
       }
     },
     "android": {
@@ -33,6 +35,9 @@
       [
         "expo-splash-screen",
         {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }
       ],
