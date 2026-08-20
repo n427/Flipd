@@ -11,3 +11,4 @@ Tassel-handoff.zip
 # Supabase CLI scratch
 supabase/.temp/
 .gstack/
+.worktrees/
