@@ -18,6 +18,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ReportForm } from '@/components/ReportForm';
+import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { ConversationSkeleton } from '@/components/Skeletons';
 import { supabase } from '@/lib/supabase';
 import {
@@ -28,7 +30,7 @@ import {
   OutgoingAttachment,
 } from '@/lib/messages';
 import { attachmentError, MAX_ATTACHMENTS_PER_MESSAGE } from '@/lib/validation';
-import { priceLabel } from '@/lib/listings';
+import { priceLabel, reportUser, ReportReason } from '@/lib/listings';
 import { T, F, S } from '@/lib/theme';
 
 function timeLabel(iso: string) {
@@ -102,6 +104,8 @@ export default function ThreadScreen() {
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState<OutgoingAttachment[]>([]);
   const [sending, setSending] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
 
   const load = useCallback(async () => {
@@ -193,6 +197,20 @@ export default function ThreadScreen() {
     }
   };
 
+  const sendReport = async (reason: ReportReason, note: string) => {
+    if (!id || reporting) return;
+    setReporting(true);
+    try {
+      await reportUser({ threadId: id }, reason, note);
+      setReportOpen(false);
+      Alert.alert('Report sent', 'Thanks for letting us know. Reports are private.');
+    } catch (cause) {
+      Alert.alert('Could not send report', cause instanceof Error ? cause.message : 'Try again.');
+    } finally {
+      setReporting(false);
+    }
+  };
+
   if (state === 'loading') {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
@@ -217,7 +235,19 @@ export default function ThreadScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-      <ScreenHeader />
+      <ScreenHeader
+        right={
+          <Pressable
+            onPress={() => setReportOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Report this conversation"
+            hitSlop={10}
+            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Ionicons name="flag-outline" size={20} color={T.muted} />
+          </Pressable>
+        }
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -426,6 +456,15 @@ export default function ThreadScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+      <Sheet visible={reportOpen} onClose={() => setReportOpen(false)}>
+        <SheetGrabber />
+        <ReportForm
+          title="Report this conversation"
+          submitting={reporting}
+          onSubmit={sendReport}
+          onCancel={() => setReportOpen(false)}
+        />
+      </Sheet>
     </SafeAreaView>
   );
 }

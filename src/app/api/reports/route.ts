@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
+import { parseReportTarget } from '@/lib/report-target';
 
 const REASONS = ['scam', 'prohibited', 'harassment', 'other'];
 
@@ -10,10 +11,12 @@ export async function POST(req: NextRequest) {
   const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  const { listing_id, user_id, reason, note } = await req.json().catch(() => ({}));
-  if (!listing_id && !user_id) {
-    return NextResponse.json({ error: 'a listing or user target is required' }, { status: 400 });
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+  const target = parseReportTarget(body);
+  if (!target) {
+    return NextResponse.json({ error: 'exactly one report target is required' }, { status: 400 });
   }
+  const { reason, note } = body;
   if (typeof reason !== 'string' || !REASONS.includes(reason)) {
     return NextResponse.json({ error: 'pick a reason' }, { status: 400 });
   }
@@ -21,10 +24,22 @@ export async function POST(req: NextRequest) {
     ? `${reason}: ${note.trim().slice(0, 500)}`
     : reason;
 
+  if (target.kind === 'thread') {
+    const { data: thread } = await admin
+      .from('message_threads')
+      .select('buyer_id, seller_id')
+      .eq('id', target.id)
+      .maybeSingle();
+    if (!thread || (thread.buyer_id !== user.id && thread.seller_id !== user.id)) {
+      return NextResponse.json({ error: 'conversation not found' }, { status: 403 });
+    }
+  }
+
   const { error } = await admin.from('reports').insert({
     reporter_id: user.id,
-    target_listing_id: listing_id ?? null,
-    target_user_id: user_id ?? null,
+    target_listing_id: target.kind === 'listing' ? target.id : null,
+    target_user_id: target.kind === 'user' ? target.id : null,
+    target_thread_id: target.kind === 'thread' ? target.id : null,
     reason: fullReason,
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
