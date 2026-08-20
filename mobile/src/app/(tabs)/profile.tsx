@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { View, Text, FlatList, Pressable, RefreshControl, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MyProfileSkeleton } from '@/components/Skeletons';
 import { useSession } from '@/lib/session';
@@ -200,11 +200,11 @@ export default function Profile() {
           <View style={{ padding: 10, paddingTop: 24, gap: 8 }}>
             <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink, marginBottom: 2 }}>About</Text>
             <LinkRow icon="help-circle-outline" label="Support" onPress={() => router.push('/support')} />
-            <LinkRow icon="shield-checkmark-outline" label="Community Guidelines" onPress={() => router.push('/community-guidelines')} />
+            <LinkRow icon="shield-checkmark-outline" label="Community Guidelines" onPress={() => router.push('/community-guidelines' as Href)} />
             <LinkRow icon="document-text-outline" label="Terms of Service" onPress={() => router.push('/terms')} />
             <LinkRow icon="lock-closed-outline" label="Privacy Policy" onPress={() => router.push('/privacy')} />
             <View style={{ marginTop: 14 }}>
-              <LinkRow icon="trash-outline" label="Delete account" onPress={() => router.push('/delete-account')} />
+              <LinkRow icon="trash-outline" label="Delete account" onPress={() => router.push('/delete-account' as Href)} />
             </View>
             <Text style={{ fontFamily: F.regular, fontSize: 12, color: T.muted, textAlign: 'center', marginTop: 10 }}>
               © 2026 Flipd
