@@ -200,6 +200,9 @@ export default function Profile() {
             <LinkRow icon="help-circle-outline" label="Support" onPress={() => router.push('/support')} />
             <LinkRow icon="document-text-outline" label="Terms of Service" onPress={() => router.push('/terms')} />
             <LinkRow icon="lock-closed-outline" label="Privacy Policy" onPress={() => router.push('/privacy')} />
+            <View style={{ marginTop: 14 }}>
+              <LinkRow icon="trash-outline" label="Delete account" onPress={() => router.push('/delete-account')} />
+            </View>
             <Text style={{ fontFamily: F.regular, fontSize: 12, color: T.muted, textAlign: 'center', marginTop: 10 }}>
               © 2026 Flipd
             </Text>
