@@ -198,6 +198,7 @@ export default function Profile() {
           <View style={{ padding: 10, paddingTop: 24, gap: 8 }}>
             <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.ink, marginBottom: 2 }}>About</Text>
             <LinkRow icon="help-circle-outline" label="Support" onPress={() => router.push('/support')} />
+            <LinkRow icon="shield-checkmark-outline" label="Community Guidelines" onPress={() => router.push('/community-guidelines')} />
             <LinkRow icon="document-text-outline" label="Terms of Service" onPress={() => router.push('/terms')} />
             <LinkRow icon="lock-closed-outline" label="Privacy Policy" onPress={() => router.push('/privacy')} />
             <View style={{ marginTop: 14 }}>
