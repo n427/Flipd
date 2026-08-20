@@ -44,11 +44,13 @@
   },
   "scripts": {
     "start": "expo start",
+    "test": "vitest run",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "store:validate": "node scripts/validate-store-package.mjs"
   },
   "private": true
 }
