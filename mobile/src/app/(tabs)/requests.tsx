@@ -11,6 +11,7 @@ import { fetchThreads, ThreadSummary } from '@/lib/messages';
 import { useSession } from '@/lib/session';
 import { fetchSafetyReview, SafetyReview, fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest, rangeSince, FeedRange } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
+import { conversationThumbnail } from '@/lib/requestPresentation';
 import { T, F, S } from '@/lib/theme';
 
 // Status → label + colors (badge).
@@ -71,6 +72,7 @@ function Row({
   const canDecline = !!onRespond && (item.status === 'pending' || item.status === 'approved');
   // Either party can close out an approved deal.
   const canComplete = !!onComplete && item.status === 'approved';
+  const hasSecondaryActions = canApprove || canDecline || canComplete || Boolean(item.can_rate && onRate);
   const sub = [item.counterpart?.display_name, item.offer != null ? `Offer $${item.offer}` : null]
     .filter(Boolean)
     .join(' · ');
@@ -129,30 +131,28 @@ function Row({
         </Pressable>
       ) : null}
 
-      {/* Actions sit side by side: the primary one filled, the rest outlined. */}
-      {item.thread_id || canApprove || canDecline || canComplete || (item.can_rate && onRate) ? (
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-          {item.thread_id ? (
-            <Pressable
-              onPress={() => onOpenChat?.(item.thread_id!)}
-              style={{
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 7,
-                backgroundColor: '#fff',
-                borderWidth: 1.5,
-                borderColor: T.cardinal,
-                borderRadius: 12,
-                paddingVertical: 13,
-              }}
-            >
-              <Ionicons name="chatbubble-outline" size={16} color={T.cardinal} />
-              <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.cardinal }}>Open chat</Text>
-            </Pressable>
-          ) : null}
+      {item.thread_id ? (
+        <Pressable
+          onPress={() => onOpenChat?.(item.thread_id!)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 7,
+            backgroundColor: T.cardinal,
+            borderRadius: 12,
+            paddingVertical: 13,
+            marginTop: 14,
+          }}
+        >
+          <Ionicons name="chatbubble-outline" size={16} color="#fff" />
+          <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: '#fff' }}>Open chat</Text>
+        </Pressable>
+      ) : null}
 
+      {/* The two decision/status actions stay together beneath Open chat. */}
+      {item.thread_id || canApprove || canDecline || canComplete || (item.can_rate && onRate) ? (
+        hasSecondaryActions ? <View style={{ flexDirection: 'row', gap: 10, marginTop: item.thread_id ? 10 : 14 }}>
           {canApprove ? (
             <Pressable
               onPress={() => onRespond!('approve')}
@@ -238,7 +238,7 @@ function Row({
               <Text style={{ fontFamily: F.bold, fontSize: 14.5, color: T.ink }}>Rate</Text>
             </Pressable>
           ) : null}
-        </View>
+        </View> : null
       ) : null}
     </View>
   );
@@ -595,8 +595,10 @@ export default function Requests() {
             {...listProps}
             data={visibleThreads}
             keyExtractor={(t) => t.id}
-            renderItem={({ item }) => (
-              <Pressable
+            renderItem={({ item }) => {
+              const thumbnail = conversationThumbnail(item.listing_photo, item.counterpart?.avatar_url);
+              return (
+                <Pressable
                 onPress={() => router.push(`/messages/${item.id}`)}
                 style={{
                   flexDirection: 'row',
@@ -611,9 +613,13 @@ export default function Requests() {
                 }}
               >
                 <View style={{ width: 46, height: 46, borderRadius: 12, overflow: 'hidden', backgroundColor: T.fieldbg }}>
-                  {item.listing_photo ? (
-                    <Image source={{ uri: item.listing_photo }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-                  ) : null}
+                  {thumbnail ? (
+                    <Image source={{ uri: thumbnail }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                  ) : (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="chatbubble-ellipses-outline" size={20} color={T.muted} />
+                    </View>
+                  )}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text numberOfLines={1} style={{ fontFamily: F.bold, fontSize: 15, color: T.ink }}>
@@ -627,8 +633,9 @@ export default function Requests() {
                 {/* Unread is the only thing worth a marker here; the row already
                     reads as tappable. */}
                 {item.unread ? <View style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: T.cardinal }} /> : null}
-              </Pressable>
-            )}
+                </Pressable>
+              );
+            }}
           />
         ) : (
           <FlatList

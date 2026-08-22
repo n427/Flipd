@@ -30,7 +30,7 @@ export default function DeleteAccount() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-      <ScreenHeader title="Delete account" />
+      <ScreenHeader />
       <FormScroll
         contentContainerStyle={{
           paddingHorizontal: S.gutter,

@@ -1,6 +1,7 @@
-import { forwardRef } from 'react';
+import { forwardRef, useState } from 'react';
 import { View, Text, TextInput, TextInputProps, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { T, F } from '@/lib/theme';
+import { shouldShowFieldPlaceholder } from '@/lib/fieldPlaceholder';
 
 /**
  * TextInput with a placeholder that actually renders in Figtree.
@@ -18,8 +19,8 @@ export const Field = forwardRef<TextInput, TextInputProps & {
   placeholder?: string;
   /** Style for the wrapper; the input fills it. */
   containerStyle?: StyleProp<ViewStyle>;
-}>(function Field({ placeholder, containerStyle, style, value, multiline, ...rest }, ref) {
-  const empty = !value;
+}>(function Field({ placeholder, containerStyle, style, value, multiline, onFocus, onBlur, ...rest }, ref) {
+  const [focused, setFocused] = useState(false);
   // Mirror the font/size onto the overlay so it lines up with typed text.
   const flat = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : (style as TextStyle) ?? {};
 
@@ -29,10 +30,18 @@ export const Field = forwardRef<TextInput, TextInputProps & {
         ref={ref}
         value={value}
         multiline={multiline}
-        style={style}
+        style={[style, { textAlignVertical: multiline ? 'top' : 'center' }]}
+        onFocus={(event) => {
+          setFocused(true);
+          onFocus?.(event);
+        }}
+        onBlur={(event) => {
+          setFocused(false);
+          onBlur?.(event);
+        }}
         {...rest}
       />
-      {empty && placeholder ? (
+      {shouldShowFieldPlaceholder(value, focused) && placeholder ? (
         <Text
           pointerEvents="none"
           numberOfLines={1}
@@ -43,6 +52,7 @@ export const Field = forwardRef<TextInput, TextInputProps & {
             right: flat.paddingHorizontal ?? flat.padding ?? 0,
             fontFamily: flat.fontFamily ?? F.medium,
             fontSize: flat.fontSize ?? 15,
+            lineHeight: flat.lineHeight ?? Math.round((flat.fontSize ?? 15) * 1.3),
             color: T.muted,
           }}
         >
