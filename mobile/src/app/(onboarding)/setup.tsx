@@ -246,7 +246,7 @@ export default function Setup() {
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
       <FormScroll contentContainerStyle={{ paddingHorizontal: 20, paddingTop: S.screenTop, paddingBottom: S.screenBottom }}>
         <Text style={{ fontFamily: F.black, fontSize: 22, color: T.ink, letterSpacing: -0.9 }}>
-          Flipd<Text style={{ color: T.gold }}>.</Text>
+          Flipd<Text style={{ color: T.cardinal }}>.</Text>
         </Text>
 
         {legalOnly ? (

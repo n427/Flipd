@@ -14,6 +14,7 @@ import {
 } from '@expo-google-fonts/figtree';
 import { SessionProvider, useSession } from '@/lib/session';
 import { openDeepLink } from '@/lib/nav';
+import { routeAllowedDuringOnboarding } from '@/lib/onboardingRoute';
 import { UnreadProvider } from '@/lib/unread';
 import { T } from '@/lib/theme';
 
@@ -48,7 +49,8 @@ function AuthWatcher() {
     if (onboarded === 'unknown') return;
     if (onboarded === 'no') {
       // New user: setup comes before the app, whichever way they got here.
-      if (group !== '(onboarding)') router.replace('/(onboarding)/setup');
+      const currentRoot = group ? `/${group}` : '/';
+      if (!routeAllowedDuringOnboarding(currentRoot)) router.replace('/(onboarding)/setup');
     } else if (group === '(auth)' || group === '(onboarding)') {
       router.replace('/(tabs)/feed');
     }

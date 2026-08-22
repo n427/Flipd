@@ -9,9 +9,10 @@
 // Run: node scripts/make-icons.mjs
 
 import { deflateSync } from 'node:zlib';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'images');
 
@@ -21,13 +22,13 @@ const WHITE = [255, 255, 255];
 
 // Geometry in the SVG's 32x32 user space.
 const F_RECTS = [
-  [4.5, 4, 10, 28], // stem
-  [10, 4, 19.5, 9.5], // top arm
-  [10, 13.5, 17.5, 18.75], // middle arm
+  [8.5, 4, 14, 28], // stem
+  [14, 4, 23.5, 9.5], // top arm
+  [14, 13.5, 21.5, 18.75], // middle arm
 ];
-const DOT = { cx: 24.5, cy: 25, r: 3 };
+const DOT = { cx: 23.5, cy: 25.5, r: 2.25 };
 // The mark's own bounds inside that space, used to centre it on the plate.
-const MARK = { x0: 4.5, y0: 4, x1: 27.5, y1: 28 };
+const MARK = { x0: 8.5, y0: 4, x1: 25.75, y1: 28 };
 
 const SS = 4; // supersampling factor per axis
 
@@ -142,8 +143,6 @@ mkdirSync(OUT, { recursive: true });
 const jobs = [
   // Full-bleed white plate: iOS and the generic icon.
   ['icon.png', 1024, { plate: WHITE, markFraction: 0.62 }],
-  // Native launch image: generous whitespace keeps the mark calm and centred.
-  ['splash-icon.png', 1024, { plate: WHITE, markFraction: 0.32 }],
   // Android adaptive: foreground is transparent and must stay inside the mask.
   ['android-icon-foreground.png', 1024, { plate: null, markFraction: 0.42 }],
   ['android-icon-background.png', 1024, { plate: WHITE, markFraction: 0 }],
@@ -153,6 +152,33 @@ const jobs = [
 
 for (const [name, size, opts] of jobs) {
   const buf = render(size, opts);
-  writeFileSync(join(OUT, name), buf);
-  console.log(`${name.padEnd(30)} ${size}x${size}  ${(buf.length / 1024).toFixed(1)} KB`);
+  // Full-bleed store icons must not carry an alpha channel, even when every
+  // alpha value is opaque. Transparent adaptive foregrounds keep RGBA.
+  const out = opts.plate ? await sharp(buf).removeAlpha().png().toBuffer() : buf;
+  writeFileSync(join(OUT, name), out);
+  console.log(`${name.padEnd(30)} ${size}x${size}  ${(out.length / 1024).toFixed(1)} KB`);
 }
+
+// The native splash uses the same full wordmark as the React loading screen,
+// preventing an F -> Flipd visual jump during cold start. Embed Figtree so the
+// raster is deterministic even when the host does not have the font installed.
+const fontPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'node_modules',
+  '@expo-google-fonts',
+  'figtree',
+  '900Black',
+  'Figtree_900Black.ttf',
+);
+const fontData = readFileSync(fontPath).toString('base64');
+const splashSvg = `
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    @font-face { font-family: Figtree; src: url(data:font/ttf;base64,${fontData}); font-weight: 900; }
+  </style>
+  <rect width="1024" height="1024" fill="#ffffff"/>
+  <text x="512" y="586" text-anchor="middle" font-family="Figtree" font-size="230" font-weight="900" letter-spacing="-7" fill="#111111">Flipd<tspan fill="#990000">.</tspan></text>
+</svg>`;
+await sharp(Buffer.from(splashSvg)).removeAlpha().png().toFile(join(OUT, 'splash-icon.png'));
+console.log('splash-icon.png'.padEnd(30), '1024x1024  wordmark');
