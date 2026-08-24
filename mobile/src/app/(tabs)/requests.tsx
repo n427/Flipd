@@ -8,6 +8,7 @@ import { ListRowsSkeleton } from '@/components/Skeletons';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
 import { SafetyCard } from '@/components/SafetyCard';
 import { fetchThreads, ThreadSummary } from '@/lib/messages';
+import { deleteThread } from '@/lib/conversationDeletion';
 import { useSession } from '@/lib/session';
 import { fetchSafetyReview, SafetyReview, fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest, rangeSince, FeedRange } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
@@ -280,6 +281,7 @@ export default function Requests() {
   // Confirmation sheet for completing a deal, and an inline error line —
   // both replace native Alerts, which felt out of place in the app.
   const [completing, setCompleting] = useState<RevealRequest | null>(null);
+  const [deletingThread, setDeletingThread] = useState<ThreadSummary | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   // AI review of the person who sent an incoming request, so a seller can
   // check who is asking before approving.
@@ -380,6 +382,23 @@ export default function Requests() {
       setBusyId(null);
     }
   }, [completing, load, refreshBadge]);
+
+  const confirmDeleteThread = useCallback(async () => {
+    const thread = deletingThread;
+    if (!thread) return;
+    setDeletingThread(null);
+    setBusyId(thread.id);
+    setActionError(null);
+    try {
+      await deleteThread(thread.id);
+      await load();
+      refreshBadge();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not delete this conversation. Try again.');
+    } finally {
+      setBusyId(null);
+    }
+  }, [deletingThread, load, refreshBadge]);
 
   // --- Rating sheet ---
   const [rateFor, setRateFor] = useState<RevealRequest | null>(null);
@@ -633,6 +652,23 @@ export default function Requests() {
                 {/* Unread is the only thing worth a marker here; the row already
                     reads as tappable. */}
                 {item.unread ? <View style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: T.cardinal }} /> : null}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete conversation about ${item.listing_title}`}
+                  disabled={busyId === item.id}
+                  hitSlop={8}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    setDeletingThread(item);
+                  }}
+                  style={{ padding: 6, opacity: busyId === item.id ? 0.45 : 1 }}
+                >
+                  {busyId === item.id ? (
+                    <ActivityIndicator size="small" color={T.muted} />
+                  ) : (
+                    <Ionicons name="trash-outline" size={19} color={T.danger} />
+                  )}
+                </Pressable>
                 </Pressable>
               );
             }}
@@ -728,6 +764,27 @@ export default function Requests() {
         </View>
       </Sheet>
 
+      <Sheet visible={!!deletingThread} onClose={() => setDeletingThread(null)}>
+        <SheetGrabber />
+        <View>
+          <Text style={{ fontFamily: F.extrabold, fontSize: 19, color: T.ink, letterSpacing: -0.3 }}>
+            Delete this conversation?
+          </Text>
+          <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6, lineHeight: 20 }}>
+            This permanently removes the chat and its messages for both people.
+          </Text>
+          <Pressable
+            onPress={confirmDeleteThread}
+            style={{ marginTop: 20, backgroundColor: T.danger, borderRadius: 14, paddingVertical: 15, alignItems: 'center' }}
+          >
+            <Text style={{ fontFamily: F.bold, fontSize: 15.5, color: '#fff' }}>Delete conversation</Text>
+          </Pressable>
+          <Pressable onPress={() => setDeletingThread(null)} style={{ marginTop: 14, alignItems: 'center' }}>
+            <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 14.5 }}>Cancel</Text>
+          </Pressable>
+        </View>
+      </Sheet>
+
       {/* AI review of whoever sent an incoming request. Read-only: the
           Approve/Decline buttons stay on the row itself. */}
       <Sheet visible={!!reviewing} onClose={() => setReviewing(null)}>
@@ -772,7 +829,7 @@ export default function Requests() {
               Decline {declining?.counterpart?.display_name?.split(' ')[0] || 'this request'}?
             </Text>
             <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6, lineHeight: 20 }}>
-              Adding a reason is optional, and it helps them know whether to try again.
+              This also permanently deletes the associated conversation. Adding a reason is optional.
             </Text>
             {DECLINE_REASONS.map((r) => (
               <Pressable

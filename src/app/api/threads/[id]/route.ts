@@ -92,3 +92,21 @@ export async function GET(
     })),
   });
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const user = await getRequestUser(req);
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  // loadThreadForUser deliberately returns null for both missing threads and
+  // non-participants, avoiding a thread-existence leak.
+  const thread = await loadThreadForUser(id, user.id);
+  if (!thread) return NextResponse.json({ error: 'not found' }, { status: 404 });
+
+  const { error } = await admin.from('message_threads').delete().eq('id', thread.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return new NextResponse(null, { status: 204 });
+}

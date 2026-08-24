@@ -3,6 +3,7 @@ import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { effectiveRevealStatus, type RevealStatus } from '@/lib/validation';
 import { approvedEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail, wantsPush } from '@/lib/notify';
+import { deleteConversationForRequest } from '@/lib/conversation-deletion';
 
 const DECLINE_REASONS = ['bad_timing', 'already_sold', 'not_enough_info'];
 
@@ -41,8 +42,8 @@ export async function PATCH(
   } else if (action === 'decline') {
     // Decline stays available after approval: talking to someone is not a
     // commitment, and without this a seller who changed their mind had no way
-    // to close the request. The thread is deliberately left alone — a
-    // conversation outlives the request that created it.
+    // to close the request. Any conversation opened by the approval is removed
+    // below so the request and conversation cannot disagree about being open.
     if (status !== 'pending' && status !== 'approved') {
       return NextResponse.json({ error: `request is already ${status}` }, { status: 409 });
     }
@@ -61,6 +62,20 @@ export async function PATCH(
     .select('id, status')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // A declined request is closed everywhere. message_threads owns messages
+  // and attachment metadata through cascading foreign keys, so removing the
+  // linked thread also removes the conversation history.
+  if (action === 'decline') {
+    try {
+      await deleteConversationForRequest(admin, existing.id);
+    } catch (threadError) {
+      return NextResponse.json(
+        { error: threadError instanceof Error ? threadError.message : 'Could not delete conversation' },
+        { status: 500 },
+      );
+    }
+  }
 
   // Event 2: approval opens a thread. No contact details change hands — the
   // conversation happens in Flipd, and the notification points at it.
