@@ -88,9 +88,6 @@ async function run(): Promise<Record<string, number>> {
     const { data: sellerIds, error: expiryError } = await admin.rpc('expire_wanted_post', {
       target_post_id: post.id,
       expired_at: now.toISOString(),
-      event_key_value: wantedNotificationKey('expired', post.id),
-      event_title: 'Wanted request expired',
-      event_body: `“${post.title}” expired, so its open offers were closed.`,
     });
     if (expiryError) throw new Error(expiryError.message);
     const recipients = (sellerIds ?? []) as string[];

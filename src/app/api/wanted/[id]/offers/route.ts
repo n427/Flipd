@@ -3,10 +3,6 @@ import { getRequestUser } from '@/lib/supabase/authAny';
 import { admin } from '@/lib/supabase/admin';
 import { blockedUserIdsFromLookup } from '@/lib/wanted';
 import {
-  persistWantedNotificationSafely,
-  wantedNotificationKey,
-} from '@/lib/notify';
-import {
   canonicalizeWantedOfferId,
   hasWantedOfferPhotoPrefix,
   parseWantedOfferInput,
@@ -139,22 +135,6 @@ export async function POST(
     .eq('seller_id', user.id)
     .single();
   if (savedError || !saved) return NextResponse.json({ error: 'unable to load wanted offer' }, { status: 500 });
-
-  const { data: post, error: notificationPostError } = await admin
-    .from('wanted_posts')
-    .select('title,buyer_id')
-    .eq('id', wantedPostId)
-    .single();
-  if (notificationPostError) console.error('[notify] unable to load wanted post title', notificationPostError);
-  await persistWantedNotificationSafely({
-    eventKey: wantedNotificationKey('new-offer', saved.id),
-    userId: saved.buyer_id,
-    eventType: 'new-offer',
-    wantedPostId,
-    wantedOfferId: saved.id,
-    title: 'New offer received',
-    body: `You received a new offer for “${post?.title ?? 'your wanted request'}”.`,
-  });
 
   try {
     return NextResponse.json({ wanted_offer: await offerDto(saved as WantedOfferRow, user.id) }, { status: 201 });

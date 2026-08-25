@@ -3,7 +3,6 @@ import { getRequestUser } from '@/lib/supabase/authAny';
 import { admin as supabase } from '@/lib/supabase/admin';
 import { blockedUserIdsFromLookup, toPublicWantedPost, parseWantedPostInput } from '@/lib/wanted';
 import { effectiveWantedStatus } from '@/lib/wanted-contract';
-import { persistWantedNotificationSafely, wantedNotificationKey } from '@/lib/notify';
 
 const WANTED_SELECT = 'id,buyer_id,title,category,max_budget,description,location,photo_urls,needed_by,status,created_at,updated_at,resolved_at,offers:wanted_offers(count)';
 const EDITABLE_FIELDS = new Set(['title', 'category', 'max_budget', 'description', 'location', 'photo_urls', 'needed_by']);
@@ -91,21 +90,6 @@ export async function PATCH(
     .select(WANTED_SELECT)
     .single();
   if (error || !data) return NextResponse.json({ error: error?.message || 'unable to update wanted post' }, { status: 409 });
-  const { data: pendingOffers, error: notificationOffersError } = await supabase
-    .from('wanted_offers')
-    .select('id,seller_id')
-    .eq('wanted_post_id', id)
-    .eq('status', 'pending');
-  if (notificationOffersError) console.error('[notify] unable to load wanted edit recipients', notificationOffersError);
-  await Promise.all((pendingOffers ?? []).map((offer) => persistWantedNotificationSafely({
-    eventKey: wantedNotificationKey('edit', id, data.updated_at),
-    userId: offer.seller_id,
-    eventType: 'edit',
-    wantedPostId: id,
-    wantedOfferId: offer.id,
-    title: 'Wanted request updated',
-    body: `“${data.title}” was updated. Review it before your offer closes.`,
-  })));
   return NextResponse.json({ wanted_post: toPublicWantedPost(data) });
 }
 

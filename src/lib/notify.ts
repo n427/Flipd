@@ -22,43 +22,6 @@ export function wantedNotificationKey(
   return `wanted:${kind}:${sourceId}${version === undefined ? '' : `:${version}`}`;
 }
 
-export type WantedNotification = {
-  eventKey: string;
-  userId: string;
-  eventType: WantedNotificationKind;
-  wantedPostId: string;
-  wantedOfferId?: string;
-  title: string;
-  body: string;
-};
-
-// The unique (event_key, user_id) constraint turns route retries into a no-op.
-// Callers deliberately invoke this only after their business transaction has
-// committed; a notification failure must never roll back an offer or edit.
-export async function persistWantedNotification(event: WantedNotification): Promise<void> {
-  const { error } = await admin.from('notification_events').upsert({
-    event_key: event.eventKey,
-    user_id: event.userId,
-    event_type: event.eventType,
-    wanted_post_id: event.wantedPostId,
-    wanted_offer_id: event.wantedOfferId ?? null,
-    title: event.title,
-    body: event.body,
-  }, { onConflict: 'event_key,user_id', ignoreDuplicates: true });
-  if (error) throw new Error(error.message);
-}
-
-export async function persistWantedNotificationSafely(event: WantedNotification): Promise<void> {
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      await persistWantedNotification(event);
-      return;
-    } catch (error) {
-      console.error(`[notify] wanted event ${event.eventKey} failed (attempt ${attempt})`, error);
-    }
-  }
-}
-
 // A digest match, as produced by src/lib/digest/match.ts. Duplicated here
 // rather than imported so notify stays the lower layer with no dependency on
 // the digest feature — see the same rationale on popupReminderEmail's stage

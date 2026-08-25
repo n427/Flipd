@@ -36,6 +36,115 @@ create policy "notification_events_update_own" on public.notification_events
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
+-- Offer notifications are a transactional outbox: every successful offer
+-- write commits its durable event in the same transaction. This sees the exact
+-- rows changed while holding the parent lock, including competitors closed by
+-- acceptance and offers closed by post deletion.
+create or replace function public.persist_wanted_offer_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  post_title text;
+  next_key text;
+  next_type text;
+  recipient_id uuid;
+  event_title text;
+  event_body text;
+begin
+  select title into post_title from public.wanted_posts where id = new.wanted_post_id;
+
+  if tg_op = 'INSERT' and new.status = 'pending' then
+    next_key := 'wanted:new-offer:' || new.id::text;
+    next_type := 'new-offer';
+    recipient_id := new.buyer_id;
+    event_title := 'New offer received';
+    event_body := 'You received a new offer for “' || post_title || '”.';
+  elsif tg_op = 'INSERT' then
+    return new;
+  elsif old.status = 'withdrawn' and new.status = 'pending' then
+    next_key := 'wanted:new-offer:' || new.id::text;
+    next_type := 'new-offer';
+    recipient_id := new.buyer_id;
+    event_title := 'New offer received';
+    event_body := 'You received a new offer for “' || post_title || '”.';
+  elsif old.status = 'pending' and new.status = 'accepted' then
+    next_key := 'wanted:accepted:' || new.id::text;
+    next_type := 'accepted';
+    recipient_id := new.seller_id;
+    event_title := 'Offer accepted';
+    event_body := 'Your offer for “' || post_title || '” was accepted. Your chat is ready.';
+  elsif old.status = 'pending' and new.status = 'declined' then
+    next_key := 'wanted:declined:' || new.id::text;
+    next_type := 'declined';
+    recipient_id := new.seller_id;
+    event_title := 'Offer closed';
+    event_body := 'Your offer for “' || post_title || '” was closed.';
+  elsif old.status = 'pending' and new.status = 'expired' then
+    next_key := 'wanted:expired:' || new.wanted_post_id::text;
+    next_type := 'expired';
+    recipient_id := new.seller_id;
+    event_title := 'Wanted request expired';
+    event_body := '“' || post_title || '” expired, so your offer was closed.';
+  else
+    return new;
+  end if;
+
+  insert into public.notification_events (
+    event_key, user_id, event_type, wanted_post_id, wanted_offer_id, title, body
+  ) values (
+    next_key, recipient_id, next_type, new.wanted_post_id, new.id, event_title, event_body
+  ) on conflict (event_key, user_id) do nothing;
+  return new;
+end;
+$$;
+
+create trigger wanted_offer_notification_events
+  after insert or update of status on public.wanted_offers
+  for each row execute function public.persist_wanted_offer_notification();
+
+-- Only changes that can affect a seller's decision produce an edit event.
+-- Title/category/reference-photo changes are deliberately cosmetic here.
+create or replace function public.persist_wanted_material_edit_notifications()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  -- MATERIAL_EDIT_GUARD_START
+  if old.status = 'active' and new.status = 'active' and (
+    old.max_budget is distinct from new.max_budget
+    or old.description is distinct from new.description
+    or old.location is distinct from new.location
+    or old.needed_by is distinct from new.needed_by
+  ) then
+  -- MATERIAL_EDIT_GUARD_END
+    insert into public.notification_events (
+      event_key, user_id, event_type, wanted_post_id, wanted_offer_id, title, body
+    )
+    select
+      'wanted:edit:' || new.id::text || ':' || new.updated_at::text,
+      offer.seller_id,
+      'edit',
+      new.id,
+      offer.id,
+      'Wanted request updated',
+      '“' || new.title || '” was updated. Review it before your offer closes.'
+    from public.wanted_offers as offer
+    where offer.wanted_post_id = new.id and offer.status = 'pending'
+    on conflict (event_key, user_id) do nothing;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger wanted_post_material_edit_notification_events
+  after update on public.wanted_posts
+  for each row execute function public.persist_wanted_material_edit_notifications();
+
 -- Claiming and persisting happen in one transaction. If event insertion fails,
 -- reminder_sent_at remains null and the next sweep can retry safely.
 create or replace function public.claim_wanted_reminder(
@@ -84,10 +193,7 @@ $$;
 -- pending offers and inserting seller events is a single commit.
 create or replace function public.expire_wanted_post(
   target_post_id uuid,
-  expired_at timestamptz,
-  event_key_value text,
-  event_title text,
-  event_body text
+  expired_at timestamptz
 )
 returns uuid[]
 language plpgsql
@@ -118,18 +224,13 @@ begin
      set status = 'expired', resolved_at = expired_at
    where id = locked_post.id;
 
-  insert into public.notification_events (
-    event_key, user_id, event_type, wanted_post_id, title, body
-  )
-  select event_key_value, seller_id, 'expired', locked_post.id, event_title, event_body
-    from unnest(affected_sellers) as recipients(seller_id)
-  on conflict (event_key, user_id) do nothing;
-
   return affected_sellers;
 end;
 $$;
 
 revoke all on function public.claim_wanted_reminder(uuid, uuid, text, text, text, timestamptz) from public, anon, authenticated;
-revoke all on function public.expire_wanted_post(uuid, timestamptz, text, text, text) from public, anon, authenticated;
+revoke all on function public.persist_wanted_offer_notification() from public, anon, authenticated;
+revoke all on function public.persist_wanted_material_edit_notifications() from public, anon, authenticated;
+revoke all on function public.expire_wanted_post(uuid, timestamptz) from public, anon, authenticated;
 grant execute on function public.claim_wanted_reminder(uuid, uuid, text, text, text, timestamptz) to service_role;
-grant execute on function public.expire_wanted_post(uuid, timestamptz, text, text, text) to service_role;
+grant execute on function public.expire_wanted_post(uuid, timestamptz) to service_role;
