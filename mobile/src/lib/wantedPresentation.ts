@@ -49,6 +49,23 @@ export function wantedOfferActions(input: { role: 'buyer' | 'seller'; offerStatu
   return ['report'];
 }
 
+export function wantedOfferEntryState(input: { owner: boolean; postStatus: WantedPostStatus; requestedId?: string; existing?: { id: string; role: 'buyer' | 'seller'; status: WantedOfferStatus } }) {
+  if (input.owner) return { kind: 'blocked' as const, message: 'You cannot offer on your own request.' };
+  if (input.postStatus !== 'active') return { kind: 'blocked' as const, message: 'This request is closed.' };
+  const offer = input.existing;
+  if (!input.requestedId) {
+    if (!offer) return { kind: 'new' as const };
+    if (offer.role === 'seller' && (offer.status === 'pending' || offer.status === 'withdrawn')) {
+      return { kind: 'redirect' as const, offerId: offer.id, label: offer.status === 'withdrawn' ? 'Resubmit withdrawn offer' : 'Edit existing offer' };
+    }
+    return { kind: 'blocked' as const, message: 'You already have an offer record for this request.' };
+  }
+  if (!offer || offer.id !== input.requestedId || offer.role !== 'seller') return { kind: 'blocked' as const, message: 'This offer is unavailable or you do not have access.' };
+  if (offer.status === 'pending') return { kind: 'edit' as const };
+  if (offer.status === 'withdrawn') return { kind: 'resubmit' as const };
+  return { kind: 'blocked' as const, message: 'Only your pending or withdrawn offer can be changed.' };
+}
+
 export function referencePhotoPath(url: string, ownerId: string): string | null {
   try {
     const marker = '/storage/v1/object/public/wanted-reference-photos/';

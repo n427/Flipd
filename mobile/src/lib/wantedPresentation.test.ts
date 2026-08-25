@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { losAngelesEndOfDayUtc, referencePhotoPath, wantedActionState, wantedCardCopy, wantedOfferActions, wantedOfferStatusLabel } from './wantedPresentation';
+import { losAngelesEndOfDayUtc, referencePhotoPath, wantedActionState, wantedCardCopy, wantedOfferActions, wantedOfferEntryState, wantedOfferStatusLabel } from './wantedPresentation';
 
 describe('mobile Wanted presentation', () => {
   it('formats the same public card copy as web', () => {
@@ -48,5 +48,14 @@ describe('mobile Wanted presentation', () => {
   it('extracts only owned reference storage paths', () => {
     expect(referencePhotoPath('https://x.supabase.co/storage/v1/object/public/wanted-reference-photos/user-id/folder/photo.jpg', 'user-id')).toBe('user-id/folder/photo.jpg');
     expect(referencePhotoPath('https://x.supabase.co/storage/v1/object/public/wanted-reference-photos/other/photo.jpg', 'user-id')).toBeNull();
+  });
+
+  it('fails closed before enabling an offer entry mode', () => {
+    expect(wantedOfferEntryState({ owner: false, postStatus: 'active' })).toEqual({ kind: 'new' });
+    expect(wantedOfferEntryState({ owner: true, postStatus: 'active' })).toEqual({ kind: 'blocked', message: 'You cannot offer on your own request.' });
+    expect(wantedOfferEntryState({ owner: false, postStatus: 'fulfilled' })).toEqual({ kind: 'blocked', message: 'This request is closed.' });
+    expect(wantedOfferEntryState({ owner: false, postStatus: 'active', existing: { id: 'o1', role: 'seller', status: 'withdrawn' } })).toEqual({ kind: 'redirect', offerId: 'o1', label: 'Resubmit withdrawn offer' });
+    expect(wantedOfferEntryState({ owner: false, postStatus: 'active', requestedId: 'o1', existing: { id: 'o1', role: 'seller', status: 'withdrawn' } })).toEqual({ kind: 'resubmit' });
+    expect(wantedOfferEntryState({ owner: false, postStatus: 'active', requestedId: 'o1', existing: { id: 'o1', role: 'buyer', status: 'pending' } })).toEqual({ kind: 'blocked', message: 'This offer is unavailable or you do not have access.' });
   });
 });

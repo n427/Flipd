@@ -7,7 +7,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Field } from '@/components/Field';
 import { FormScroll } from '@/components/FormScroll';
-import { cleanupWantedPhotos, createWantedOffer, fetchWantedOffersForPost, updateWantedOffer, uploadWantedPhotos, WantedOffer } from '@/lib/wanted';
+import { cleanupWantedPhotos, createWantedOffer, fetchWantedOffersForPost, fetchWantedPost, updateWantedOffer, uploadWantedPhotos, WantedOffer } from '@/lib/wanted';
+import { wantedOfferEntryState } from '@/lib/wantedPresentation';
 import { useUnread } from '@/lib/unread';
 import { F, T } from '@/lib/theme';
 
@@ -19,7 +20,8 @@ export default function WantedOfferScreen() {
   const { width } = useWindowDimensions();
   const tile = (width - 60) / 3;
   const [initial, setInitial] = useState<WantedOffer | null>(null);
-  const [initialState, setInitialState] = useState<'loading' | 'ready' | 'error'>(offerId ? 'loading' : 'ready');
+  const [initialState, setInitialState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [redirectOffer, setRedirectOffer] = useState<{ id: string; label: string } | null>(null);
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [message, setMessage] = useState('');
@@ -29,18 +31,22 @@ export default function WantedOfferScreen() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!offerId || !id) return;
+    if (!id) return;
     setInitialState('loading');
-    fetchWantedOffersForPost(id).then((rows) => {
-      const item = rows.find((row) => row.id === offerId);
-      if (!item) { setError('This offer is unavailable or you do not have access.'); setInitialState('error'); return; }
-      if (item.role !== 'seller' || (item.status !== 'pending' && item.status !== 'withdrawn')) {
-        setError('Only your pending or withdrawn offer can be changed.'); setInitialState('error'); return;
+    setError(''); setRedirectOffer(null);
+    Promise.all([fetchWantedPost(id), fetchWantedOffersForPost(id)]).then(([detail, rows]) => {
+      const requested = offerId ? rows.find((row) => row.id === offerId) : undefined;
+      const existing = requested ?? rows.find((row) => row.role === 'seller') ?? rows[0];
+      const entry = wantedOfferEntryState({ owner: Boolean(detail.management), postStatus: detail.wanted_post.status, requestedId: offerId, existing });
+      if (entry.kind === 'blocked') { setError(entry.message); setInitialState('error'); return; }
+      if (entry.kind === 'redirect') { setRedirectOffer({ id: entry.offerId, label: entry.label }); setError('Use your existing offer record to continue.'); setInitialState('error'); return; }
+      if (entry.kind === 'edit' || entry.kind === 'resubmit') {
+        if (!existing) { setError('This offer is unavailable or you do not have access.'); setInitialState('error'); return; }
+        setInitial(existing); setPrice(String(existing.price)); setDescription(existing.description); setMessage(existing.message);
+        setRetained(existing.photo_paths.map((path, index) => ({ path, url: existing.photo_urls[index] })));
       }
-      setInitial(item); setPrice(String(item.price)); setDescription(item.description); setMessage(item.message);
-      setRetained(item.photo_paths.map((path, index) => ({ path, url: item.photo_urls[index] })));
       setInitialState('ready');
-    }).catch(() => { setError('Could not load your offer.'); setInitialState('error'); });
+    }).catch(() => { setError('Could not verify this request and your offers.'); setInitialState('error'); });
   }, [id, offerId]);
 
   const pick = async () => {
@@ -83,6 +89,7 @@ export default function WantedOfferScreen() {
       <Text style={label}>Message to the buyer</Text><Field value={message} onChangeText={setMessage} multiline maxLength={1000} placeholder="Why is this a good match?" style={[input, { height: 100, paddingTop: 13 }]} />
       {initialState === 'loading' ? <Text style={{ fontFamily: F.medium, color: T.muted, marginTop: 14 }}>Loading your offer…</Text> : null}
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: F.medium, color: T.cardinal, marginTop: 14 }}>{error}</Text> : null}
+      {redirectOffer ? <Pressable accessibilityRole="button" accessibilityLabel={redirectOffer.label} onPress={() => router.replace(`/wanted/${id}/offer?offerId=${redirectOffer.id}`)} style={{ borderWidth: 1, borderColor: T.rule, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 14 }}><Text style={{ fontFamily: F.bold, color: T.ink }}>{redirectOffer.label}</Text></Pressable> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Save Wanted offer" accessibilityState={{ disabled: busy || initialState !== 'ready', busy }} disabled={busy || initialState !== 'ready'} onPress={submit} style={{ backgroundColor: T.cardinal, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 22, opacity: busy || initialState !== 'ready' ? .5 : 1 }}><Text style={{ fontFamily: F.bold, color: '#fff' }}>{busy ? 'Saving…' : initial?.status === 'pending' ? 'Save offer' : 'Send private offer'}</Text></Pressable>
     </FormScroll>
   </View>;

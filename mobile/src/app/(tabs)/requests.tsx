@@ -16,6 +16,7 @@ import { conversationThumbnail } from '@/lib/requestPresentation';
 import { WantedOfferRow } from '@/components/WantedOfferRow';
 import { acceptWantedOffer, completeWantedOffer, fetchWantedOffers, rateWantedOffer, reportWantedTarget, resolveWantedOffer, WantedOffer } from '@/lib/wanted';
 import { ReportForm } from '@/components/ReportForm';
+import { isCurrentWantedRequest } from '@/lib/wantedRequestState';
 import { T, F, S } from '@/lib/theme';
 
 // Status → label + colors (badge).
@@ -357,9 +358,9 @@ export default function Requests() {
   }, [load, refreshBadge]));
 
   useEffect(() => {
-    if (params.tab === 'wanted' || params.tab === 'sale') setTab(params.tab);
-    if (params.direction === 'received' || params.direction === 'sent') setDirection(params.direction);
-  }, [params.tab, params.direction]);
+    if ((params.tab === 'wanted' || params.tab === 'sale') && params.tab !== tab) setTab(params.tab);
+    if ((params.direction === 'received' || params.direction === 'sent') && params.direction !== direction) { ++loadGeneration.current; setDirection(params.direction); void load(); }
+  }, [params.tab, params.direction, tab, direction, load]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -588,7 +589,7 @@ export default function Requests() {
       </View>
 
       {tab !== 'conversations' ? <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-        {(['received', 'sent'] as Direction[]).map((item) => <Pressable key={item} accessibilityRole="tab" accessibilityLabel={`${item} requests`} accessibilityState={{ selected: direction === item }} onPress={() => setDirection(item)} style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, backgroundColor: direction === item ? T.ink : T.fieldbg }}><Text style={{ fontFamily: F.bold, fontSize: 13, color: direction === item ? '#fff' : T.muted }}>{item === 'received' ? 'Received' : 'Sent'}</Text></Pressable>)}
+        {(['received', 'sent'] as Direction[]).map((item) => <Pressable key={item} accessibilityRole="tab" accessibilityLabel={`${item} requests`} accessibilityState={{ selected: direction === item }} onPress={() => { if (direction !== item) { ++loadGeneration.current; setDirection(item); } }} style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, backgroundColor: direction === item ? T.ink : T.fieldbg }}><Text style={{ fontFamily: F.bold, fontSize: 13, color: direction === item ? '#fff' : T.muted }}>{item === 'received' ? 'Received' : 'Sent'}</Text></Pressable>)}
       </View> : null}
 
       {/* Sits directly above the list it filters rather than competing with
@@ -724,18 +725,20 @@ export default function Requests() {
             keyExtractor={(item) => item.id}
             onEndReached={async () => {
               const cursor = wantedNext[direction]; const rootGeneration = loadGeneration.current; const pageKey = `${rootGeneration}:${direction}:${cursor}`;
+              const requestIdentity = { generation: rootGeneration, direction, cursor };
+              const currentIdentity = () => ({ generation: loadGeneration.current, direction, cursor: wantedNext[direction] });
               if (!cursor || wantedPaging.current.has(pageKey)) return;
               wantedPaging.current.add(pageKey);
               try {
                 const result = await fetchWantedOffers(direction, cursor);
-                if (rootGeneration !== loadGeneration.current) return;
+                if (!isCurrentWantedRequest(currentIdentity(), requestIdentity)) return;
                 setWantedNext((current) => {
-                  if (rootGeneration !== loadGeneration.current || current[direction] !== cursor) return current;
+                  if (!isCurrentWantedRequest({ generation: loadGeneration.current, direction, cursor: current[direction] }, requestIdentity)) return current;
                   const append = (all: WantedOffer[]) => [...all, ...result.wanted_offers.filter((offer) => !all.some((item) => item.id === offer.id))];
                   if (direction === 'received') setWantedReceived(append); else setWantedSent(append);
                   return { ...current, [direction]: result.next_cursor };
                 });
-              } catch { setActionError('Could not load more Wanted offers. Tap to retry.'); }
+              } catch { if (isCurrentWantedRequest(currentIdentity(), requestIdentity)) setActionError('Could not load more Wanted offers. Tap to retry.'); }
               finally { wantedPaging.current.delete(pageKey); }
             }}
             renderItem={({ item }) => {
