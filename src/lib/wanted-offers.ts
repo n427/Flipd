@@ -16,6 +16,8 @@ export interface WantedOfferDTO {
   description: string;
   message: string;
   photo_urls: string[];
+  /** Participant-only storage identities used to retain/remove photos on edit. */
+  photo_paths: string[];
   status: WantedOfferStatus;
   created_at: string;
   updated_at: string;
@@ -96,6 +98,17 @@ export function canMutateWantedOffer(status: WantedOfferStatus): boolean {
   return status === 'pending';
 }
 
+export function mergeWantedOfferPhotoPaths(existing: string[], removed: string[], uploaded: string[]): string[] | null {
+  const removedSet = new Set(removed);
+  const merged = [...existing.filter((path) => !removedSet.has(path)), ...uploaded];
+  return merged.length >= 1 && merged.length <= 6 && new Set(merged).size === merged.length ? merged : null;
+}
+
+export function supersededWantedOfferPhotoPaths(previous: string[], next: string[]): string[] {
+  const retained = new Set(next);
+  return previous.filter((path) => !retained.has(path));
+}
+
 /**
  * Storage paths are part of the authorization boundary. The suffix must be a
  * real nested object name; accepting another offer ID (or path traversal-ish
@@ -158,6 +171,7 @@ export function toParticipantWantedOffer(
     description: row.description,
     message: row.message,
     photo_urls: photoUrls,
+    photo_paths: [...(row.photo_paths ?? [])],
     status: row.status,
     created_at: row.created_at,
     updated_at: row.updated_at,

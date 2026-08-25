@@ -316,11 +316,16 @@ function WantedOffersPanel({ direction, onDirection }: { direction: WantedOfferD
   const [offers, setOffers] = React.useState<WantedOfferDTO[] | null>(null);
   const [error, setError] = React.useState('');
   const [editing, setEditing] = React.useState<WantedOfferDTO | null>(null);
-  const load = React.useCallback(() => {
-    setError(''); setOffers(null);
-    wantedClient.offers(direction).then((result) => setOffers(result.wanted_offers)).catch((cause) => {
-      setOffers([]); setError(cause instanceof Error ? cause.message : 'Could not load Wanted offers.');
-    });
+  const [cursor, setCursor] = React.useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  const load = React.useCallback((next?: string) => {
+    setError(''); if (next) setLoadingMore(true); else setOffers(null);
+    wantedClient.offers(direction, next).then((result) => {
+      setOffers((current) => next ? [...(current ?? []), ...result.wanted_offers] : result.wanted_offers);
+      setCursor(result.next_cursor);
+    }).catch((cause) => {
+      if (!next) setOffers([]); setError(cause instanceof Error ? cause.message : 'Could not load Wanted offers.');
+    }).finally(() => setLoadingMore(false));
   }, [direction]);
   React.useEffect(() => { load(); }, [load]);
   const replace = (next: WantedOfferDTO) => setOffers((all) => all?.map((offer) => offer.id === next.id ? next : offer) ?? all);
@@ -330,16 +335,18 @@ function WantedOffersPanel({ direction, onDirection }: { direction: WantedOfferD
   };
   return <div className="req-panel">
     <div className="req-head"><strong>{direction === 'received' ? 'Offers on your Wanted posts' : 'Offers you sent'}</strong><div className="wanted-direction" role="tablist" aria-label="Wanted offer direction"><button role="tab" aria-selected={direction === 'received'} onClick={() => onDirection('received')}>Received</button><button role="tab" aria-selected={direction === 'sent'} onClick={() => onDirection('sent')}>Sent</button></div></div>
-    {error && <div className="wanted-error" role="alert">{error} <button onClick={load}>Try again</button></div>}
+    {error && <div className="wanted-error" role="alert">{error} <button onClick={() => load()}>Try again</button></div>}
     {offers === null ? <ListRowsSkeleton count={3} /> : offers.length === 0 ? <EmptyPanel title={`No ${direction} offers`} body={direction === 'received' ? 'Offers from sellers will appear here.' : 'Offers you make on Wanted posts will appear here.'} /> : offers.map((offer) => <div className="wanted-offer-row" key={offer.id}>
       <div className="wanted-offer-row__photo">{offer.photo_urls[0] && <img src={offer.photo_urls[0]} alt="Private offer" />}</div>
       <div className="wanted-offer-row__body"><Link href={`/wanted/${offer.wanted_post_id}`}>{offer.wanted_post?.title ?? 'Wanted request'}</Link><strong>${offer.price.toLocaleString('en-US')}</strong><p>{offer.description}</p><blockquote>{offer.message}</blockquote></div>
       <div className="wanted-offer-row__actions"><span className="wanted-status">{wantedOfferStatusLabel(offer.status)}</span>
         {offer.status === 'pending' && direction === 'received' && <><Button onClick={() => act(async () => { const result = await wantedClient.acceptOffer(offer.id); router.push(`/requests?tab=conversations&thread=${result.thread_id}`); })}>Accept &amp; open chat</Button><Button kind="outline" onClick={() => act(async () => replace((await wantedClient.resolveOffer(offer.id, 'decline')).wanted_offer))}>Decline</Button></>}
         {offer.status === 'pending' && direction === 'sent' && <><Button onClick={() => setEditing(offer)}>Edit</Button><Button kind="outline" onClick={() => act(async () => replace((await wantedClient.resolveOffer(offer.id, 'withdraw')).wanted_offer))}>Withdraw</Button></>}
+        {offer.status === 'withdrawn' && direction === 'sent' && <Button onClick={() => setEditing(offer)}>Send again</Button>}
       </div>
       {editing?.id === offer.id && <div className="wanted-offer-row__edit"><WantedOfferForm postId={offer.wanted_post_id} initial={offer} onCancel={() => setEditing(null)} onSaved={(saved) => { replace(saved); setEditing(null); }} /></div>}
     </div>)}
+    {cursor && <div className="wanted-more"><Button kind="outline" disabled={loadingMore} onClick={() => load(cursor)}>{loadingMore ? 'Loading…' : 'Load more'}</Button></div>}
   </div>;
 }
 
@@ -399,7 +406,7 @@ function RequestsInner() {
     } else if (wantedTab === 'wanted') {
       setTab('wanted'); setWantedDirection(wantedDirectionParam === 'sent' ? 'sent' : 'received');
     } else if (wantedTab === 'incoming' || wantedTab === 'outgoing' || wantedTab === 'sale') {
-      setTab('sale'); if (wantedTab === 'outgoing') setSaleDirection('outgoing');
+      setTab('sale'); setSaleDirection(wantedTab === 'outgoing' ? 'outgoing' : 'incoming');
     } else if (wantedTab === 'conversations') {
       setTab('conversations');
     }

@@ -49,3 +49,10 @@ export function wantedDateInput(timestamp: string): string {
   const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${value.year}-${value.month}-${value.day}`;
 }
+
+export function minimumWantedDate(now = new Date()): string {
+  const current = wantedDateInput(now.toISOString());
+  const [year, month, day] = current.split('-').map(Number);
+  const tomorrow = new Date(Date.UTC(year, month - 1, day + 1));
+  return tomorrow.toISOString().slice(0, 10);
+}

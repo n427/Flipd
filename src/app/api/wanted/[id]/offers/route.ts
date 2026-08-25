@@ -81,7 +81,7 @@ export async function GET(
       .eq('seller_id', user.id)
       .maybeSingle();
     if (error) return NextResponse.json({ error: 'unable to load wanted offers' }, { status: 500 });
-    if (!data) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    if (!data) return NextResponse.json({ wanted_offers: [] });
     rows = [data as WantedOfferRow];
   }
 

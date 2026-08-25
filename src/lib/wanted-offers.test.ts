@@ -5,6 +5,8 @@ import {
   hasWantedOfferPhotoPrefix,
   parseWantedOfferInput,
   wantedOfferRpcErrorStatus,
+  mergeWantedOfferPhotoPaths,
+  supersededWantedOfferPhotoPaths,
 } from './wanted-offers';
 
 describe('Wanted offers', () => {
@@ -56,5 +58,15 @@ describe('Wanted offers', () => {
     expect(wantedOfferRpcErrorStatus({ code: '40P01' })).toBe(409);
     expect(wantedOfferRpcErrorStatus({ code: '55P03' })).toBe(503);
     expect(wantedOfferRpcErrorStatus({ code: 'XX000' })).toBe(500);
+  });
+
+  it('retains existing photos, supports explicit removal, and appends new uploads', () => {
+    expect(mergeWantedOfferPhotoPaths(['a', 'b'], ['a'], ['c'])).toEqual(['b', 'c']);
+    expect(mergeWantedOfferPhotoPaths(['a'], [], [])).toEqual(['a']);
+    expect(mergeWantedOfferPhotoPaths(['a', 'b'], ['a'], ['b', 'c'])).toBeNull();
+  });
+
+  it('cleans only paths superseded by a successful mutation', () => {
+    expect(supersededWantedOfferPhotoPaths(['a', 'b'], ['b', 'c'])).toEqual(['a']);
   });
 });

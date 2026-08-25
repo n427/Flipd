@@ -4,7 +4,7 @@ import React from 'react';
 import { LocationPicker } from './LocationPicker';
 import { Button } from './ui';
 import { wantedClient } from '@/lib/wanted-client';
-import { losAngelesEndOfDayUtc, wantedDateInput, wantedRequiredFieldHints } from '@/lib/wanted-presentation';
+import { losAngelesEndOfDayUtc, minimumWantedDate, wantedDateInput, wantedRequiredFieldHints } from '@/lib/wanted-presentation';
 import type { WantedPostDTO, WantedPostInput } from '@/lib/types';
 
 export function WantedPostForm({ initial, submitLabel = 'Post request', onSubmit, onCancel }: {
@@ -23,7 +23,7 @@ export function WantedPostForm({ initial, submitLabel = 'Post request', onSubmit
   const [existingPhotos, setExistingPhotos] = React.useState(initial?.photo_urls ?? []);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
-  const [minimumDate] = React.useState(() => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10));
+  const [minimumDate] = React.useState(() => minimumWantedDate());
   const previews = React.useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
   React.useEffect(() => () => previews.forEach(URL.revokeObjectURL), [previews]);
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { admin } from '@/lib/supabase/admin';
 import { canonicalizeWantedOfferId } from '@/lib/wanted-offers';
+import { validateWantedCleanupPaths } from '@/lib/wanted-upload-cleanup';
 
 const TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -48,10 +49,24 @@ export async function DELETE(req: NextRequest) {
   const body = await req.json().catch(() => null) as { mode?: unknown; paths?: unknown } | null;
   const mode = body?.mode;
   const paths = Array.isArray(body?.paths) ? body.paths.filter((path): path is string => typeof path === 'string') : [];
-  if ((mode !== 'reference' && mode !== 'offer') || paths.length < 1 || paths.length > 6
-    || paths.some((path) => !path.startsWith(`${user.id}/`))) {
+  if ((mode !== 'reference' && mode !== 'offer') || paths.length < 1 || paths.length > 6) {
     return NextResponse.json({ error: 'invalid cleanup request' }, { status: 400 });
   }
-  const { error } = await admin.storage.from(mode === 'offer' ? 'wanted-offer-photos' : 'wanted-reference-photos').remove(paths);
+  let referenced = new Set<string>();
+  let referenceError: unknown | null = null;
+  if (mode === 'offer') {
+    const lookup = await admin.from('wanted_offers').select('photo_paths').overlaps('photo_paths', paths);
+    referenceError = lookup.error;
+    referenced = new Set((lookup.data ?? []).flatMap((row) => row.photo_paths ?? []));
+  } else {
+    const bucket = admin.storage.from('wanted-reference-photos');
+    const byUrl = new Map(paths.map((path) => [bucket.getPublicUrl(path).data.publicUrl, path]));
+    const lookup = await admin.from('wanted_posts').select('photo_urls').overlaps('photo_urls', [...byUrl.keys()]);
+    referenceError = lookup.error;
+    referenced = new Set((lookup.data ?? []).flatMap((row) => row.photo_urls ?? []).map((url) => byUrl.get(url)).filter((path): path is string => Boolean(path)));
+  }
+  const removable = validateWantedCleanupPaths(paths, user.id, referenced, referenceError);
+  if (!removable) return NextResponse.json({ error: 'photos are referenced or ownership could not be verified' }, { status: 409 });
+  const { error } = await admin.storage.from(mode === 'offer' ? 'wanted-offer-photos' : 'wanted-reference-photos').remove(removable);
   return error ? NextResponse.json({ error: 'unable to remove photos' }, { status: 500 }) : NextResponse.json({ ok: true });
 }

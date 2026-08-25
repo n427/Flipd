@@ -4,6 +4,7 @@ import {
   wantedOfferStatusLabel,
   wantedRequiredFieldHints,
   wantedDateInput,
+  minimumWantedDate,
 } from './wanted-presentation';
 
 describe('Wanted presentation', () => {
@@ -44,5 +45,9 @@ describe('Wanted presentation', () => {
 
   it('round-trips a Los Angeles end-of-day deadline to its calendar date', () => {
     expect(wantedDateInput('2026-09-02T06:59:59.000Z')).toBe('2026-09-01');
+  });
+
+  it('derives tomorrow from the Los Angeles calendar at the UTC date boundary', () => {
+    expect(minimumWantedDate(new Date('2026-08-26T06:30:00.000Z'))).toBe('2026-08-26');
   });
 });

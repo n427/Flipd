@@ -116,8 +116,10 @@ export const wantedClient = {
   async deletePost(id: string) {
     return requestJson<{ ok: true }>(`/api/wanted/${id}`, { method: 'DELETE' });
   },
-  async offers(direction: WantedOfferDirection) {
-    return requestJson<{ wanted_offers: WantedOfferDTO[] }>(wantedOffersUrl(direction));
+  async offers(direction: WantedOfferDirection, cursor?: string) {
+    const url = new URL(wantedOffersUrl(direction), 'https://flipd.invalid');
+    if (cursor) url.searchParams.set('cursor', cursor);
+    return requestJson<{ wanted_offers: WantedOfferDTO[]; next_cursor: string | null }>(`${url.pathname}${url.search}`);
   },
   async offersForPost(postId: string) {
     return requestJson<{ wanted_offers: WantedOfferDTO[] }>(`/api/wanted/${postId}/offers`);
