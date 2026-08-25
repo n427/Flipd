@@ -158,6 +158,7 @@ Indexes cover active recency, category, buyer history, budget, and deadline. RLS
 - `photo_paths text[] not null`
 - `status text not null` constrained to `pending`, `accepted`, `declined`, `withdrawn`, `expired`
 - `created_at`, `updated_at`, and `resolved_at`
+- `completed_at` nullable timestamp; an accepted offer is a completed transaction when this is set, without adding a conflicting offer-resolution status
 
 A uniqueness constraint prevents multiple live offers by one seller on one post. Policies expose an offer only to its buyer and seller. Public queries never return private offer media or text.
 
