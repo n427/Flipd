@@ -5,3 +5,11 @@ export function isCurrentWantedRequest(current: WantedRequestIdentity, request: 
     && (request.direction === undefined || current.direction === request.direction)
     && (request.cursor === undefined || current.cursor === request.cursor);
 }
+
+export function isCurrentWantedOfferLoad(
+  current: { key: string; generation: number },
+  request: { key: string; generation: number },
+  cancelled: boolean,
+): boolean {
+  return !cancelled && current.key === request.key && current.generation === request.generation;
+}

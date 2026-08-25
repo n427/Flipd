@@ -11,6 +11,7 @@ import { cleanupWantedPhotos, createWantedOffer, fetchWantedOffersForPost, fetch
 import { wantedOfferEntryState, wantedOfferMutationId } from '@/lib/wantedPresentation';
 import { useUnread } from '@/lib/unread';
 import { F, T } from '@/lib/theme';
+import { isCurrentWantedOfferLoad } from '@/lib/wantedRequestState';
 
 export default function WantedOfferScreen() {
   const { id, offerId } = useLocalSearchParams<{ id: string; offerId?: string }>();
@@ -19,6 +20,9 @@ export default function WantedOfferScreen() {
   const generatedNewOfferUuid = useRef(globalThis.crypto.randomUUID()).current;
   const offerUuid = wantedOfferMutationId(offerId, generatedNewOfferUuid);
   const routeModeKey = offerId ?? 'new';
+  const currentRouteModeKey = useRef(routeModeKey);
+  currentRouteModeKey.current = routeModeKey;
+  const offerLoadGeneration = useRef(0);
   const { width } = useWindowDimensions();
   const tile = (width - 60) / 3;
   const [initial, setInitial] = useState<WantedOffer | null>(null);
@@ -35,11 +39,19 @@ export default function WantedOfferScreen() {
 
   useEffect(() => {
     if (!id) return;
+    const generation = ++offerLoadGeneration.current;
+    const requestIdentity = { key: routeModeKey, generation };
+    let cancelled = false;
+    const isCurrent = () => isCurrentWantedOfferLoad(
+      { key: currentRouteModeKey.current, generation: offerLoadGeneration.current }, requestIdentity, cancelled,
+    );
     setInitialState('loading');
     setValidatedModeKey(null);
+    setBusy(false);
     setInitial(null); setPrice(''); setDescription(''); setMessage(''); setPhotos([]); setRetained([]);
     setError(''); setRedirectOffer(null);
     Promise.all([fetchWantedPost(id), fetchWantedOffersForPost(id)]).then(([detail, rows]) => {
+      if (!isCurrent()) return;
       const requested = offerId ? rows.find((row) => row.id === offerId) : undefined;
       const existing = requested ?? rows.find((row) => row.role === 'seller') ?? rows[0];
       const entry = wantedOfferEntryState({ owner: Boolean(detail.management), postStatus: detail.wanted_post.status, requestedId: offerId, existing });
@@ -51,34 +63,49 @@ export default function WantedOfferScreen() {
         setRetained(existing.photo_paths.map((path, index) => ({ path, url: existing.photo_urls[index] })));
       }
       setValidatedModeKey(routeModeKey); setInitialState('ready');
-    }).catch(() => { setError('Could not verify this request and your offers.'); setInitialState('error'); });
+    }).catch(() => { if (!isCurrent()) return; setError('Could not verify this request and your offers.'); setInitialState('error'); });
+    return () => {
+      cancelled = true;
+    };
   }, [id, offerId, routeModeKey]);
 
   const pick = async () => {
+    const pickModeKey = routeModeKey;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (currentRouteModeKey.current !== pickModeKey) return;
     if (!permission.granted) return Alert.alert('Permission needed', 'Allow photo access to show what you are offering.');
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: .8, allowsEditing: true, aspect: [1, 1] });
-    if (!result.canceled) setPhotos((all) => [...all, result.assets[0].uri].slice(0, 6 - retained.length));
+    if (currentRouteModeKey.current === pickModeKey && !result.canceled) setPhotos((all) => [...all, result.assets[0].uri].slice(0, 6 - retained.length));
   };
 
   const submit = async () => {
     if (initialState !== 'ready' || validatedModeKey !== routeModeKey) return;
+    const submitModeKey = routeModeKey;
+    const submitOfferUuid = offerUuid;
+    const submitInitial = initial;
+    const isSubmitCurrent = () => currentRouteModeKey.current === submitModeKey;
     const amount = Number(price);
     if (!Number.isSafeInteger(amount) || amount <= 0 || !description.trim() || !message.trim() || retained.length + photos.length < 1) { setError('Add at least one photo, a whole-dollar price, description, and message.'); return; }
     setBusy(true); setError('');
     let upload: { paths: string[] } | null = null;
     try {
-      if (photos.length) upload = await uploadWantedPhotos(photos.map((uri, index) => ({ uri, name: `offer-${Date.now()}-${index}.jpg`, type: 'image/jpeg' })), 'offer', offerUuid);
+      if (photos.length) upload = await uploadWantedPhotos(photos.map((uri, index) => ({ uri, name: `offer-${Date.now()}-${index}.jpg`, type: 'image/jpeg' })), 'offer', submitOfferUuid);
+      if (!isSubmitCurrent()) {
+        if (upload?.paths.length) await cleanupWantedPhotos(upload.paths, 'offer').catch(() => {});
+        return;
+      }
       const photoPaths = [...retained.map((item) => item.path), ...(upload?.paths ?? [])];
-      const saved = initial?.status === 'pending'
-        ? await updateWantedOffer(initial.id, { price: amount, description, message, photo_paths: photoPaths })
-        : await createWantedOffer(id, { id: offerUuid, price: amount, description, message, photo_paths: photoPaths });
-      const superseded = (initial?.photo_paths ?? []).filter((path) => !saved.photo_paths.includes(path));
+      const saved = submitInitial?.status === 'pending'
+        ? await updateWantedOffer(submitInitial.id, { price: amount, description, message, photo_paths: photoPaths })
+        : await createWantedOffer(id, { id: submitOfferUuid, price: amount, description, message, photo_paths: photoPaths });
+      const superseded = (submitInitial?.photo_paths ?? []).filter((path) => !saved.photo_paths.includes(path));
       if (superseded.length) await cleanupWantedPhotos(superseded, 'offer').catch(() => {});
+      if (!isSubmitCurrent()) return;
       refreshBadge();
       router.replace('/(tabs)/requests?tab=wanted&direction=sent');
     } catch (cause) {
       if (upload?.paths.length) await cleanupWantedPhotos(upload.paths, 'offer').catch(() => {});
+      if (!isSubmitCurrent()) return;
       setError(cause instanceof Error ? cause.message : 'Could not save your offer.');
       setBusy(false);
     }
