@@ -1,4 +1,5 @@
 import { admin } from '@/lib/supabase/admin';
+import { parseTransactionSource } from '@/lib/wanted-transition';
 
 // Shared helpers for the thread/message routes.
 
@@ -9,7 +10,8 @@ export const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 export type ThreadRow = {
   id: string;
-  request_id: string;
+  request_id: string | null;
+  wanted_offer_id: string | null;
   listing_id: string | null;
   listing_title: string | null;
   buyer_id: string;
@@ -29,12 +31,15 @@ export async function loadThreadForUser(
 ): Promise<ThreadRow | null> {
   const { data } = await admin
     .from('message_threads')
-    .select('id, request_id, listing_id, listing_title, buyer_id, seller_id, created_at, last_message_at, buyer_seen_at, seller_seen_at')
+    .select('id, request_id, wanted_offer_id, listing_id, listing_title, buyer_id, seller_id, created_at, last_message_at, buyer_seen_at, seller_seen_at')
     .eq('id', threadId)
     .single();
   if (!data) return null;
   const row = data as ThreadRow;
   if (row.buyer_id !== userId && row.seller_id !== userId) return null;
+  if (!parseTransactionSource(row)) {
+    throw new Error('message thread must have exactly one transaction source');
+  }
   return row;
 }
 
