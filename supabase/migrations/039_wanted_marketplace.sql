@@ -11,7 +11,7 @@ create table public.wanted_posts (
   description text not null check (char_length(trim(description)) between 1 and 2000),
   location text not null check (char_length(trim(location)) between 1 and 160),
   place_name text, lat double precision, lng double precision,
-  photo_urls text[] not null default '{}',
+  photo_urls text[] not null default '{}' check (cardinality(photo_urls) <= 6),
   needed_by timestamptz not null,
   status text not null default 'active' check (status in ('active','fulfilled','expired','deleted')),
   created_at timestamptz not null default now(),
@@ -43,6 +43,44 @@ create index wanted_posts_buyer_idx on public.wanted_posts(buyer_id, created_at 
 create index wanted_offers_buyer_idx on public.wanted_offers(buyer_id, status, created_at desc);
 create index wanted_offers_seller_idx on public.wanted_offers(seller_id, status, created_at desc);
 
+-- `now()` is deliberately not a CHECK constraint here: PostgreSQL assumes
+-- CHECK expressions are immutable, while a deadline needs to be re-evaluated
+-- for each insert and whenever the editable deadline changes.
+create or replace function public.validate_wanted_post_deadline()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.needed_by <= clock_timestamp() then
+    raise exception 'wanted post needed_by must be in the future'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger wanted_posts_require_future_needed_by
+  before insert or update of needed_by on public.wanted_posts
+  for each row execute function public.validate_wanted_post_deadline();
+
+create or replace function public.set_wanted_post_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new is distinct from old then
+    new.updated_at = clock_timestamp();
+  end if;
+  return new;
+end;
+$$;
+
+create trigger wanted_posts_set_updated_at
+  before update on public.wanted_posts
+  for each row execute function public.set_wanted_post_updated_at();
+
 -- Direct client reads support mobile/realtime. Mutations that resolve posts or
 -- offers stay in API routes using the service role, so clients cannot forge a
 -- status transition, change the buyer/seller identity, or set completed_at.
@@ -65,9 +103,31 @@ grant select on public.wanted_offers to authenticated;
 alter table public.wanted_posts enable row level security;
 alter table public.wanted_offers enable row level security;
 
+-- `blocks` has owner-only RLS, so the active-post policy cannot inspect both
+-- directions through a normal subquery. This narrowly scoped function runs as
+-- the migration owner, reads only existence, and still uses the caller's auth
+-- context to evaluate both sides of the relationship.
+create or replace function public.wanted_users_are_blocked(other_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.blocks
+    where (blocker_id = auth.uid() and blocked_id = other_user_id)
+       or (blocker_id = other_user_id and blocked_id = auth.uid())
+  );
+$$;
+
+revoke all on function public.wanted_users_are_blocked(uuid) from public, anon, authenticated;
+grant execute on function public.wanted_users_are_blocked(uuid) to authenticated;
+
 create policy "wanted_posts_select_active" on public.wanted_posts
   for select to authenticated
-  using (status = 'active');
+  using (status = 'active' and not public.wanted_users_are_blocked(buyer_id));
 
 create policy "wanted_posts_select_owner" on public.wanted_posts
   for select to authenticated
