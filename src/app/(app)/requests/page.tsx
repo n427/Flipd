@@ -17,6 +17,10 @@ import { rangeSince } from '@/lib/store';
 import { timeLeftLabel, swapCountLabel, conversationHref } from '@/lib/validation';
 import type { ActivityItem, FeedRange } from '@/lib/types';
 import { ListRowsSkeleton } from '@/components/Skeletons';
+import { WantedOfferForm } from '@/components/WantedOfferForm';
+import { wantedClient, type WantedOfferDirection } from '@/lib/wanted-client';
+import { wantedOfferStatusLabel } from '@/lib/wanted-presentation';
+import type { WantedOfferDTO } from '@/lib/wanted-offers';
 
 // Offered when declining. Optional — declining stays a single tap — but a
 // reason keeps the loop useful for the buyer without feeling punitive.
@@ -29,12 +33,12 @@ const DECLINE_REASONS = [
 // Three tabs rather than a two-column grid. Incoming and outgoing requests are
 // different jobs with different actions, and stacking them in one column buried
 // whichever came second.
-type Tab = 'conversations' | 'incoming' | 'outgoing';
+type Tab = 'conversations' | 'sale' | 'wanted';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'conversations', label: 'Conversations' },
-  { id: 'incoming', label: 'Want to talk' },
-  { id: 'outgoing', label: 'You sent' },
+  { id: 'sale', label: 'Sale requests' },
+  { id: 'wanted', label: 'Wanted offers' },
 ];
 
 // A request that is over stays readable but does not need to sit above the ones
@@ -307,6 +311,38 @@ function BuyerReview({ userId }: { userId: string }) {
   );
 }
 
+function WantedOffersPanel({ direction, onDirection }: { direction: WantedOfferDirection; onDirection: (value: WantedOfferDirection) => void }) {
+  const router = useRouter();
+  const [offers, setOffers] = React.useState<WantedOfferDTO[] | null>(null);
+  const [error, setError] = React.useState('');
+  const [editing, setEditing] = React.useState<WantedOfferDTO | null>(null);
+  const load = React.useCallback(() => {
+    setError(''); setOffers(null);
+    wantedClient.offers(direction).then((result) => setOffers(result.wanted_offers)).catch((cause) => {
+      setOffers([]); setError(cause instanceof Error ? cause.message : 'Could not load Wanted offers.');
+    });
+  }, [direction]);
+  React.useEffect(() => { load(); }, [load]);
+  const replace = (next: WantedOfferDTO) => setOffers((all) => all?.map((offer) => offer.id === next.id ? next : offer) ?? all);
+  const act = async (work: () => Promise<void>) => {
+    setError('');
+    try { await work(); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not update this offer.'); }
+  };
+  return <div className="req-panel">
+    <div className="req-head"><strong>{direction === 'received' ? 'Offers on your Wanted posts' : 'Offers you sent'}</strong><div className="wanted-direction" role="tablist" aria-label="Wanted offer direction"><button role="tab" aria-selected={direction === 'received'} onClick={() => onDirection('received')}>Received</button><button role="tab" aria-selected={direction === 'sent'} onClick={() => onDirection('sent')}>Sent</button></div></div>
+    {error && <div className="wanted-error" role="alert">{error} <button onClick={load}>Try again</button></div>}
+    {offers === null ? <ListRowsSkeleton count={3} /> : offers.length === 0 ? <EmptyPanel title={`No ${direction} offers`} body={direction === 'received' ? 'Offers from sellers will appear here.' : 'Offers you make on Wanted posts will appear here.'} /> : offers.map((offer) => <div className="wanted-offer-row" key={offer.id}>
+      <div className="wanted-offer-row__photo">{offer.photo_urls[0] && <img src={offer.photo_urls[0]} alt="Private offer" />}</div>
+      <div className="wanted-offer-row__body"><Link href={`/wanted/${offer.wanted_post_id}`}>{offer.wanted_post?.title ?? 'Wanted request'}</Link><strong>${offer.price.toLocaleString('en-US')}</strong><p>{offer.description}</p><blockquote>{offer.message}</blockquote></div>
+      <div className="wanted-offer-row__actions"><span className="wanted-status">{wantedOfferStatusLabel(offer.status)}</span>
+        {offer.status === 'pending' && direction === 'received' && <><Button onClick={() => act(async () => { const result = await wantedClient.acceptOffer(offer.id); router.push(`/requests?tab=conversations&thread=${result.thread_id}`); })}>Accept &amp; open chat</Button><Button kind="outline" onClick={() => act(async () => replace((await wantedClient.resolveOffer(offer.id, 'decline')).wanted_offer))}>Decline</Button></>}
+        {offer.status === 'pending' && direction === 'sent' && <><Button onClick={() => setEditing(offer)}>Edit</Button><Button kind="outline" onClick={() => act(async () => replace((await wantedClient.resolveOffer(offer.id, 'withdraw')).wanted_offer))}>Withdraw</Button></>}
+      </div>
+      {editing?.id === offer.id && <div className="wanted-offer-row__edit"><WantedOfferForm postId={offer.wanted_post_id} initial={offer} onCancel={() => setEditing(null)} onSaved={(saved) => { replace(saved); setEditing(null); }} /></div>}
+    </div>)}
+  </div>;
+}
+
 function RequestsInner() {
   const router = useRouter();
   const params = useSearchParams();
@@ -316,12 +352,16 @@ function RequestsInner() {
   // in place rather than on its own page.
   const wantedTab = params.get('tab');
   const wantedThread = params.get('thread');
+  const wantedDirectionParam = params.get('direction');
   const [tab, setTab] = React.useState<Tab>(
     wantedThread ? 'conversations'
-      : wantedTab === 'incoming' || wantedTab === 'outgoing' || wantedTab === 'conversations'
-        ? wantedTab
+      : wantedTab === 'wanted' ? 'wanted'
+        : wantedTab === 'incoming' || wantedTab === 'outgoing' || wantedTab === 'sale' ? 'sale'
+          : wantedTab === 'conversations' ? 'conversations'
         : 'conversations',
   );
+  const [saleDirection, setSaleDirection] = React.useState<'incoming' | 'outgoing'>(wantedTab === 'outgoing' ? 'outgoing' : 'incoming');
+  const [wantedDirection, setWantedDirection] = React.useState<WantedOfferDirection>(wantedDirectionParam === 'sent' ? 'sent' : 'received');
   // Requests pile up and old ones are rarely what you came for, so the list
   // opens on the last week. Same options and helper as the feed's Posted filter.
   const [range, setRange] = React.useState<FeedRange>('month');
@@ -356,10 +396,14 @@ function RequestsInner() {
     if (wantedThread) {
       setTab('conversations');
       openConversation(wantedThread);
-    } else if (wantedTab === 'incoming' || wantedTab === 'outgoing' || wantedTab === 'conversations') {
-      setTab(wantedTab);
+    } else if (wantedTab === 'wanted') {
+      setTab('wanted'); setWantedDirection(wantedDirectionParam === 'sent' ? 'sent' : 'received');
+    } else if (wantedTab === 'incoming' || wantedTab === 'outgoing' || wantedTab === 'sale') {
+      setTab('sale'); if (wantedTab === 'outgoing') setSaleDirection('outgoing');
+    } else if (wantedTab === 'conversations') {
+      setTab('conversations');
     }
-  }, [wantedThread, wantedTab, openConversation]);
+  }, [wantedThread, wantedTab, wantedDirectionParam, openConversation]);
 
   const since = rangeSince(range);
   const inWindow = (a: ActivityItem) => {
@@ -473,7 +517,7 @@ function RequestsInner() {
 
         <div className="seg" role="tablist" aria-label="Requests sections">
           {TABS.map((t) => {
-            const count = t.id === 'incoming' ? pendingIncoming : t.id === 'outgoing' ? outgoing.length : 0;
+            const count = t.id === 'sale' ? pendingIncoming : 0;
             return (
               <button
                 key={t.id}
@@ -484,7 +528,7 @@ function RequestsInner() {
               >
                 <span className="tab-label" data-label={t.label}><span>{t.label}</span></span>
                 {count > 0 && (
-                  <span className={t.id === 'incoming' ? 'seg-count' : 'seg-count seg-count--quiet'}>
+                  <span className={t.id === 'sale' ? 'seg-count' : 'seg-count seg-count--quiet'}>
                     {count}
                   </span>
                 )}
@@ -542,7 +586,9 @@ function RequestsInner() {
         </div>
       )}
 
-      {tab === 'incoming' && (
+      {tab === 'sale' && <div className="wanted-subtabs" role="tablist" aria-label="Sale request direction"><button role="tab" aria-selected={saleDirection === 'incoming'} onClick={() => setSaleDirection('incoming')}>Received</button><button role="tab" aria-selected={saleDirection === 'outgoing'} onClick={() => setSaleDirection('outgoing')}>Sent</button></div>}
+
+      {tab === 'sale' && saleDirection === 'incoming' && (
         <div className="req-panel">
           <PanelHead title="Waiting on you" count={liveIncoming.length} filter={rangeFilter} />
 
@@ -591,7 +637,7 @@ function RequestsInner() {
         </div>
       )}
 
-      {tab === 'outgoing' && (
+      {tab === 'sale' && saleDirection === 'outgoing' && (
         <div className="req-panel">
           <PanelHead title="Waiting on them" count={liveOutgoing.length} filter={rangeFilter} />
 
@@ -638,6 +684,8 @@ function RequestsInner() {
           )}
         </div>
       )}
+
+      {tab === 'wanted' && <WantedOffersPanel direction={wantedDirection} onDirection={setWantedDirection} />}
 
       {confirmSold && (
         <div onClick={() => setConfirmSold(null)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(17,17,17,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>

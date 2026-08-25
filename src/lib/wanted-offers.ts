@@ -23,6 +23,14 @@ export interface WantedOfferDTO {
   completed_at: string | null;
   role: 'buyer' | 'seller';
   counterpart_id: string;
+  wanted_post?: {
+    id: string;
+    title: string;
+    max_budget: number;
+    location: string;
+    needed_by: string;
+    status: string;
+  };
 }
 
 export type WantedOfferParseResult =

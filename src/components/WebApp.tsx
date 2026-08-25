@@ -123,7 +123,7 @@ export function WebAppHeader({
       <div className="web-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 18, marginLeft: 'auto' }}>
         <nav className="web-desktop-nav" aria-label="Main navigation">
           <a href="/feed" onClick={spaClick(onLogo)}>Feed</a>
-          <a href="/wanted" onClick={spaClick(onWanted)}>Wanted</a>
+          <Link href="/wanted" onClick={spaClick(onWanted)}>Wanted</Link>
           <a href="/requests" onClick={spaClick(onRequests)} aria-label={pendingCount > 0 ? `Requests and messages, ${pendingCount} pending` : 'Requests and messages'}>
             Requests &amp; Messages
             {pendingCount > 0 && <span aria-hidden className="web-nav-attention" />}
@@ -133,7 +133,7 @@ export function WebAppHeader({
           <summary aria-label="Open main navigation">Menu</summary>
           <nav aria-label="Main navigation">
             <a href="/feed" onClick={spaClick(onLogo)}>Feed</a>
-            <a href="/wanted" onClick={spaClick(onWanted)}>Wanted</a>
+            <Link href="/wanted" onClick={spaClick(onWanted)}>Wanted</Link>
             <a href="/requests" onClick={spaClick(onRequests)} aria-label={pendingCount > 0 ? `Requests and messages, ${pendingCount} pending` : 'Requests and messages'}>
               Requests &amp; Messages {pendingCount > 0 && <span aria-hidden className="web-nav-attention" />}
             </a>

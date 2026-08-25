@@ -41,6 +41,10 @@ export async function GET(
   }
 
   const response: Record<string, unknown> = { wanted_post: toPublicWantedPost(data, now) };
+  const { data: buyer } = await supabase.from('profiles')
+    .select('id,display_name,handle,avatar_url')
+    .eq('id', data.buyer_id).maybeSingle();
+  if (buyer) response.buyer = buyer;
   if (owner) {
     response.management = {
       buyer_id: data.buyer_id,

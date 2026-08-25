@@ -14,6 +14,7 @@ export type WantedFeedFilters = {
 };
 
 export type WantedOfferDirection = 'received' | 'sent';
+export type WantedBuyerSummary = { id: string; display_name: string | null; handle: string | null; avatar_url: string | null };
 
 export type WantedNotificationEvent = {
   id: string;
@@ -104,7 +105,7 @@ export const wantedClient = {
     return requestJson<{ wanted_posts: WantedPostDTO[]; next_cursor: string | null }>(wantedFeedUrl(filters));
   },
   async getPost(id: string) {
-    return requestJson<{ wanted_post: WantedPostDTO }>(`/api/wanted/${id}`);
+    return requestJson<{ wanted_post: WantedPostDTO; buyer?: WantedBuyerSummary; management?: { buyer_id: string; updated_at: string; resolved_at: string | null } }>(`/api/wanted/${id}`);
   },
   async createPost(input: WantedPostInput) {
     return requestJson<{ wanted_post: WantedPostDTO }>('/api/wanted', jsonInit('POST', prepareWantedPostInput(input)));
@@ -135,6 +136,16 @@ export const wantedClient = {
   },
   async acceptOffer(id: string) {
     return requestJson<{ thread_id: string }>(`/api/wanted-offers/${id}/accept`, { method: 'POST' });
+  },
+  async uploadPhotos(files: File[], mode: 'reference' | 'offer', offerId?: string) {
+    const body = new FormData();
+    body.set('mode', mode);
+    if (offerId) body.set('offer_id', offerId);
+    files.forEach((file) => body.append('photos', file, file.name));
+    return requestJson<{ paths: string[]; urls?: string[] }>('/api/wanted-uploads', { method: 'POST', body });
+  },
+  async cleanupPhotos(paths: string[], mode: 'reference' | 'offer') {
+    return requestJson<{ ok: true }>('/api/wanted-uploads', jsonInit('DELETE', { paths, mode }));
   },
   async notifications() {
     return requestJson<{ notification_events: WantedNotificationEvent[] }>('/api/notification-events');
