@@ -33,6 +33,63 @@ alter table public.reports
     ) <= 1
   );
 
+-- A pending offer is only meaningful while its parent post is still live.
+-- This acquires the same parent-post lock as acceptance, so an offer insert or
+-- reactivation that races acceptance waits, then observes the fulfilled post
+-- and fails rather than committing a new pending competitor.
+create or replace function public.validate_pending_wanted_offer()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  locked_post public.wanted_posts%rowtype;
+begin
+  select *
+    into locked_post
+    from public.wanted_posts
+   where id = new.wanted_post_id
+   for update;
+
+  if not found then
+    raise exception 'wanted post not found' using errcode = '23514';
+  end if;
+
+  if locked_post.status <> 'active'
+     or locked_post.needed_by <= clock_timestamp()
+     or new.buyer_id <> locked_post.buyer_id
+     or new.seller_id = new.buyer_id then
+    raise exception 'pending offer requires an active, unexpired wanted post and valid participants'
+      using errcode = '23514';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger wanted_offers_guard_pending_insert
+  before insert on public.wanted_offers
+  for each row
+  when (new.status = 'pending')
+  execute function public.validate_pending_wanted_offer();
+
+create trigger wanted_offers_guard_pending_update
+  before update of status, wanted_post_id, buyer_id, seller_id on public.wanted_offers
+  for each row
+  when (
+    new.status = 'pending'
+    and (
+      old.status is distinct from new.status
+      or old.wanted_post_id is distinct from new.wanted_post_id
+      or old.buyer_id is distinct from new.buyer_id
+      or old.seller_id is distinct from new.seller_id
+    )
+  )
+  execute function public.validate_pending_wanted_offer();
+
+revoke all on function public.validate_pending_wanted_offer() from public, anon, authenticated;
+
 -- Acceptance serializes on the post first. That lets the winner decline all
 -- competing offers without deadlocking with a concurrent acceptance targeting
 -- a different offer on the same post.
@@ -115,8 +172,7 @@ begin
 
   update public.wanted_offers
      set status = 'accepted',
-         resolved_at = clock_timestamp(),
-         completed_at = clock_timestamp()
+         resolved_at = clock_timestamp()
    where id = locked_offer.id;
 
   update public.wanted_offers
