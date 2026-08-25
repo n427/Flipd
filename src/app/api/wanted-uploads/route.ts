@@ -8,26 +8,22 @@ import { rollbackRemovalCandidates } from '@/lib/wanted-upload-rollback';
 const TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 const MAX_BYTES = 10 * 1024 * 1024;
 
-async function rollbackUploads(bucket: string, userId: string, uploaded: string[], knownRegistered: string[]) {
+async function rollbackUploads(bucket: string, userId: string, uploaded: string[]) {
   if (!uploaded.length) return;
-  const registered = new Set(knownRegistered);
+  // Every path reaches `uploaded` immediately before register_wanted_upload is
+  // attempted. A missing lookup after an ambiguous RPC failure is not proof
+  // that transaction cannot still commit, so only a confirmed claim permits
+  // removal. Claims are attempted individually so one ambiguous path cannot
+  // prevent rollback of another path whose tombstone commits successfully.
+  const registrationAttempted = new Set(uploaded);
   const confirmedClaimed = new Set<string>();
-  const definitelyMissing = new Set<string>();
-  const lookupFailed = new Set<string>();
-  const lookup = await admin.from('wanted_uploads').select('path').eq('owner_id', userId).in('path', uploaded);
-  if (lookup.error) {
-    uploaded.filter((path) => !registered.has(path)).forEach((path) => lookupFailed.add(path));
-  } else {
-    const found = new Set((lookup.data ?? []).map((row) => row.path));
-    uploaded.forEach((path) => found.has(path) ? registered.add(path) : definitelyMissing.add(path));
-  }
-  if (registered.size) {
+  for (const path of uploaded) {
     const claim = await admin.rpc('claim_wanted_upload_cleanup', {
-      upload_paths: [...registered], target_bucket: bucket, actor_id: userId,
+      upload_paths: [path], target_bucket: bucket, actor_id: userId,
     });
     if (!claim.error && Array.isArray(claim.data)) claim.data.forEach((path) => confirmedClaimed.add(String(path)));
   }
-  const removable = rollbackRemovalCandidates({ uploaded, registered, confirmedClaimed, definitelyMissing, lookupFailed });
+  const removable = rollbackRemovalCandidates({ uploaded, registrationAttempted, confirmedClaimed });
   if (removable.length) await admin.storage.from(bucket).remove(removable);
 }
 
@@ -48,7 +44,6 @@ export async function POST(req: NextRequest) {
   const bucket = mode === 'offer' ? 'wanted-offer-photos' : 'wanted-reference-photos';
   const folder = mode === 'offer' ? `${user.id}/${offerId}` : `${user.id}/${crypto.randomUUID()}`;
   const uploaded: string[] = [];
-  const registered: string[] = [];
   for (const [index, file] of files.entries()) {
     const extension = file.name.match(/\.([a-zA-Z0-9]+)$/)?.[1]?.toLowerCase() ?? 'jpg';
     const path = `${folder}/${index}-${crypto.randomUUID()}.${extension}`;
@@ -56,7 +51,7 @@ export async function POST(req: NextRequest) {
       contentType: file.type, upsert: false,
     });
     if (error) {
-      await rollbackUploads(bucket, user.id, uploaded, registered);
+      await rollbackUploads(bucket, user.id, uploaded);
       return NextResponse.json({ error: 'unable to upload photos' }, { status: 500 });
     }
     uploaded.push(path);
@@ -65,10 +60,9 @@ export async function POST(req: NextRequest) {
       upload_path: path, upload_bucket: bucket, actor_id: user.id, upload_public_url: publicUrl,
     });
     if (registerError) {
-      await rollbackUploads(bucket, user.id, uploaded, registered);
+      await rollbackUploads(bucket, user.id, uploaded);
       return NextResponse.json({ error: 'unable to register photos' }, { status: 500 });
     }
-    registered.push(path);
   }
   if (mode === 'offer') return NextResponse.json({ paths: uploaded });
   return NextResponse.json({

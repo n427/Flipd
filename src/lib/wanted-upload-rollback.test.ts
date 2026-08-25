@@ -2,20 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { rollbackRemovalCandidates } from './wanted-upload-rollback';
 
 describe('Wanted upload rollback safety', () => {
-  it('removes only definitely unregistered or confirmed cleanup-claimed objects', () => {
+  it('removes attempted registrations only after a confirmed cleanup claim', () => {
     expect(rollbackRemovalCandidates({
       uploaded: ['registered', 'missing', 'ambiguous'],
-      registered: new Set(['registered']),
+      registrationAttempted: new Set(['registered', 'missing', 'ambiguous']),
       confirmedClaimed: new Set(['registered']),
-      definitelyMissing: new Set(['missing']),
-      lookupFailed: new Set(['ambiguous']),
-    })).toEqual(['registered', 'missing']);
+    })).toEqual(['registered']);
   });
 
-  it('favors an orphan over deleting an ambiguous or unclaimed registered object', () => {
+  it('treats lookup-missing after an ambiguous registration attempt as an orphan', () => {
     expect(rollbackRemovalCandidates({
-      uploaded: ['registered', 'ambiguous'], registered: new Set(['registered']),
-      confirmedClaimed: new Set(), definitelyMissing: new Set(), lookupFailed: new Set(['ambiguous']),
+      uploaded: ['ambiguous-missing'], registrationAttempted: new Set(['ambiguous-missing']),
+      confirmedClaimed: new Set(),
     })).toEqual([]);
+  });
+
+  it('allows direct removal only when registration was provably never attempted', () => {
+    expect(rollbackRemovalCandidates({
+      uploaded: ['local-only'], registrationAttempted: new Set(), confirmedClaimed: new Set(),
+    })).toEqual(['local-only']);
   });
 });
