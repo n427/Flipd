@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { admin } from '@/lib/supabase/admin';
 import { blockedUserIdsFromLookup } from '@/lib/wanted';
-import { effectiveWantedStatus } from '@/lib/wanted-contract';
 import {
+  canonicalizeWantedOfferId,
   hasWantedOfferPhotoPrefix,
-  isWantedOfferId,
   parseWantedOfferInput,
   signWantedOfferPhotos,
   toParticipantWantedOffer,
+  wantedOfferRpcErrorStatus,
   type WantedOfferRow,
 } from '@/lib/wanted-offers';
 
@@ -101,72 +101,43 @@ export async function POST(
   const { id: wantedPostId } = await params;
   const body = await req.json().catch(() => null);
   const parsed = parseWantedOfferInput(body);
-  if (!parsed.ok || !body || typeof body !== 'object' || Array.isArray(body) || !isWantedOfferId(body.id)) {
+  const offerId = body && typeof body === 'object' && !Array.isArray(body)
+    ? canonicalizeWantedOfferId(body.id)
+    : null;
+  if (!parsed.ok || !offerId) {
     return NextResponse.json({ error: parsed.ok ? 'id must be a UUID' : parsed.error }, { status: 400 });
   }
-  const offerId = body.id;
   if (!hasWantedOfferPhotoPrefix(parsed.value.photo_paths, user.id, offerId)) {
     return NextResponse.json({ error: 'photo_paths must use the seller and offer ID prefix' }, { status: 400 });
   }
 
-  const { data: post, error: postError } = await admin
-    .from('wanted_posts')
-    .select('id,buyer_id,status,needed_by')
-    .eq('id', wantedPostId)
-    .single();
-  if (postError || !post) return NextResponse.json({ error: 'not found' }, { status: 404 });
-  if (post.buyer_id === user.id) return NextResponse.json({ error: 'cannot offer on your own wanted post' }, { status: 403 });
-  if (effectiveWantedStatus(post.status, post.needed_by) !== 'active') {
-    return NextResponse.json({ error: 'wanted post is no longer active' }, { status: 409 });
+  const { data: savedOfferId, error } = await admin.rpc('submit_wanted_offer', {
+    target_post_id: wantedPostId,
+    actor_id: user.id,
+    client_offer_id: offerId,
+    offered_price: parsed.value.price,
+    offered_description: parsed.value.description,
+    offered_message: parsed.value.message,
+    offered_photo_paths: parsed.value.photo_paths,
+  });
+  if (error || !savedOfferId) {
+    const status = wantedOfferRpcErrorStatus(error);
+    const message = status === 404 ? 'not found'
+      : status === 403 ? 'forbidden'
+        : status === 409 ? 'wanted offer is no longer available'
+          : 'unable to save wanted offer';
+    return NextResponse.json({ error: message }, { status });
   }
-  const blockLookup = await usersAreBlocked(user.id, post.buyer_id);
-  if (!blockLookup.ok) return NextResponse.json({ error: blockLookup.error }, { status: 500 });
-  if (blockLookup.value) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-
-  const { data: existing, error: existingError } = await admin
+  const { data: saved, error: savedError } = await admin
     .from('wanted_offers')
     .select(OFFER_SELECT)
-    .eq('wanted_post_id', wantedPostId)
+    .eq('id', savedOfferId)
     .eq('seller_id', user.id)
-    .maybeSingle();
-  if (existingError) return NextResponse.json({ error: 'unable to load wanted offer' }, { status: 500 });
-
-  let saved: WantedOfferRow | null = null;
-  let saveError: { code?: string } | null = null;
-  if (existing) {
-    if (existing.id !== offerId) {
-      return NextResponse.json({ error: 'resubmission must reuse the existing offer ID' }, { status: 409 });
-    }
-    if (existing.status !== 'withdrawn') {
-      return NextResponse.json({ error: 'only withdrawn offers may be resubmitted' }, { status: 409 });
-    }
-    const result = await admin
-      .from('wanted_offers')
-      .update({ ...parsed.value, status: 'pending', resolved_at: null })
-      .eq('id', existing.id)
-      .eq('seller_id', user.id)
-      .eq('wanted_post_id', wantedPostId)
-      .eq('status', 'withdrawn')
-      .select(OFFER_SELECT)
-      .maybeSingle();
-    saved = result.data as WantedOfferRow | null;
-    saveError = result.error;
-  } else {
-    const result = await admin
-      .from('wanted_offers')
-      .insert({ id: offerId, wanted_post_id: wantedPostId, seller_id: user.id, buyer_id: post.buyer_id, ...parsed.value })
-      .select(OFFER_SELECT)
-      .single();
-    saved = result.data as WantedOfferRow | null;
-    saveError = result.error;
-  }
-  if (saveError || !saved) {
-    const status = saveError?.code === '23505' || saveError?.code === '23514' ? 409 : 500;
-    return NextResponse.json({ error: status === 409 ? 'wanted offer is no longer available' : 'unable to save wanted offer' }, { status });
-  }
+    .single();
+  if (savedError || !saved) return NextResponse.json({ error: 'unable to load wanted offer' }, { status: 500 });
 
   try {
-    return NextResponse.json({ wanted_offer: await offerDto(saved, user.id) }, { status: existing ? 200 : 201 });
+    return NextResponse.json({ wanted_offer: await offerDto(saved as WantedOfferRow, user.id) }, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'unable to sign wanted offer photos' }, { status: 500 });
   }
