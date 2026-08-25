@@ -15,7 +15,14 @@ import { groupByDay } from '@/lib/day';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ListRowsSkeleton } from '@/components/Skeletons';
 import { T, F, S } from '@/lib/theme';
-import { isCurrentNotificationLoad, mergeNotificationSources, NotificationSourceState } from '@/lib/notificationActivity';
+import {
+  beginWantedNotificationDismissal,
+  confirmWantedNotificationDismissal,
+  failWantedNotificationDismissal,
+  isCurrentNotificationLoad,
+  mergeNotificationSources,
+  NotificationSourceState,
+} from '@/lib/notificationActivity';
 
 type ActivityRow =
   | { kind: 'listing'; id: string; createdAt: string; listing: FeedListing }
@@ -25,7 +32,7 @@ export default function Notifications() {
   const router = useRouter();
   const { markEventsSeen, refresh } = useUnread();
   const [sources, setSources] = useState<NotificationSourceState<FeedListing, WantedNotificationEvent>>({
-    listings: [], wanted: [], listingError: false, wantedError: false,
+    listings: [], wanted: [], listingError: false, wantedError: false, wantedTombstones: [],
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,12 +91,14 @@ export default function Notifications() {
     // Invalidate it so it cannot resurrect a successfully dismissed event.
     loadGeneration.current += 1;
     setRefreshing(false);
-    setSources((current) => ({ ...current, wanted: current.wanted.filter((item) => item.id !== event.id) }));
+    setSources((current) => beginWantedNotificationDismissal(current, event.id));
     try {
       await updateWantedNotifications([event.id], 'dismiss');
+      setSources((current) => confirmWantedNotificationDismissal(current, event.id));
+      await load();
       refresh();
     } catch {
-      await load();
+      setSources((current) => failWantedNotificationDismissal(current, event.id));
     }
   }, [load, refresh]);
 
