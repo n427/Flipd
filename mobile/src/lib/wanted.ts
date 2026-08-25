@@ -59,6 +59,7 @@ export type WantedOffer = {
   completed_at: string | null;
   role: 'buyer' | 'seller';
   counterpart_id: string;
+  transaction_actions?: { can_complete: boolean; can_rate: boolean };
   wanted_post?: Pick<WantedPost, 'id' | 'title' | 'max_budget' | 'location' | 'needed_by' | 'status'>;
 };
 
@@ -207,6 +208,23 @@ export async function resolveWantedOffer(id: string, action: 'withdraw' | 'decli
 export async function acceptWantedOffer(id: string, deps?: WantedClientDependencies): Promise<string> {
   const body = await requestJson<{ thread_id: string }>(`/api/wanted-offers/${id}/accept`, { method: 'POST' }, deps);
   return body.thread_id;
+}
+
+export async function completeWantedOffer(id: string, deps?: WantedClientDependencies): Promise<void> {
+  await requestJson(`/api/transactions/wanted/${id}/complete`, { method: 'POST' }, deps);
+}
+
+export async function rateWantedOffer(id: string, score: number, text: string, deps?: WantedClientDependencies): Promise<void> {
+  await requestJson('/api/ratings', json('POST', { wanted_offer_id: id, score, ...(text.trim() ? { text: text.trim() } : {}) }), deps);
+}
+
+export async function reportWantedTarget(target: { wantedPostId?: string; wantedOfferId?: string }, reason: 'scam' | 'prohibited' | 'harassment' | 'other', note: string, deps?: WantedClientDependencies): Promise<void> {
+  await requestJson('/api/reports', json('POST', {
+    ...(target.wantedPostId ? { wanted_post_id: target.wantedPostId } : {}),
+    ...(target.wantedOfferId ? { wanted_offer_id: target.wantedOfferId } : {}),
+    reason,
+    ...(note.trim() ? { note: note.trim() } : {}),
+  }), deps);
 }
 
 export async function uploadWantedPhotos(

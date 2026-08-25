@@ -33,6 +33,30 @@ export function wantedActionState(input: ActionInput) {
   return { kind: 'make-offer' as const, label: 'Make an offer' };
 }
 
+export type WantedOfferAction = 'accept' | 'decline' | 'edit' | 'withdraw' | 'chat' | 'complete' | 'rate' | 'report';
+export function wantedOfferActions(input: { role: 'buyer' | 'seller'; offerStatus: WantedOfferStatus; postStatus: WantedPostStatus; neededBy: string; completedAt?: string | null; threadId?: string | null; canComplete?: boolean; canRate?: boolean }, now = new Date()): WantedOfferAction[] {
+  const active = input.postStatus === 'active' && new Date(input.neededBy).getTime() > now.getTime();
+  if (input.offerStatus === 'pending' && active) return input.role === 'buyer' ? ['accept', 'decline', 'report'] : ['edit', 'withdraw', 'report'];
+  if (input.offerStatus === 'accepted') {
+    const actions: WantedOfferAction[] = [];
+    if (input.threadId) actions.push('chat');
+    if (input.completedAt ? input.canRate !== false : input.canComplete !== false) actions.push(input.completedAt ? 'rate' : 'complete');
+    actions.push('report');
+    return actions;
+  }
+  return ['report'];
+}
+
+export function referencePhotoPath(url: string, ownerId: string): string | null {
+  try {
+    const marker = '/storage/v1/object/public/wanted-reference-photos/';
+    const index = new URL(url).pathname.indexOf(marker);
+    if (index < 0) return null;
+    const path = decodeURIComponent(new URL(url).pathname.slice(index + marker.length));
+    return path.startsWith(`${ownerId}/`) ? path : null;
+  } catch { return null; }
+}
+
 export function losAngelesEndOfDayUtc(date: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   const noonUtc = new Date(`${date}T12:00:00.000Z`);

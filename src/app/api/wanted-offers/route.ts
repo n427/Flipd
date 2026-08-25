@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { admin } from '@/lib/supabase/admin';
 import { blockedUserIdsFromLookup } from '@/lib/wanted';
-import { hasWantedOfferPhotoPrefix, signWantedOfferPhotos, toParticipantWantedOffer, type WantedOfferRow } from '@/lib/wanted-offers';
+import { hasWantedOfferPhotoPrefix, signWantedOfferPhotos, toParticipantWantedOffer, wantedOfferTransactionActions, type WantedOfferRow } from '@/lib/wanted-offers';
 import { parseWantedOfferCursor, parseWantedOfferRole, serializeWantedOfferCursor, wantedOfferCursorFilter, wantedOfferParticipantColumn, type WantedOfferCursor } from '@/lib/wanted-offer-list';
 
 const OFFER_SELECT = 'id,wanted_post_id,buyer_id,seller_id,price,description,message,photo_paths,status,created_at,updated_at,resolved_at,completed_at,wanted_post:wanted_posts(id,title,max_budget,location,needed_by,status)';
@@ -62,8 +62,19 @@ export async function GET(req: NextRequest) {
         const post = Array.isArray(row.wanted_post) ? row.wanted_post[0] : row.wanted_post;
         return post ? { ...dto, wanted_post: post } : dto;
       }));
+    const completedIds = rows.filter((row) => row.status === 'accepted' && row.completed_at).map((row) => row.id);
+    const rated = new Set<string>();
+    if (completedIds.length) {
+      const { data: ratings, error: ratingsError } = await admin.from('ratings').select('wanted_offer_id')
+        .eq('rater_id', user.id).in('wanted_offer_id', completedIds);
+      if (ratingsError) return NextResponse.json({ error: 'unable to load wanted offer actions' }, { status: 500 });
+      for (const rating of ratings ?? []) if (rating.wanted_offer_id) rated.add(rating.wanted_offer_id);
+    }
     return NextResponse.json({
-      wanted_offers: wantedOffers,
+      wanted_offers: wantedOffers.map((offer) => ({
+        ...offer,
+        transaction_actions: wantedOfferTransactionActions(offer, rated.has(offer.id)),
+      })),
       next_cursor: lastConsumed && (!exhausted || rows.length === limit) ? serializeWantedOfferCursor(lastConsumed) : null,
     });
   } catch {

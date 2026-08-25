@@ -98,6 +98,13 @@ export function canMutateWantedOffer(status: WantedOfferStatus): boolean {
   return status === 'pending';
 }
 
+export function wantedOfferTransactionActions(offer: Pick<WantedOfferDTO, 'status' | 'completed_at'>, alreadyRated: boolean) {
+  return {
+    can_complete: offer.status === 'accepted' && !offer.completed_at,
+    can_rate: offer.status === 'accepted' && Boolean(offer.completed_at) && !alreadyRated,
+  };
+}
+
 export function mergeWantedOfferPhotoPaths(existing: string[], removed: string[], uploaded: string[]): string[] | null {
   const removedSet = new Set(removed);
   const merged = [...existing.filter((path) => !removedSet.has(path)), ...uploaded];

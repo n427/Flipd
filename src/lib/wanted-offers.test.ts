@@ -7,6 +7,7 @@ import {
   wantedOfferRpcErrorStatus,
   mergeWantedOfferPhotoPaths,
   supersededWantedOfferPhotoPaths,
+  wantedOfferTransactionActions,
 } from './wanted-offers';
 
 describe('Wanted offers', () => {
@@ -68,5 +69,11 @@ describe('Wanted offers', () => {
 
   it('cleans only paths superseded by a successful mutation', () => {
     expect(supersededWantedOfferPhotoPaths(['a', 'b'], ['b', 'c'])).toEqual(['a']);
+  });
+
+  it('exposes completion and one-time rating actions from normalized state', () => {
+    expect(wantedOfferTransactionActions({ status: 'accepted', completed_at: null }, false)).toEqual({ can_complete: true, can_rate: false });
+    expect(wantedOfferTransactionActions({ status: 'accepted', completed_at: '2026-08-25T00:00:00Z' }, false)).toEqual({ can_complete: false, can_rate: true });
+    expect(wantedOfferTransactionActions({ status: 'accepted', completed_at: '2026-08-25T00:00:00Z' }, true)).toEqual({ can_complete: false, can_rate: false });
   });
 });

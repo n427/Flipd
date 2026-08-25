@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { losAngelesEndOfDayUtc, wantedActionState, wantedCardCopy, wantedOfferStatusLabel } from './wantedPresentation';
+import { losAngelesEndOfDayUtc, referencePhotoPath, wantedActionState, wantedCardCopy, wantedOfferActions, wantedOfferStatusLabel } from './wantedPresentation';
 
 describe('mobile Wanted presentation', () => {
   it('formats the same public card copy as web', () => {
@@ -28,5 +28,18 @@ describe('mobile Wanted presentation', () => {
 
   it('converts LA end-of-day across daylight time', () => {
     expect(losAngelesEndOfDayUtc('2026-08-25')).toBe('2026-08-26T06:59:59.000Z');
+  });
+
+  it('derives offer actions from authoritative post and completion state', () => {
+    expect(wantedOfferActions({ role: 'buyer', offerStatus: 'pending', postStatus: 'active', neededBy: '2026-09-01T06:59:59Z' }, new Date('2026-08-25T00:00:00Z'))).toEqual(['accept', 'decline', 'report']);
+    expect(wantedOfferActions({ role: 'seller', offerStatus: 'pending', postStatus: 'expired', neededBy: '2026-08-24T06:59:59Z' }, new Date('2026-08-25T00:00:00Z'))).toEqual(['report']);
+    expect(wantedOfferActions({ role: 'seller', offerStatus: 'accepted', postStatus: 'fulfilled', neededBy: '2026-09-01T06:59:59Z', completedAt: null, threadId: 't1' })).toEqual(['chat', 'complete', 'report']);
+    expect(wantedOfferActions({ role: 'buyer', offerStatus: 'accepted', postStatus: 'fulfilled', neededBy: '2026-09-01T06:59:59Z', completedAt: '2026-08-26T00:00:00Z', threadId: 't1' })).toEqual(['chat', 'rate', 'report']);
+    expect(wantedOfferActions({ role: 'buyer', offerStatus: 'accepted', postStatus: 'fulfilled', neededBy: '2026-09-01T06:59:59Z', completedAt: '2026-08-26T00:00:00Z', threadId: 't1', canRate: false })).toEqual(['chat', 'report']);
+  });
+
+  it('extracts only owned reference storage paths', () => {
+    expect(referencePhotoPath('https://x.supabase.co/storage/v1/object/public/wanted-reference-photos/user-id/folder/photo.jpg', 'user-id')).toBe('user-id/folder/photo.jpg');
+    expect(referencePhotoPath('https://x.supabase.co/storage/v1/object/public/wanted-reference-photos/other/photo.jpg', 'user-id')).toBeNull();
   });
 });

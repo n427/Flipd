@@ -501,7 +501,7 @@ export async function fetchBlockedIds(): Promise<string[]> {
 
 // Report a user or listing. Capture only — routed to moderation later.
 export async function reportUser(
-  target: { userId?: string; listingId?: string; threadId?: string },
+  target: { userId?: string; listingId?: string; threadId?: string; wantedPostId?: string; wantedOfferId?: string },
   reason: ReportReason,
   note: string,
 ): Promise<void> {
@@ -513,6 +513,8 @@ export async function reportUser(
       user_id: target.userId,
       listing_id: target.listingId,
       thread_id: target.threadId,
+      wanted_post_id: target.wantedPostId,
+      wanted_offer_id: target.wantedOfferId,
       reason,
       note: note.trim() || undefined,
     }),

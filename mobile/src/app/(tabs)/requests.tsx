@@ -14,7 +14,8 @@ import { fetchSafetyReview, SafetyReview, fetchRequests, respondReveal, markReve
 import { useUnread } from '@/lib/unread';
 import { conversationThumbnail } from '@/lib/requestPresentation';
 import { WantedOfferRow } from '@/components/WantedOfferRow';
-import { acceptWantedOffer, fetchWantedOffers, resolveWantedOffer, WantedOffer } from '@/lib/wanted';
+import { acceptWantedOffer, completeWantedOffer, fetchWantedOffers, rateWantedOffer, reportWantedTarget, resolveWantedOffer, WantedOffer } from '@/lib/wanted';
+import { ReportForm } from '@/components/ReportForm';
 import { T, F, S } from '@/lib/theme';
 
 // Status → label + colors (badge).
@@ -280,6 +281,10 @@ export default function Requests() {
   const [wantedSent, setWantedSent] = useState<WantedOffer[]>([]);
   const [wantedNext, setWantedNext] = useState<{ received: string | null; sent: string | null }>({ received: null, sent: null });
   const wantedPaging = useRef(new Set<string>());
+  const loadGeneration = useRef(0);
+  const [wantedRating, setWantedRating] = useState<WantedOffer | null>(null);
+  const [wantedReporting, setWantedReporting] = useState<WantedOffer | null>(null);
+  const [wantedReportBusy, setWantedReportBusy] = useState(false);
   // Defaults to the past week, matching the web page.
   const [range, setRange] = useState<FeedRange>('month');
   const [rangeOpen, setRangeOpen] = useState(false);
@@ -313,23 +318,27 @@ export default function Requests() {
 
   const load = useCallback(async () => {
     if (!user) return;
+    const generation = ++loadGeneration.current;
     try {
       setError(false);
       // Threads never fail the screen on their own — an empty list just
       // renders the conversations empty state.
-      const [{ incoming, outgoing }, t, received, sent] = await Promise.all([
+      const [saleResult, threadResult, receivedResult, sentResult] = await Promise.allSettled([
         fetchRequests(user.id),
-        fetchThreads().catch(() => [] as ThreadSummary[]),
-        fetchWantedOffers('received').catch(() => ({ wanted_offers: [], next_cursor: null })),
-        fetchWantedOffers('sent').catch(() => ({ wanted_offers: [], next_cursor: null })),
+        fetchThreads(),
+        fetchWantedOffers('received'),
+        fetchWantedOffers('sent'),
       ]);
-      setIncoming(incoming);
-      setOutgoing(outgoing);
-      setThreads(t);
-      setWantedReceived(received.wanted_offers);
-      setWantedSent(sent.wanted_offers);
-      setWantedNext({ received: received.next_cursor, sent: sent.next_cursor });
+      if (generation !== loadGeneration.current) return;
+      if (saleResult.status === 'fulfilled') { setIncoming(saleResult.value.incoming); setOutgoing(saleResult.value.outgoing); }
+      if (threadResult.status === 'fulfilled') setThreads(threadResult.value);
+      if (receivedResult.status === 'fulfilled') { setWantedReceived(receivedResult.value.wanted_offers); setWantedNext((all) => ({ ...all, received: receivedResult.value.next_cursor })); }
+      if (sentResult.status === 'fulfilled') { setWantedSent(sentResult.value.wanted_offers); setWantedNext((all) => ({ ...all, sent: sentResult.value.next_cursor })); }
+      if ([saleResult, threadResult, receivedResult, sentResult].some((result) => result.status === 'rejected')) {
+        setError(true); setActionError('Some requests could not refresh. Tap here to retry.');
+      }
     } catch (e) {
+      if (generation !== loadGeneration.current) return;
       setError(true);
       if (__DEV__) console.warn('[requests] load failed:', e);
     }
@@ -701,7 +710,47 @@ export default function Requests() {
             }}
           />
         ) : tab === 'wanted' ? (
-          <FlatList {...listProps} key={`wanted-${direction}`} data={direction === 'received' ? wantedReceived : wantedSent} keyExtractor={(item) => item.id} onEndReached={async () => { const cursor = wantedNext[direction]; const pageKey = `${direction}:${cursor}`; if (!cursor || wantedPaging.current.has(pageKey)) return; wantedPaging.current.add(pageKey); try { const result = await fetchWantedOffers(direction, cursor); setWantedNext((current) => { if (current[direction] !== cursor) return current; if (direction === 'received') setWantedReceived((all) => [...all, ...result.wanted_offers.filter((offer) => !all.some((item) => item.id === offer.id))]); else setWantedSent((all) => [...all, ...result.wanted_offers.filter((offer) => !all.some((item) => item.id === offer.id))]); return { ...current, [direction]: result.next_cursor }; }); } finally { wantedPaging.current.delete(pageKey); } }} renderItem={({ item }) => <WantedOfferRow offer={item} busy={busyId === item.id} onAccept={direction === 'received' && item.status === 'pending' ? async () => { setBusyId(item.id); setActionError(null); try { const threadId = await acceptWantedOffer(item.id); await load(); router.push(`/messages/${threadId}`); } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not accept offer.'); } finally { setBusyId(null); } } : undefined} onDecline={direction === 'received' && item.status === 'pending' ? async () => { setBusyId(item.id); try { await resolveWantedOffer(item.id, 'decline'); await load(); } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not decline offer.'); } finally { setBusyId(null); } } : undefined} onEdit={direction === 'sent' && item.status === 'pending' ? () => router.push(`/wanted/${item.wanted_post_id}/offer?offerId=${item.id}`) : undefined} onWithdraw={direction === 'sent' && item.status === 'pending' ? async () => { setBusyId(item.id); try { await resolveWantedOffer(item.id, 'withdraw'); await load(); } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not withdraw offer.'); } finally { setBusyId(null); } } : undefined} onChat={item.status === 'accepted' ? () => { const thread = threads.find((row) => row.wanted_offer_id === item.id); if (thread) router.push(`/messages/${thread.id}`); else setActionError('Conversation is still opening. Pull down to refresh.'); } : undefined} />} />
+          <FlatList
+            {...listProps}
+            key={`wanted-${direction}`}
+            data={direction === 'received' ? wantedReceived : wantedSent}
+            keyExtractor={(item) => item.id}
+            onEndReached={async () => {
+              const cursor = wantedNext[direction]; const pageKey = `${direction}:${cursor}`;
+              if (!cursor || wantedPaging.current.has(pageKey)) return;
+              wantedPaging.current.add(pageKey);
+              try {
+                const result = await fetchWantedOffers(direction, cursor);
+                setWantedNext((current) => {
+                  if (current[direction] !== cursor) return current;
+                  const append = (all: WantedOffer[]) => [...all, ...result.wanted_offers.filter((offer) => !all.some((item) => item.id === offer.id))];
+                  if (direction === 'received') setWantedReceived(append); else setWantedSent(append);
+                  return { ...current, [direction]: result.next_cursor };
+                });
+              } catch { setActionError('Could not load more Wanted offers. Tap to retry.'); }
+              finally { wantedPaging.current.delete(pageKey); }
+            }}
+            renderItem={({ item }) => {
+              const threadId = threads.find((row) => row.wanted_offer_id === item.id)?.id ?? null;
+              const mutate = async (action: () => Promise<void>, fallback: string) => {
+                setBusyId(item.id); setActionError(null);
+                try { await action(); await load(); refreshBadge(); }
+                catch (cause) { setActionError(cause instanceof Error ? cause.message : fallback); }
+                finally { setBusyId(null); }
+              };
+              return <WantedOfferRow
+                offer={item} threadId={threadId} busy={busyId === item.id}
+                onAccept={async () => { setBusyId(item.id); try { const nextThread = await acceptWantedOffer(item.id); await load(); refreshBadge(); router.push(`/messages/${nextThread}`); } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not accept offer.'); } finally { setBusyId(null); } }}
+                onDecline={() => mutate(() => resolveWantedOffer(item.id, 'decline').then(() => undefined), 'Could not decline offer.')}
+                onEdit={() => router.push(`/wanted/${item.wanted_post_id}/offer?offerId=${item.id}`)}
+                onWithdraw={() => mutate(() => resolveWantedOffer(item.id, 'withdraw').then(() => undefined), 'Could not withdraw offer.')}
+                onChat={() => threadId ? router.push(`/messages/${threadId}`) : setActionError('Conversation is still opening. Pull down to refresh.')}
+                onComplete={() => mutate(() => completeWantedOffer(item.id), 'Could not complete transaction.')}
+                onRate={() => { setScore(0); setReviewText(''); setWantedRating(item); }}
+                onReport={() => setWantedReporting(item)}
+              />;
+            }}
+          />
         ) : (
           <FlatList
             {...listProps}
@@ -729,7 +778,7 @@ export default function Requests() {
       </SafeAreaView>
 
       {actionError ? (
-        <Pressable onPress={() => setActionError(null)} style={{ marginHorizontal: S.gutter, marginBottom: 10 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Retry refreshing requests" onPress={() => { setActionError(null); void load(); }} style={{ marginHorizontal: S.gutter, marginBottom: 10 }}>
           <View style={{ backgroundColor: '#F3E4E4', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 }}>
             <Text style={{ fontFamily: F.medium, fontSize: 13.5, color: T.danger }}>{actionError}</Text>
           </View>
@@ -958,6 +1007,20 @@ export default function Requests() {
             </Pressable>
           </View>
         </View>
+      </Sheet>
+      <Sheet visible={!!wantedRating} onClose={() => setWantedRating(null)}>
+        <SheetGrabber />
+        <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink }}>Rate this Wanted transaction</Text>
+        <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6 }}>Ratings are anonymous.</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: 22 }}>
+          {[1, 2, 3, 4, 5].map((n) => <Pressable accessibilityRole="button" accessibilityLabel={`${n} stars`} key={n} onPress={() => setScore(n)}><Ionicons name={n <= score ? 'star' : 'star-outline'} size={38} color={n <= score ? T.gold : T.rule} /></Pressable>)}
+        </View>
+        <TextInput accessibilityLabel="Rating note, optional" value={reviewText} onChangeText={setReviewText} placeholder="Add a note (optional)" placeholderTextColor={T.muted} multiline maxLength={500} style={{ backgroundColor: T.fieldbg, borderRadius: 14, padding: 14, minHeight: 76, fontFamily: F.medium, color: T.ink }} />
+        <Pressable accessibilityRole="button" disabled={savingRating || score < 1} onPress={async () => { if (!wantedRating || score < 1) return; setSavingRating(true); try { await rateWantedOffer(wantedRating.id, score, reviewText); setWantedRating(null); await load(); refreshBadge(); } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not submit rating.'); } finally { setSavingRating(false); } }} style={{ backgroundColor: T.cardinal, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 18, opacity: savingRating || score < 1 ? .5 : 1 }}><Text style={{ fontFamily: F.bold, color: '#fff' }}>{savingRating ? 'Submitting…' : 'Submit rating'}</Text></Pressable>
+      </Sheet>
+      <Sheet visible={!!wantedReporting} onClose={() => setWantedReporting(null)}>
+        <SheetGrabber />
+        <ReportForm title="Report private offer" submitting={wantedReportBusy} onCancel={() => setWantedReporting(null)} onSubmit={async (reason, note) => { if (!wantedReporting) return; setWantedReportBusy(true); try { await reportWantedTarget({ wantedOfferId: wantedReporting.id }, reason, note); setWantedReporting(null); } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not submit report.'); } finally { setWantedReportBusy(false); } }} />
       </Sheet>
     </>
   );
