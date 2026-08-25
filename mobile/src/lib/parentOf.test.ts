@@ -31,6 +31,11 @@ describe('parentOf', () => {
     expect(parentOf('/listing/abc123?ref=push')).toBe('/(tabs)/feed');
   });
 
+  it('sends Wanted details and forms back to the Wanted tab', () => {
+    expect(parentOf('/wanted/post')).toBe('/(tabs)/wanted');
+    expect(parentOf('/wanted/post-1?ref=push')).toBe('/(tabs)/wanted');
+  });
+
   it('falls back to the feed for an unrecognised route', () => {
     expect(parentOf('/nonsense')).toBe('/(tabs)/feed');
   });

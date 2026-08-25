@@ -10,11 +10,13 @@
 const FEED = '/(tabs)/feed';
 const REQUESTS = '/(tabs)/requests';
 const PROFILE = '/(tabs)/profile';
+const WANTED = '/(tabs)/wanted';
 
 const RULES: readonly (readonly [RegExp, string])[] = [
   [/^\/listing\//, FEED],
   [/^\/u\//, FEED],
   [/^\/messages\//, REQUESTS],
+  [/^\/wanted(?:\/|$)/, WANTED],
   [/^\/(saved|reviews|my-listings|edit-profile)$/, PROFILE],
   [/^\/(terms|privacy|support)$/, PROFILE],
 ];

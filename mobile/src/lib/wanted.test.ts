@@ -4,6 +4,7 @@ import {
   createWantedOffer,
   fetchWantedFeed,
   fetchWantedNotifications,
+  fetchWantedOffers,
   wantedNotificationDestination,
   wantedPushNotificationDestination,
   WantedApiError,
@@ -86,5 +87,13 @@ describe('mobile Wanted client', () => {
     expect(wantedPushNotificationDestination('wanted_reminder', 'post-1')).toBe('/wanted/post-1');
     expect(wantedPushNotificationDestination('wanted_expired', 'post-1')).toBe('/(tabs)/requests?tab=wanted&direction=sent');
     expect(wantedPushNotificationDestination('unrelated', 'post-1')).toBeNull();
+  });
+
+  it('accepts expired offers returned by the response contract', async () => {
+    const fetcher = vi.fn(async () => Response.json({
+      wanted_offers: [{ id: 'offer-expired', status: 'expired' }], next_cursor: null,
+    }));
+    const response = await fetchWantedOffers('sent', undefined, auth(fetcher));
+    expect(response.wanted_offers[0].status).toBe('expired');
   });
 });

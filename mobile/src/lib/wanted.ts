@@ -7,7 +7,7 @@ async function defaultAccessToken(): Promise<string> {
 
 export type WantedCategory = 'goods' | 'services' | 'housing';
 export type WantedPostStatus = 'active' | 'fulfilled' | 'expired' | 'deleted';
-export type WantedOfferStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';
+export type WantedOfferStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn' | 'expired';
 
 export type WantedPostInput = {
   title: string;
