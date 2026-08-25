@@ -25,7 +25,7 @@ export type WantedPost = WantedPostInput & {
   created_at: string;
   offer_count: number;
 };
-export type WantedPostDetail = { wanted_post: WantedPost; buyer?: WantedBuyer; management?: { buyer_id: string; updated_at: string; resolved_at: string | null } };
+export type WantedPostDetail = { wanted_post: WantedPost; buyer?: WantedBuyer; management?: { buyer_id: string; updated_at: string; resolved_at: string | null }; participant_offer?: WantedOffer; thread_id?: string | null };
 
 export type WantedBuyer = {
   id: string;

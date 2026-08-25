@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   blockedUserIdsFromLookup,
+  canViewWantedPostDetail,
   parseWantedCursor,
   parseWantedPostInput,
   serializeWantedCursor,
@@ -106,5 +107,12 @@ describe('Wanted posts', () => {
       data: [{ blocker_id: 'viewer', blocked_id: 'buyer' }],
       error: new Error('database unavailable'),
     })).toEqual({ ok: false, error: 'unable to verify blocks' });
+  });
+
+  it('keeps closed posts private except for their owner or accepted seller', () => {
+    expect(canViewWantedPostDetail('fulfilled', true, false)).toBe(true);
+    expect(canViewWantedPostDetail('fulfilled', false, true)).toBe(true);
+    expect(canViewWantedPostDetail('fulfilled', false, false)).toBe(false);
+    expect(canViewWantedPostDetail('active', false, false)).toBe(true);
   });
 });

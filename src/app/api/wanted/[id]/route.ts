@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { admin as supabase } from '@/lib/supabase/admin';
-import { blockedUserIdsFromLookup, toPublicWantedPost, parseWantedPostInput } from '@/lib/wanted';
+import { blockedUserIdsFromLookup, canViewWantedPostDetail, toPublicWantedPost, parseWantedPostInput } from '@/lib/wanted';
 import { effectiveWantedStatus } from '@/lib/wanted-contract';
+import { hasWantedOfferPhotoPrefix, signWantedOfferPhotos, toParticipantWantedOffer, type WantedOfferRow } from '@/lib/wanted-offers';
 
 const WANTED_SELECT = 'id,buyer_id,title,category,max_budget,description,location,photo_urls,needed_by,status,created_at,updated_at,resolved_at,offers:wanted_offers(count)';
 const EDITABLE_FIELDS = new Set(['title', 'category', 'max_budget', 'description', 'location', 'photo_urls', 'needed_by']);
@@ -31,7 +32,15 @@ export async function GET(
 
   const owner = data.buyer_id === user.id;
   const now = new Date();
-  if (!owner && effectiveWantedStatus(data.status, data.needed_by, now) !== 'active') {
+  const effectiveStatus = effectiveWantedStatus(data.status, data.needed_by, now);
+  let acceptedOffer: WantedOfferRow | null = null;
+  if (!owner && effectiveStatus !== 'active') {
+    const { data: offer } = await supabase.from('wanted_offers')
+      .select('id,wanted_post_id,buyer_id,seller_id,price,description,message,photo_paths,status,created_at,updated_at,resolved_at,completed_at')
+      .eq('wanted_post_id', id).eq('seller_id', user.id).eq('status', 'accepted').maybeSingle();
+    acceptedOffer = offer as WantedOfferRow | null;
+  }
+  if (!canViewWantedPostDetail(effectiveStatus, owner, Boolean(acceptedOffer))) {
     return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
   if (!owner) {
@@ -51,6 +60,20 @@ export async function GET(
       updated_at: data.updated_at,
       resolved_at: data.resolved_at,
     };
+  }
+  if (acceptedOffer) {
+    const paths = acceptedOffer.photo_paths ?? [];
+    if (!hasWantedOfferPhotoPrefix(paths, acceptedOffer.seller_id, acceptedOffer.id)) {
+      return NextResponse.json({ error: 'not found' }, { status: 404 });
+    }
+    const participantOffer = toParticipantWantedOffer(
+      acceptedOffer, user.id, await signWantedOfferPhotos(supabase.storage, paths),
+    );
+    if (!participantOffer) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    const { data: thread } = await supabase.from('message_threads').select('id')
+      .eq('wanted_offer_id', acceptedOffer.id).maybeSingle();
+    response.participant_offer = participantOffer;
+    response.thread_id = thread?.id ?? null;
   }
   return NextResponse.json(response);
 }

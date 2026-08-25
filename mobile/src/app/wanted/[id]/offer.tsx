@@ -34,6 +34,9 @@ export default function WantedOfferScreen() {
     fetchWantedOffersForPost(id).then((rows) => {
       const item = rows.find((row) => row.id === offerId);
       if (!item) { setError('This offer is unavailable or you do not have access.'); setInitialState('error'); return; }
+      if (item.role !== 'seller' || (item.status !== 'pending' && item.status !== 'withdrawn')) {
+        setError('Only your pending or withdrawn offer can be changed.'); setInitialState('error'); return;
+      }
       setInitial(item); setPrice(String(item.price)); setDescription(item.description); setMessage(item.message);
       setRetained(item.photo_paths.map((path, index) => ({ path, url: item.photo_urls[index] })));
       setInitialState('ready');

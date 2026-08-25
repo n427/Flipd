@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ListRowsSkeleton } from '@/components/Skeletons';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
@@ -336,7 +336,7 @@ export default function Requests() {
       if (sentResult.status === 'fulfilled') { setWantedSent(sentResult.value.wanted_offers); setWantedNext((all) => ({ ...all, sent: sentResult.value.next_cursor })); }
       if ([saleResult, threadResult, receivedResult, sentResult].some((result) => result.status === 'rejected')) {
         setError(true); setActionError('Some requests could not refresh. Tap here to retry.');
-      }
+      } else { setActionError(null); }
     } catch (e) {
       if (generation !== loadGeneration.current) return;
       setError(true);
@@ -344,15 +344,17 @@ export default function Requests() {
     }
   }, [user]);
 
-  useEffect(() => {
-    (async () => {
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void (async () => {
       await load();
+      if (!active) return;
       setLoading(false);
-      // Viewing the list counts as seeing everything — clear the badge.
       await markRevealsSeen();
       refreshBadge();
     })();
-  }, [load, refreshBadge]);
+    return () => { active = false; ++loadGeneration.current; };
+  }, [load, refreshBadge]));
 
   useEffect(() => {
     if (params.tab === 'wanted' || params.tab === 'sale') setTab(params.tab);
@@ -552,6 +554,9 @@ export default function Requests() {
           return (
             <Pressable
               key={t.id}
+              accessibilityRole="tab"
+              accessibilityLabel={t.label}
+              accessibilityState={{ selected: on }}
               onPress={() => setTab(t.id)}
               style={{
                 flex: 1,
@@ -583,13 +588,15 @@ export default function Requests() {
       </View>
 
       {tab !== 'conversations' ? <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-        {(['received', 'sent'] as Direction[]).map((item) => <Pressable key={item} accessibilityState={{ selected: direction === item }} onPress={() => setDirection(item)} style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, backgroundColor: direction === item ? T.ink : T.fieldbg }}><Text style={{ fontFamily: F.bold, fontSize: 13, color: direction === item ? '#fff' : T.muted }}>{item === 'received' ? 'Received' : 'Sent'}</Text></Pressable>)}
+        {(['received', 'sent'] as Direction[]).map((item) => <Pressable key={item} accessibilityRole="tab" accessibilityLabel={`${item} requests`} accessibilityState={{ selected: direction === item }} onPress={() => setDirection(item)} style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, backgroundColor: direction === item ? T.ink : T.fieldbg }}><Text style={{ fontFamily: F.bold, fontSize: 13, color: direction === item ? '#fff' : T.muted }}>{item === 'received' ? 'Received' : 'Sent'}</Text></Pressable>)}
       </View> : null}
 
       {/* Sits directly above the list it filters rather than competing with
           the tabs for the same row. */}
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Choose request date range"
           onPress={() => setRangeOpen(true)}
           style={{
             flexDirection: 'row',
@@ -716,13 +723,14 @@ export default function Requests() {
             data={direction === 'received' ? wantedReceived : wantedSent}
             keyExtractor={(item) => item.id}
             onEndReached={async () => {
-              const cursor = wantedNext[direction]; const pageKey = `${direction}:${cursor}`;
+              const cursor = wantedNext[direction]; const rootGeneration = loadGeneration.current; const pageKey = `${rootGeneration}:${direction}:${cursor}`;
               if (!cursor || wantedPaging.current.has(pageKey)) return;
               wantedPaging.current.add(pageKey);
               try {
                 const result = await fetchWantedOffers(direction, cursor);
+                if (rootGeneration !== loadGeneration.current) return;
                 setWantedNext((current) => {
-                  if (current[direction] !== cursor) return current;
+                  if (rootGeneration !== loadGeneration.current || current[direction] !== cursor) return current;
                   const append = (all: WantedOffer[]) => [...all, ...result.wanted_offers.filter((offer) => !all.some((item) => item.id === offer.id))];
                   if (direction === 'received') setWantedReceived(append); else setWantedSent(append);
                   return { ...current, [direction]: result.next_cursor };
@@ -960,7 +968,7 @@ export default function Requests() {
 
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: 22 }}>
               {[1, 2, 3, 4, 5].map((n) => (
-                <Pressable key={n} onPress={() => setScore(n)} hitSlop={6}>
+                <Pressable accessibilityRole="button" accessibilityLabel={`${n} stars`} accessibilityState={{ selected: score === n }} key={n} onPress={() => setScore(n)} hitSlop={6}>
                   <Ionicons name={n <= score ? 'star' : 'star-outline'} size={38} color={n <= score ? T.gold : T.rule} />
                 </Pressable>
               ))}
@@ -1013,7 +1021,7 @@ export default function Requests() {
         <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink }}>Rate this Wanted transaction</Text>
         <Text style={{ fontFamily: F.regular, fontSize: 14, color: T.muted, marginTop: 6 }}>Ratings are anonymous.</Text>
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: 22 }}>
-          {[1, 2, 3, 4, 5].map((n) => <Pressable accessibilityRole="button" accessibilityLabel={`${n} stars`} key={n} onPress={() => setScore(n)}><Ionicons name={n <= score ? 'star' : 'star-outline'} size={38} color={n <= score ? T.gold : T.rule} /></Pressable>)}
+          {[1, 2, 3, 4, 5].map((n) => <Pressable accessibilityRole="button" accessibilityLabel={`${n} stars`} accessibilityState={{ selected: score === n }} key={n} onPress={() => setScore(n)}><Ionicons name={n <= score ? 'star' : 'star-outline'} size={38} color={n <= score ? T.gold : T.rule} /></Pressable>)}
         </View>
         <TextInput accessibilityLabel="Rating note, optional" value={reviewText} onChangeText={setReviewText} placeholder="Add a note (optional)" placeholderTextColor={T.muted} multiline maxLength={500} style={{ backgroundColor: T.fieldbg, borderRadius: 14, padding: 14, minHeight: 76, fontFamily: F.medium, color: T.ink }} />
         <Pressable accessibilityRole="button" disabled={savingRating || score < 1} onPress={async () => { if (!wantedRating || score < 1) return; setSavingRating(true); try { await rateWantedOffer(wantedRating.id, score, reviewText); setWantedRating(null); await load(); refreshBadge(); } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not submit rating.'); } finally { setSavingRating(false); } }} style={{ backgroundColor: T.cardinal, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 18, opacity: savingRating || score < 1 ? .5 : 1 }}><Text style={{ fontFamily: F.bold, color: '#fff' }}>{savingRating ? 'Submitting…' : 'Submit rating'}</Text></Pressable>

@@ -20,6 +20,13 @@ describe('mobile Wanted presentation', () => {
     expect(wantedActionState({ owner: false, postStatus: 'expired' })).toEqual({ kind: 'disabled', label: 'Request expired' });
   });
 
+  it('allows resubmission only from a seller withdrawn offer', () => {
+    expect(wantedActionState({ owner: false, postStatus: 'active', offerStatus: 'withdrawn', offerRole: 'seller' })).toEqual({ kind: 'make-offer', label: 'Send another offer' });
+    expect(wantedActionState({ owner: false, postStatus: 'active', offerStatus: 'declined', offerRole: 'seller' })).toEqual({ kind: 'disabled', label: 'Offer declined' });
+    expect(wantedActionState({ owner: false, postStatus: 'active', offerStatus: 'expired', offerRole: 'seller' })).toEqual({ kind: 'disabled', label: 'Offer expired' });
+    expect(wantedActionState({ owner: false, postStatus: 'active', offerStatus: 'accepted', offerRole: 'seller' })).toEqual({ kind: 'disabled', label: 'Offer accepted' });
+  });
+
   it('exposes only valid offer actions', () => {
     expect(wantedActionState({ owner: false, postStatus: 'active', offerStatus: 'pending', offerRole: 'seller' })).toEqual({ kind: 'edit-offer', label: 'Edit offer' });
     expect(wantedActionState({ owner: true, postStatus: 'active', offerStatus: 'pending', offerRole: 'buyer' })).toEqual({ kind: 'accept-offer', label: 'Accept & open chat' });

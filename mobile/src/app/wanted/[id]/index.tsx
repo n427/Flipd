@@ -12,13 +12,16 @@ import { fetchSafetyReview, SafetyReview } from '@/lib/listings';
 import { deleteWantedPost, fetchWantedOffersForPost, fetchWantedPost, reportWantedTarget, resolveWantedOffer, WantedOffer, WantedPostDetail } from '@/lib/wanted';
 import { wantedActionState, wantedCardCopy } from '@/lib/wantedPresentation';
 import { F, S, T } from '@/lib/theme';
+import { useUnread } from '@/lib/unread';
 
 export default function WantedDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { refresh: refreshBadge } = useUnread();
   const [detail, setDetail] = useState<WantedPostDetail | null>(null);
   const [myOffer, setMyOffer] = useState<WantedOffer | null>(null);
   const [offerLookup, setOfferLookup] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState('');
@@ -33,9 +36,10 @@ export default function WantedDetail() {
     try {
       const next = await fetchWantedPost(id);
       setDetail(next);
+      setThreadId(next.thread_id ?? null);
       if (!next.management) {
         setOfferLookup('loading');
-        try { const offers = await fetchWantedOffersForPost(id); setMyOffer(offers.find((offer) => offer.role === 'seller') ?? null); setOfferLookup('ready'); }
+        try { const offers = next.participant_offer ? [next.participant_offer] : await fetchWantedOffersForPost(id); setMyOffer(offers.find((offer) => offer.role === 'seller') ?? null); setOfferLookup('ready'); }
         catch { setOfferLookup('error'); setError('Could not verify your existing offer. Retry before responding.'); }
         if (next.buyer?.id) {
           setSafetyLoading(true); setSafetyError(false);
@@ -53,7 +57,7 @@ export default function WantedDetail() {
   const post = detail.wanted_post;
   const owner = !!detail.management;
   const copy = wantedCardCopy(post);
-  const action = !owner && offerLookup !== 'ready' ? { kind: 'disabled' as const, label: offerLookup === 'loading' ? 'Checking your offers…' : 'Offer actions unavailable' } : wantedActionState({ owner, postStatus: post.status, offerStatus: myOffer?.status, offerRole: myOffer?.role });
+  const action = !owner && offerLookup !== 'ready' ? { kind: 'disabled' as const, label: offerLookup === 'loading' ? 'Checking your offers…' : 'Offer actions unavailable' } : wantedActionState({ owner, postStatus: post.status, offerStatus: myOffer?.status, offerRole: myOffer?.role, threadId });
   const remove = async () => { try { await deleteWantedPost(post.id); router.replace('/(tabs)/wanted'); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not delete.'); } };
 
   return <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
@@ -67,9 +71,9 @@ export default function WantedDetail() {
       {detail.buyer ? <View style={{ marginTop: 24, padding: 14, borderWidth: 1, borderColor: T.rule, borderRadius: 14 }}><Text style={{ fontFamily: F.bold, color: T.ink }}>Requested by {detail.buyer.display_name ?? detail.buyer.handle ?? 'a Flipd member'}</Text><Text style={muted}>Public profile and campus identity</Text></View> : null}
       {!owner ? <View style={{ marginTop: 12 }}><SafetyCard review={safety} loading={safetyLoading} />{safetyError && !safetyLoading ? <Text style={muted}>Safety review is unavailable right now.</Text> : null}</View> : null}
       {error ? <Text accessibilityRole="alert" style={{ color: T.cardinal, fontFamily: F.medium, marginTop: 12 }}>{error}</Text> : null}
-      {action.kind === 'manage-post' ? <><Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/requests?tab=wanted&direction=received')} style={primary}><Text style={primaryText}>Review offers ({post.offer_count})</Text></Pressable><Pressable accessibilityRole="button" onPress={() => setConfirm(true)} style={secondary}><Text style={{ fontFamily: F.bold, color: T.cardinal }}>Delete request</Text></Pressable></> : action.kind === 'edit-offer' && myOffer ? <><Pressable accessibilityRole="button" onPress={() => router.push(`/wanted/${post.id}/offer?offerId=${myOffer.id}`)} style={primary}><Text style={primaryText}>Edit offer</Text></Pressable><Pressable accessibilityRole="button" onPress={async () => { await resolveWantedOffer(myOffer.id, 'withdraw'); await load(); }} style={secondary}><Text style={{ fontFamily: F.bold, color: T.cardinal }}>Withdraw offer</Text></Pressable></> : action.kind === 'make-offer' ? <Pressable accessibilityRole="button" onPress={() => router.push(`/wanted/${post.id}/offer${myOffer ? `?offerId=${myOffer.id}` : ''}`)} style={primary}><Text style={primaryText}>{myOffer ? 'Send another offer' : 'Make an offer'}</Text></Pressable> : <View style={secondary}><Text style={muted}>{action.label}</Text></View>}
+      {action.kind === 'manage-post' ? <><Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/requests?tab=wanted&direction=received')} style={primary}><Text style={primaryText}>Review offers ({post.offer_count})</Text></Pressable><Pressable accessibilityRole="button" onPress={() => setConfirm(true)} style={secondary}><Text style={{ fontFamily: F.bold, color: T.cardinal }}>Delete request</Text></Pressable></> : action.kind === 'open-chat' ? <Pressable accessibilityRole="button" accessibilityLabel="Open chat" onPress={() => router.push(`/messages/${action.threadId}`)} style={primary}><Text style={primaryText}>Open chat</Text></Pressable> : action.kind === 'edit-offer' && myOffer ? <><Pressable accessibilityRole="button" onPress={() => router.push(`/wanted/${post.id}/offer?offerId=${myOffer.id}`)} style={primary}><Text style={primaryText}>Edit offer</Text></Pressable><Pressable accessibilityRole="button" onPress={async () => { await resolveWantedOffer(myOffer.id, 'withdraw'); refreshBadge(); await load(); }} style={secondary}><Text style={{ fontFamily: F.bold, color: T.cardinal }}>Withdraw offer</Text></Pressable></> : action.kind === 'make-offer' ? <Pressable accessibilityRole="button" onPress={() => router.push(`/wanted/${post.id}/offer${myOffer ? `?offerId=${myOffer.id}` : ''}`)} style={primary}><Text style={primaryText}>{action.label}</Text></Pressable> : <View style={secondary}><Text style={muted}>{action.label}</Text></View>}
     </ScrollView>
-    <Sheet visible={confirm} onClose={() => setConfirm(false)}><SheetGrabber /><Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink }}>Delete this request?</Text><Text style={[muted, { marginTop: 8 }]}>Pending offers will close. An accepted conversation stays available.</Text><Pressable accessibilityRole="button" onPress={remove} style={primary}><Text style={primaryText}>Delete request</Text></Pressable></Sheet>
+    <Sheet visible={confirm} onClose={() => setConfirm(false)}><SheetGrabber /><Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink }}>Delete this request?</Text><Text style={[muted, { marginTop: 8 }]}>Pending offers will close. An accepted conversation stays available.</Text><Pressable accessibilityRole="button" onPress={remove} style={primary}><Text style={primaryText}>Delete request</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Cancel deletion" onPress={() => setConfirm(false)} style={secondary}><Text style={{ fontFamily: F.bold, color: T.ink }}>Keep request</Text></Pressable></Sheet>
     <Sheet visible={reportOpen} onClose={() => setReportOpen(false)}><SheetGrabber /><ReportForm title="Report Wanted request" submitting={reporting} onCancel={() => setReportOpen(false)} onSubmit={async (reason, note) => { setReporting(true); try { await reportWantedTarget({ wantedPostId: post.id }, reason, note); setReportOpen(false); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not submit report.'); } finally { setReporting(false); } }} /></Sheet>
   </SafeAreaView>;
 }

@@ -30,6 +30,8 @@ export function wantedActionState(input: ActionInput) {
   if (input.owner && input.postStatus === 'active') return { kind: 'manage-post' as const, label: 'Edit request' };
   if (input.postStatus === 'expired') return { kind: 'disabled' as const, label: 'Request expired' };
   if (input.postStatus !== 'active') return { kind: 'disabled' as const, label: 'Request closed' };
+  if (input.offerStatus === 'withdrawn' && input.offerRole === 'seller') return { kind: 'make-offer' as const, label: 'Send another offer' };
+  if (input.offerStatus) return { kind: 'disabled' as const, label: `Offer ${input.offerStatus}` };
   return { kind: 'make-offer' as const, label: 'Make an offer' };
 }
 
