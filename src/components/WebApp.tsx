@@ -16,7 +16,7 @@ import { captureSearch } from '@/lib/digest/capture';
 import { timeLeftLabel, parseEventWindow, formatEventWindow, fillZoom, findContactInfo, profilePath, conversationHref, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import type { ActivityItem, ActivityStatus, FeedRange, Listing, Profile, RatingSummary } from '@/lib/types';
 import { FeedSkeleton } from '@/components/Skeletons';
-import type { WantedNotificationEvent } from '@/lib/wanted-client';
+import { dismissNotificationWithoutNavigation, wantedNotificationHref, type WantedNotificationEvent } from '@/lib/wanted-client';
 
 const TITLE_MAX = 80;
 
@@ -100,11 +100,11 @@ export function WebAppHeader({
   meName: string; meAvatarUrl?: string;
 }) {
   return (
-    <header style={{ padding: '14px 32px', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', gap: 28, position: 'sticky', top: 0, zIndex: 30 }}>
+    <header className="web-app-header" style={{ padding: '14px 32px', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', gap: 28, position: 'sticky', top: 0, zIndex: 30 }}>
       <a href="/feed" onClick={spaClick(onLogo)} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }} aria-label="Go to feed">
         <Wordmark size={24} />
       </a>
-      <div style={{ flex: 1, maxWidth: 520, position: 'relative' }}>
+      <div className="web-header-search" style={{ flex: 1, maxWidth: 520, position: 'relative' }}>
         <Icon name="search" size={15} color="var(--muted)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
         <input
           value={query}
@@ -120,27 +120,25 @@ export function WebAppHeader({
           </button>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginLeft: 'auto' }}>
-        <a href="/feed" onClick={spaClick(onLogo)} style={{ textDecoration: 'none', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>
-          Feed
-        </a>
-        <a href="/wanted" onClick={spaClick(onWanted)} style={{ textDecoration: 'none', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>
-          Wanted
-        </a>
-        <a
-          href="/requests"
-          onClick={spaClick(onRequests)}
-          aria-label={pendingCount > 0 ? `Requests and messages, ${pendingCount} pending` : 'Requests and messages'}
-          style={{ textDecoration: 'none', background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}
-        >
-          Requests &amp; Messages
-          {/* A dot, not a counter: the exact number matters once you are on the
-              page, not in the nav. The count moves to the aria-label so screen
-              readers keep it. */}
-          {pendingCount > 0 && (
-            <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)', flexShrink: 0 }} />
-          )}
-        </a>
+      <div className="web-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 18, marginLeft: 'auto' }}>
+        <nav className="web-desktop-nav" aria-label="Main navigation">
+          <a href="/feed" onClick={spaClick(onLogo)}>Feed</a>
+          <a href="/wanted" onClick={spaClick(onWanted)}>Wanted</a>
+          <a href="/requests" onClick={spaClick(onRequests)} aria-label={pendingCount > 0 ? `Requests and messages, ${pendingCount} pending` : 'Requests and messages'}>
+            Requests &amp; Messages
+            {pendingCount > 0 && <span aria-hidden className="web-nav-attention" />}
+          </a>
+        </nav>
+        <details className="web-mobile-nav">
+          <summary aria-label="Open main navigation">Menu</summary>
+          <nav aria-label="Main navigation">
+            <a href="/feed" onClick={spaClick(onLogo)}>Feed</a>
+            <a href="/wanted" onClick={spaClick(onWanted)}>Wanted</a>
+            <a href="/requests" onClick={spaClick(onRequests)} aria-label={pendingCount > 0 ? `Requests and messages, ${pendingCount} pending` : 'Requests and messages'}>
+              Requests &amp; Messages {pendingCount > 0 && <span aria-hidden className="web-nav-attention" />}
+            </a>
+          </nav>
+        </details>
         <button
           onClick={onBell}
           aria-label={unreadCount > 0
@@ -154,7 +152,7 @@ export function WebAppHeader({
           )}
         </button>
         <Button kind="primary" size="sm" icon="plus" onClick={onPost}>Post</Button>
-        <a href="/profile" onClick={spaClick(onProfile)} aria-label="Your profile" style={{ display: 'inline-flex', padding: 0 }}>
+        <a className="web-profile-action" href="/profile" onClick={spaClick(onProfile)} aria-label="Your profile" style={{ display: 'inline-flex', padding: 0 }}>
           <Avatar name={meName} src={meAvatarUrl} size={30} tone="ink" />
         </a>
       </div>
@@ -378,23 +376,25 @@ export function WebNotifications({
               return (
               <div
                 key={`reveal-${a.id}`}
-                role="button"
-                tabIndex={0}
-                aria-label={`${a.who}, ${a.listingTitle}${a.unread ? ', unread' : ''}`}
-                style={{ position: 'relative', cursor: 'pointer' }}
-                onClick={() => { onNavigate(a); onClose(); }}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate(a); onClose(); } }}
+                style={{ position: 'relative' }}
               >
                 {a.unread && (
                   <span style={{ position: 'absolute', left: 7, top: 22, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />
                 )}
                 <ActivityRow a={a} compact dismissable onApprove={onApprove} onDecline={onDecline} last={i === notifications.length - 1} />
                 <button
-                  onClick={(e) => { e.stopPropagation(); onDismiss(a.id); }}
+                  onClick={(e) => dismissNotificationWithoutNavigation(e, a.id, onDismiss)}
                   aria-label="Dismiss notification"
                   style={{ position: 'absolute', top: 10, right: 10, width: 20, height: 20, borderRadius: '50%', border: 0, background: 'var(--surface)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
                 >
                   <Icon name="x" size={10} />
+                </button>
+                <button
+                  onClick={() => { onNavigate(a); onClose(); }}
+                  aria-label={`View notification from ${a.who} about ${a.listingTitle}`}
+                  style={{ position: 'absolute', top: 37, right: 10, border: 0, background: 'none', padding: 2, color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}
+                >
+                  View
                 </button>
               </div>
               );
@@ -403,18 +403,20 @@ export function WebNotifications({
               return (
                 <div
                   key={`wanted-${event.id}`}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${event.title}${event.read_at ? '' : ', unread'}`}
-                  style={{ position: 'relative', cursor: 'pointer', padding: '15px 44px 15px 20px', borderBottom: i === notifications.length - 1 ? 0 : '1px solid var(--rule)' }}
-                  onClick={() => { onNavigateWanted(event); onClose(); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigateWanted(event); onClose(); } }}
+                  style={{ position: 'relative', borderBottom: i === notifications.length - 1 ? 0 : '1px solid var(--rule)' }}
                 >
                   {!event.read_at && <span aria-hidden style={{ position: 'absolute', left: 7, top: 22, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />}
-                  <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.35 }}>{event.title}</div>
-                  <div style={{ fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.45, marginTop: 3 }}>{event.body}</div>
+                  <a
+                    href={wantedNotificationHref(event)}
+                    onClick={spaClick(() => { onNavigateWanted(event); onClose(); })}
+                    aria-label={`${event.title}${event.read_at ? '' : ', unread'}`}
+                    style={{ display: 'block', padding: '15px 44px 15px 20px', color: 'inherit', textDecoration: 'none' }}
+                  >
+                    <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.35 }}>{event.title}</div>
+                    <div style={{ fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.45, marginTop: 3 }}>{event.body}</div>
+                  </a>
                   <button
-                    onClick={(e) => { e.stopPropagation(); onDismiss(event.id); }}
+                    onClick={(e) => dismissNotificationWithoutNavigation(e, event.id, onDismiss)}
                     aria-label="Dismiss notification"
                     style={{ position: 'absolute', top: 10, right: 10, width: 20, height: 20, borderRadius: '50%', border: 0, background: 'var(--surface)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
                   >
@@ -1974,7 +1976,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         />
       )}
 
-      {notifOpen && <WebNotifications activity={store.activity} wantedNotifications={store.wantedNotifications} onClose={() => setNotifOpen(false)} onApprove={approve} onDecline={decline} onNavigate={() => setView('profile')} onNavigateWanted={(event) => { if (typeof window !== 'undefined') window.location.href = event.wanted_post_id ? `/wanted/${event.wanted_post_id}` : '/requests?tab=wanted'; }} onDismiss={(id) => store.dismissNotification(id)} onMarkAllRead={() => store.markAllSeen()} />}
+      {notifOpen && <WebNotifications activity={store.activity} wantedNotifications={store.wantedNotifications} onClose={() => setNotifOpen(false)} onApprove={approve} onDecline={decline} onNavigate={() => setView('profile')} onNavigateWanted={(event) => { if (typeof window !== 'undefined') window.location.href = wantedNotificationHref(event); }} onDismiss={(id) => store.dismissNotification(id)} onMarkAllRead={() => store.markAllSeen()} />}
     </div>
   );
 }

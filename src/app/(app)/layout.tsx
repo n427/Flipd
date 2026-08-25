@@ -7,6 +7,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { StoreProvider, useStore } from '@/lib/store-context';
 import { WebAppHeader, WebNotifications } from '@/components/WebApp';
+import { wantedNotificationHref } from '@/lib/wanted-client';
 
 function AppChrome({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -76,7 +77,7 @@ function AppChrome({ children }: { children: React.ReactNode }) {
           onDismiss={(id) => store.dismissNotification(id)}
           onMarkAllRead={() => store.markAllSeen()}
           onNavigateWanted={(event) => {
-            router.push(event.wanted_post_id ? `/wanted/${event.wanted_post_id}` : '/requests?tab=wanted');
+            router.push(wantedNotificationHref(event));
           }}
           onNavigate={(a) => {
             if (a.dir === 'in') { router.push('/requests'); return; }

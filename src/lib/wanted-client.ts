@@ -28,6 +28,26 @@ export type WantedNotificationEvent = {
   dismissed_at: string | null;
 };
 
+export function wantedNotificationHref(event: WantedNotificationEvent): string {
+  if (event.event_type === 'new-offer') return '/requests?tab=wanted&direction=received';
+  if (event.event_type === 'accepted' || event.event_type === 'declined' || event.event_type === 'expired') {
+    return '/requests?tab=wanted&direction=sent';
+  }
+  if ((event.event_type === 'edit' || event.event_type === 'reminder') && event.wanted_post_id) {
+    return `/wanted/${event.wanted_post_id}`;
+  }
+  return '/wanted';
+}
+
+export function dismissNotificationWithoutNavigation(
+  event: { stopPropagation: () => void },
+  id: string,
+  onDismiss: (id: string) => void,
+): void {
+  event.stopPropagation();
+  onDismiss(id);
+}
+
 export class WantedClientError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -93,7 +113,7 @@ export const wantedClient = {
     return requestJson<{ wanted_post: WantedPostDTO }>(`/api/wanted/${id}`, jsonInit('PATCH', prepareWantedPostInput(input)));
   },
   async deletePost(id: string) {
-    return requestJson<{ wanted_post: WantedPostDTO }>(`/api/wanted/${id}`, { method: 'DELETE' });
+    return requestJson<{ ok: true }>(`/api/wanted/${id}`, { method: 'DELETE' });
   },
   async offers(direction: WantedOfferDirection) {
     return requestJson<{ wanted_offers: WantedOfferDTO[] }>(wantedOffersUrl(direction));
