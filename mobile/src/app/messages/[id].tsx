@@ -259,7 +259,9 @@ export default function ThreadScreen() {
               the way back to the post. */}
           <Pressable
             onPress={() =>
-              head.listing_id && !head.listing_removed
+              head.source_type === 'wanted' && head.wanted_offer_id
+                ? router.push('/(tabs)/requests?tab=wanted')
+                : head.listing_id && !head.listing_removed
                 ? router.push(`/listing/${head.listing_id}`)
                 : undefined
             }
@@ -284,7 +286,9 @@ export default function ThreadScreen() {
                 {head.listing_title}
               </Text>
               <Text style={{ fontFamily: F.regular, fontSize: 12.5, color: T.muted, marginTop: 1 }}>
-                {head.listing_removed
+                {head.source_type === 'wanted'
+                  ? `Accepted offer · ${priceLabel(head.listing_price ?? 0)}`
+                  : head.listing_removed
                   ? 'Listing removed'
                   : head.listing_archived
                     ? 'No longer available'
@@ -292,7 +296,7 @@ export default function ThreadScreen() {
                 {head.offer != null ? ` · offered $${head.offer}` : ''}
               </Text>
             </View>
-            {head.listing_id && !head.listing_removed ? (
+            {(head.source_type === 'wanted' && head.wanted_offer_id) || (head.listing_id && !head.listing_removed) ? (
               <Ionicons name="chevron-forward" size={17} color={T.muted} />
             ) : null}
           </Pressable>
@@ -315,7 +319,7 @@ export default function ThreadScreen() {
             head.intro_message ? (
               <View style={{ backgroundColor: T.fieldbg, borderRadius: 12, padding: 12, marginBottom: 14 }}>
                 <Text style={{ fontFamily: F.bold, fontSize: 10.5, color: T.muted, letterSpacing: 0.6, marginBottom: 5 }}>
-                  THE REQUEST
+                  {head.source_type === 'wanted' ? 'THE OFFER MESSAGE' : 'THE REQUEST'}
                 </Text>
                 <Text style={{ fontFamily: F.regular, fontSize: 14, lineHeight: 20, color: '#333' }}>
                   {head.intro_message}

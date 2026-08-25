@@ -27,6 +27,7 @@ export type Message = {
 export type ThreadSummary = {
   id: string;
   source_type: 'sale' | 'wanted';
+  request_id: string | null;
   wanted_offer_id: string | null;
   listing_id: string | null;
   listing_title: string;
@@ -41,6 +42,7 @@ export type ThreadSummary = {
 export type ThreadHead = {
   id: string;
   source_type: 'sale' | 'wanted';
+  request_id: string | null;
   wanted_offer_id: string | null;
   listing_id: string | null;
   listing_title: string;
@@ -57,6 +59,9 @@ export type ThreadHead = {
   } | null;
   intro_message: string | null;
   offer: number | null;
+  approved_at?: string | null;
+  requested_at?: string | null;
+  i_am_buyer?: boolean;
 };
 
 export async function fetchThreads(): Promise<ThreadSummary[]> {

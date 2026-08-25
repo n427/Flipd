@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ListRowsSkeleton } from '@/components/Skeletons';
 import { Sheet, SheetGrabber } from '@/components/Sheet';
@@ -13,6 +13,8 @@ import { useSession } from '@/lib/session';
 import { fetchSafetyReview, SafetyReview, fetchRequests, respondReveal, markRevealsSeen, submitRating, RevealRequest, rangeSince, FeedRange } from '@/lib/listings';
 import { useUnread } from '@/lib/unread';
 import { conversationThumbnail } from '@/lib/requestPresentation';
+import { WantedOfferRow } from '@/components/WantedOfferRow';
+import { acceptWantedOffer, fetchWantedOffers, resolveWantedOffer, WantedOffer } from '@/lib/wanted';
 import { T, F, S } from '@/lib/theme';
 
 // Status → label + colors (badge).
@@ -247,12 +249,13 @@ function Row({
 
 // Same three tabs as the web page: conversations plus the two request
 // directions, which are different jobs with different actions.
-type Tab = 'conversations' | 'incoming' | 'outgoing';
+type Tab = 'conversations' | 'sale' | 'wanted';
+type Direction = 'received' | 'sent';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'conversations', label: 'Conversations' },
-  { id: 'incoming', label: 'Want to talk' },
-  { id: 'outgoing', label: 'You sent' },
+  { id: 'sale', label: 'Sale requests' },
+  { id: 'wanted', label: 'Wanted offers' },
 ];
 
 // Same windows as the web page's "From" control.
@@ -265,12 +268,18 @@ const RANGES: { id: FeedRange; label: string; short: string }[] = [
 
 export default function Requests() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string; direction?: string }>();
   const { user } = useSession();
   const { refresh: refreshBadge } = useUnread();
   const [incoming, setIncoming] = useState<RevealRequest[]>([]);
   const [outgoing, setOutgoing] = useState<RevealRequest[]>([]);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
-  const [tab, setTab] = useState<Tab>('conversations');
+  const [tab, setTab] = useState<Tab>(params.tab === 'wanted' ? 'wanted' : params.tab === 'sale' ? 'sale' : 'conversations');
+  const [direction, setDirection] = useState<Direction>(params.direction === 'sent' ? 'sent' : 'received');
+  const [wantedReceived, setWantedReceived] = useState<WantedOffer[]>([]);
+  const [wantedSent, setWantedSent] = useState<WantedOffer[]>([]);
+  const [wantedNext, setWantedNext] = useState<{ received: string | null; sent: string | null }>({ received: null, sent: null });
+  const wantedPaging = useRef(new Set<string>());
   // Defaults to the past week, matching the web page.
   const [range, setRange] = useState<FeedRange>('month');
   const [rangeOpen, setRangeOpen] = useState(false);
@@ -308,13 +317,18 @@ export default function Requests() {
       setError(false);
       // Threads never fail the screen on their own — an empty list just
       // renders the conversations empty state.
-      const [{ incoming, outgoing }, t] = await Promise.all([
+      const [{ incoming, outgoing }, t, received, sent] = await Promise.all([
         fetchRequests(user.id),
         fetchThreads().catch(() => [] as ThreadSummary[]),
+        fetchWantedOffers('received').catch(() => ({ wanted_offers: [], next_cursor: null })),
+        fetchWantedOffers('sent').catch(() => ({ wanted_offers: [], next_cursor: null })),
       ]);
       setIncoming(incoming);
       setOutgoing(outgoing);
       setThreads(t);
+      setWantedReceived(received.wanted_offers);
+      setWantedSent(sent.wanted_offers);
+      setWantedNext({ received: received.next_cursor, sent: sent.next_cursor });
     } catch (e) {
       setError(true);
       if (__DEV__) console.warn('[requests] load failed:', e);
@@ -330,6 +344,11 @@ export default function Requests() {
       refreshBadge();
     })();
   }, [load, refreshBadge]);
+
+  useEffect(() => {
+    if (params.tab === 'wanted' || params.tab === 'sale') setTab(params.tab);
+    if (params.direction === 'received' || params.direction === 'sent') setDirection(params.direction);
+  }, [params.tab, params.direction]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -467,14 +486,14 @@ export default function Requests() {
   const isLive = (r: RevealRequest) => !RESOLVED.has(r.status);
   const counts: Record<Tab, number> = {
     conversations: visibleThreads.length,
-    incoming: visibleIncoming.filter(isLive).length,
-    outgoing: visibleOutgoing.filter(isLive).length,
+    sale: [...visibleIncoming, ...visibleOutgoing].filter(isLive).length,
+    wanted: [...wantedReceived, ...wantedSent].filter((offer) => offer.status === 'pending').length,
   };
 
-  const rows = tab === 'incoming' ? visibleIncoming : tab === 'outgoing' ? visibleOutgoing : [];
+  const rows = direction === 'received' ? visibleIncoming : visibleOutgoing;
   // Distinguishes "nothing here" from "nothing in the window you picked".
   const totalForTab =
-    tab === 'conversations' ? threads.length : tab === 'incoming' ? incoming.length : outgoing.length;
+    tab === 'conversations' ? threads.length : tab === 'wanted' ? (direction === 'received' ? wantedReceived.length : wantedSent.length) : direction === 'received' ? incoming.length : outgoing.length;
   const hiddenByRange = counts[tab] === 0 && totalForTab > 0;
 
   const emptyCopy = error
@@ -483,7 +502,9 @@ export default function Requests() {
       ? 'Nothing in this window. Try a longer range.'
     : tab === 'conversations'
       ? 'Approved requests open a chat, and it lands here.'
-      : tab === 'incoming'
+      : tab === 'wanted'
+        ? 'Private offers you receive or send appear here.'
+      : direction === 'received'
         ? 'When someone asks about one of your listings, it shows up here.'
         : 'Requests you send to sellers show up here while you wait on a reply.';
 
@@ -493,7 +514,9 @@ export default function Requests() {
       ? 'Nothing in this window'
     : tab === 'conversations'
       ? 'No conversations yet'
-      : tab === 'incoming'
+      : tab === 'wanted'
+        ? 'No Wanted offers yet'
+      : direction === 'received'
         ? 'Nobody’s asked yet'
         : 'You haven’t asked anyone yet';
 
@@ -549,6 +572,10 @@ export default function Requests() {
           );
         })}
       </View>
+
+      {tab !== 'conversations' ? <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+        {(['received', 'sent'] as Direction[]).map((item) => <Pressable key={item} accessibilityState={{ selected: direction === item }} onPress={() => setDirection(item)} style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, backgroundColor: direction === item ? T.ink : T.fieldbg }}><Text style={{ fontFamily: F.bold, fontSize: 13, color: direction === item ? '#fff' : T.muted }}>{item === 'received' ? 'Received' : 'Sent'}</Text></Pressable>)}
+      </View> : null}
 
       {/* Sits directly above the list it filters rather than competing with
           the tabs for the same row. */}
@@ -673,6 +700,8 @@ export default function Requests() {
               );
             }}
           />
+        ) : tab === 'wanted' ? (
+          <FlatList {...listProps} key={`wanted-${direction}`} data={direction === 'received' ? wantedReceived : wantedSent} keyExtractor={(item) => item.id} onEndReached={async () => { const cursor = wantedNext[direction]; const pageKey = `${direction}:${cursor}`; if (!cursor || wantedPaging.current.has(pageKey)) return; wantedPaging.current.add(pageKey); try { const result = await fetchWantedOffers(direction, cursor); setWantedNext((current) => { if (current[direction] !== cursor) return current; if (direction === 'received') setWantedReceived((all) => [...all, ...result.wanted_offers.filter((offer) => !all.some((item) => item.id === offer.id))]); else setWantedSent((all) => [...all, ...result.wanted_offers.filter((offer) => !all.some((item) => item.id === offer.id))]); return { ...current, [direction]: result.next_cursor }; }); } finally { wantedPaging.current.delete(pageKey); } }} renderItem={({ item }) => <WantedOfferRow offer={item} busy={busyId === item.id} onAccept={direction === 'received' && item.status === 'pending' ? async () => { setBusyId(item.id); setActionError(null); try { const threadId = await acceptWantedOffer(item.id); await load(); router.push(`/messages/${threadId}`); } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not accept offer.'); } finally { setBusyId(null); } } : undefined} onDecline={direction === 'received' && item.status === 'pending' ? async () => { setBusyId(item.id); try { await resolveWantedOffer(item.id, 'decline'); await load(); } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not decline offer.'); } finally { setBusyId(null); } } : undefined} onEdit={direction === 'sent' && item.status === 'pending' ? () => router.push(`/wanted/${item.wanted_post_id}/offer?offerId=${item.id}`) : undefined} onWithdraw={direction === 'sent' && item.status === 'pending' ? async () => { setBusyId(item.id); try { await resolveWantedOffer(item.id, 'withdraw'); await load(); } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not withdraw offer.'); } finally { setBusyId(null); } } : undefined} onChat={item.status === 'accepted' ? () => { const thread = threads.find((row) => row.wanted_offer_id === item.id); if (thread) router.push(`/messages/${thread.id}`); else setActionError('Conversation is still opening. Pull down to refresh.'); } : undefined} />} />
         ) : (
           <FlatList
             {...listProps}
@@ -684,11 +713,11 @@ export default function Requests() {
                 item={item}
                 onPress={() => router.push(`/listing/${item.listing_id}`)}
                 onRespond={
-                  tab === 'incoming'
+                  direction === 'received'
                     ? (action) => (action === 'approve' ? onApprove(item.id) : setDeclining(item))
                     : undefined
                 }
-                onReview={tab === 'incoming' ? () => openReview(item) : undefined}
+                onReview={direction === 'received' ? () => openReview(item) : undefined}
                 onComplete={() => onComplete(item)}
                 onRate={() => openRate(item)}
                 onOpenChat={(threadId) => router.push(`/messages/${threadId}`)}

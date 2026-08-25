@@ -25,6 +25,7 @@ export type WantedPost = WantedPostInput & {
   created_at: string;
   offer_count: number;
 };
+export type WantedPostDetail = { wanted_post: WantedPost; buyer?: WantedBuyer; management?: { buyer_id: string; updated_at: string; resolved_at: string | null } };
 
 export type WantedBuyer = {
   id: string;
@@ -158,7 +159,7 @@ export async function fetchWantedFeed(filters: WantedFeedFilters = {}, deps?: Wa
 }
 
 export async function fetchWantedPost(id: string, deps?: WantedClientDependencies) {
-  const body = await requestJson<{ wanted_post: WantedPost; buyer?: WantedBuyer }>(`/api/wanted/${id}`, {}, deps);
+  const body = await requestJson<WantedPostDetail>(`/api/wanted/${id}`, {}, deps);
   return body;
 }
 

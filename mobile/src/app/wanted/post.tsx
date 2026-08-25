@@ -1,21 +1,36 @@
-import { Pressable, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { F, S, T } from '@/lib/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Field } from '@/components/Field';
+import { FormScroll } from '@/components/FormScroll';
+import { CAMPUS_SPOTS } from '@/lib/catalog';
+import { createWantedPost, fetchWantedPost, cleanupWantedPhotos, updateWantedPost, uploadWantedPhotos, WantedCategory, WantedPost } from '@/lib/wanted';
+import { losAngelesEndOfDayUtc, wantedDateInput } from '@/lib/wantedPresentation';
+import { F, T } from '@/lib/theme';
+import { PlaceHit, searchPlaces } from '@/lib/places';
 
-export default function WantedPostPlaceholder() {
-  const router = useRouter();
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-      <View style={{ flex: 1, paddingHorizontal: S.gutter, paddingTop: S.screenTop }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} onPress={() => router.back()}>
-          <Text style={{ fontFamily: F.bold, fontSize: 15, color: T.cardinal }}>Back</Text>
-        </Pressable>
-        <Text style={{ fontFamily: F.black, fontSize: 28, color: T.ink, letterSpacing: -0.8, marginTop: 24 }}>Request something</Text>
-        <Text style={{ fontFamily: F.medium, fontSize: 15, color: T.muted, marginTop: 8 }}>
-          The request form is being prepared.
-        </Text>
-      </View>
-    </SafeAreaView>
-  );
+export default function NewWantedPost() { return <WantedPostFormScreen />; }
+
+export function WantedPostFormScreen({ initialId }: { initialId?: string }) {
+  const router = useRouter(); const { width } = useWindowDimensions(); const tile = (width - 44 - 16) / 3;
+  const [initial, setInitial] = useState<WantedPost | null>(null); const [title, setTitle] = useState(''); const [category, setCategory] = useState<WantedCategory>('goods'); const [budget, setBudget] = useState(''); const [location, setLocation] = useState(''); const [placeHits, setPlaceHits] = useState<PlaceHit[]>([]); const [description, setDescription] = useState(''); const [date, setDate] = useState(''); const [photos, setPhotos] = useState<string[]>([]); const [existing, setExisting] = useState<string[]>([]); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!initialId) return; fetchWantedPost(initialId).then(({ wanted_post }) => { setInitial(wanted_post); setTitle(wanted_post.title); setCategory(wanted_post.category); setBudget(String(wanted_post.max_budget)); setLocation(wanted_post.location); setDescription(wanted_post.description); setDate(wantedDateInput(wanted_post.needed_by)); setExisting(wanted_post.photo_urls); }).catch(() => setError('Could not load this request.')); }, [initialId]);
+  const pickPhoto = async () => { const permission = await ImagePicker.requestMediaLibraryPermissionsAsync(); if (!permission.granted) return Alert.alert('Permission needed', 'Allow photo access to add reference photos.'); const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: .8, allowsEditing: true, aspect: [1, 1] }); if (!result.canceled) setPhotos((all) => [...all, result.assets[0].uri].slice(0, 6 - existing.length)); };
+  const submit = async () => { const amount = Number(budget); const neededBy = losAngelesEndOfDayUtc(date); if (!title.trim() || !description.trim() || !location.trim() || !Number.isSafeInteger(amount) || amount <= 0 || !neededBy || new Date(neededBy) <= new Date()) { setError('Add a title, whole-dollar budget, meetup area, description, and future needed-by date.'); return; } setBusy(true); setError(''); let uploaded: { paths: string[]; urls?: string[] } | null = null; try { if (photos.length) uploaded = await uploadWantedPhotos(photos.map((uri, i) => ({ uri, name: `wanted-${Date.now()}-${i}.jpg`, type: 'image/jpeg' })), 'reference'); const input = { title, category, max_budget: amount, location, description, needed_by: neededBy, photo_urls: [...existing, ...(uploaded?.urls ?? [])] }; const saved = initialId ? await updateWantedPost(initialId, input) : await createWantedPost(input); router.replace(`/wanted/${saved.id}`); } catch (cause) { if (uploaded?.paths.length) await cleanupWantedPhotos(uploaded.paths, 'reference').catch(() => {}); setError(cause instanceof Error ? cause.message : 'Could not save your request.'); setBusy(false); } };
+  return <View style={{ flex: 1, backgroundColor: T.bg }}><SafeAreaView edges={['top']}><View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: T.rule }}><Pressable accessibilityLabel="Go back" hitSlop={10} onPress={() => router.back()}><Ionicons name="close" size={22} color={T.muted} /></Pressable><Text style={{ flex: 1, marginLeft: 14, fontFamily: F.bold, fontSize: 17, color: T.ink }}>{initial ? 'Edit request' : 'New Wanted request'}</Text></View></SafeAreaView><FormScroll contentContainerStyle={{ padding: 22, paddingBottom: 80 }}>
+    <Text style={label}>Reference photos <Text style={muted}>(optional, up to 6)</Text></Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{existing.map((uri) => <Photo key={uri} uri={uri} size={tile} onRemove={() => setExisting((all) => all.filter((item) => item !== uri))} />)}{photos.map((uri) => <Photo key={uri} uri={uri} size={tile} onRemove={() => setPhotos((all) => all.filter((item) => item !== uri))} />)}{existing.length + photos.length < 6 ? <Pressable accessibilityLabel="Add reference photo" onPress={pickPhoto} style={{ width: tile, height: tile, borderRadius: 14, backgroundColor: T.fieldbg, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="camera-outline" size={25} color={T.cardinal} /></Pressable> : null}</View>
+    <Text style={label}>Title</Text><Field value={title} onChangeText={setTitle} maxLength={60} placeholder="Standing desk, moving help…" style={input} />
+    <Text style={label}>Category</Text><View style={{ flexDirection: 'row', gap: 7 }}>{(['goods','services','housing'] as WantedCategory[]).map((item) => <Pressable key={item} onPress={() => setCategory(item)} style={[chip, category === item && { backgroundColor: T.ink }]}><Text style={{ fontFamily: F.bold, fontSize: 12.5, color: category === item ? '#fff' : T.muted }}>{item[0].toUpperCase()+item.slice(1)}</Text></Pressable>)}</View>
+    <Text style={label}>Maximum budget ($)</Text><Field value={budget} onChangeText={setBudget} keyboardType="number-pad" placeholder="100" style={input} />
+    <Text style={label}>Meetup area</Text><Field value={location} onChangeText={async (value) => { setLocation(value); setPlaceHits(value.trim().length >= 3 ? await searchPlaces(value) : []); }} placeholder="USC Village" style={input} />{placeHits.map((hit) => <Pressable key={hit.placeId} onPress={() => { setLocation(hit.label); setPlaceHits([]); }} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.rule }}><Text style={{ fontFamily: F.medium, color: T.ink, fontSize: 13 }}>{hit.label}</Text></Pressable>)}<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>{CAMPUS_SPOTS.slice(0,5).map((spot) => <Pressable key={spot.name} onPress={() => { setLocation(spot.name); setPlaceHits([]); }} style={smallChip}><Text style={{ fontFamily: F.semibold, color: T.muted, fontSize: 11.5 }}>{spot.name}</Text></Pressable>)}</View>
+    <Text style={label}>Description</Text><Field value={description} onChangeText={setDescription} multiline maxLength={2000} placeholder="Size, condition, timing, or anything else sellers should know." style={[input, { height: 124, paddingTop: 13 }]} />
+    <Text style={label}>Needed by</Text><Field value={date} onChangeText={setDate} keyboardType="numbers-and-punctuation" placeholder="YYYY-MM-DD" style={input} />
+    {error ? <Text accessibilityRole="alert" style={{ fontFamily: F.medium, color: T.cardinal, marginTop: 14 }}>{error}</Text> : null}<Pressable accessibilityRole="button" disabled={busy} onPress={submit} style={[primary, { opacity: busy ? .5 : 1 }]}><Text style={{ fontFamily: F.bold, color: '#fff' }}>{busy ? 'Saving…' : initial ? 'Save changes' : 'Post request'}</Text></Pressable>
+  </FormScroll></View>;
 }
+function Photo({ uri, size, onRemove }: { uri: string; size: number; onRemove: () => void }) { return <View><Image source={{ uri }} style={{ width: size, height: size, borderRadius: 14 }} contentFit="cover" /><Pressable accessibilityLabel="Remove photo" onPress={onRemove} style={{ position: 'absolute', right: -4, top: -4, backgroundColor: T.ink, borderRadius: 12, padding: 3 }}><Ionicons name="close" size={14} color="#fff" /></Pressable></View>; }
+const label={fontFamily:F.bold,fontSize:13.5,color:T.ink,marginTop:20,marginBottom:8} as const; const muted={fontFamily:F.medium,color:T.muted} as const; const input={height:50,borderRadius:13,backgroundColor:T.fieldbg,paddingHorizontal:14,fontFamily:F.medium,fontSize:15,color:T.ink} as const; const chip={paddingVertical:9,paddingHorizontal:13,borderRadius:999,backgroundColor:T.fieldbg} as const; const smallChip={paddingVertical:6,paddingHorizontal:9,borderRadius:999,backgroundColor:T.fieldbg} as const; const primary={marginTop:22,backgroundColor:T.cardinal,borderRadius:13,paddingVertical:14,alignItems:'center'} as const;
