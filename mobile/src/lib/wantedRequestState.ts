@@ -7,9 +7,21 @@ export function isCurrentWantedRequest(current: WantedRequestIdentity, request: 
 }
 
 export function isCurrentWantedOfferLoad(
-  current: { key: string; generation: number },
-  request: { key: string; generation: number },
+  current: WantedOfferScreenIdentity,
+  request: WantedOfferScreenIdentity,
   cancelled: boolean,
 ): boolean {
-  return !cancelled && current.key === request.key && current.generation === request.generation;
+  return !cancelled
+    && current.mounted
+    && request.mounted
+    && current.postId === request.postId
+    && current.mode === request.mode
+    && current.generation === request.generation;
 }
+
+export type WantedOfferScreenIdentity = {
+  postId: string;
+  mode: string;
+  generation: number;
+  mounted: boolean;
+};

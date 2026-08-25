@@ -11,23 +11,27 @@ import { cleanupWantedPhotos, createWantedOffer, fetchWantedOffersForPost, fetch
 import { wantedOfferEntryState, wantedOfferMutationId } from '@/lib/wantedPresentation';
 import { useUnread } from '@/lib/unread';
 import { F, T } from '@/lib/theme';
-import { isCurrentWantedOfferLoad } from '@/lib/wantedRequestState';
+import { isCurrentWantedOfferLoad, WantedOfferScreenIdentity } from '@/lib/wantedRequestState';
 
 export default function WantedOfferScreen() {
   const { id, offerId } = useLocalSearchParams<{ id: string; offerId?: string }>();
   const router = useRouter();
   const { refresh: refreshBadge } = useUnread();
-  const generatedNewOfferUuid = useRef(globalThis.crypto.randomUUID()).current;
-  const offerUuid = wantedOfferMutationId(offerId, generatedNewOfferUuid);
   const routeModeKey = offerId ?? 'new';
-  const currentRouteModeKey = useRef(routeModeKey);
-  currentRouteModeKey.current = routeModeKey;
-  const offerLoadGeneration = useRef(0);
+  const postId = id ?? '';
+  const newOfferIdentity = useRef({ postId, uuid: globalThis.crypto.randomUUID() });
+  if (newOfferIdentity.current.postId !== postId) newOfferIdentity.current = { postId, uuid: globalThis.crypto.randomUUID() };
+  const offerUuid = wantedOfferMutationId(offerId, newOfferIdentity.current.uuid);
+  const currentScreenIdentity = useRef<WantedOfferScreenIdentity>({ postId, mode: routeModeKey, generation: 0, mounted: true });
+  if (currentScreenIdentity.current.postId !== postId || currentScreenIdentity.current.mode !== routeModeKey) {
+    currentScreenIdentity.current = { postId, mode: routeModeKey, generation: currentScreenIdentity.current.generation + 1, mounted: true };
+  }
+  const screenIdentityKey = `${postId}:${routeModeKey}:${currentScreenIdentity.current.generation}`;
   const { width } = useWindowDimensions();
   const tile = (width - 60) / 3;
   const [initial, setInitial] = useState<WantedOffer | null>(null);
   const [initialState, setInitialState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [validatedModeKey, setValidatedModeKey] = useState<string | null>(null);
+  const [validatedIdentityKey, setValidatedIdentityKey] = useState<string | null>(null);
   const [redirectOffer, setRedirectOffer] = useState<{ id: string; label: string } | null>(null);
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
@@ -37,16 +41,21 @@ export default function WantedOfferScreen() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => () => {
+    currentScreenIdentity.current = {
+      ...currentScreenIdentity.current,
+      generation: currentScreenIdentity.current.generation + 1,
+      mounted: false,
+    };
+  }, []);
+
   useEffect(() => {
     if (!id) return;
-    const generation = ++offerLoadGeneration.current;
-    const requestIdentity = { key: routeModeKey, generation };
+    const requestIdentity = { ...currentScreenIdentity.current };
     let cancelled = false;
-    const isCurrent = () => isCurrentWantedOfferLoad(
-      { key: currentRouteModeKey.current, generation: offerLoadGeneration.current }, requestIdentity, cancelled,
-    );
+    const isCurrent = () => isCurrentWantedOfferLoad(currentScreenIdentity.current, requestIdentity, cancelled);
     setInitialState('loading');
-    setValidatedModeKey(null);
+    setValidatedIdentityKey(null);
     setBusy(false);
     setInitial(null); setPrice(''); setDescription(''); setMessage(''); setPhotos([]); setRetained([]);
     setError(''); setRedirectOffer(null);
@@ -62,7 +71,7 @@ export default function WantedOfferScreen() {
         setInitial(existing); setPrice(String(existing.price)); setDescription(existing.description); setMessage(existing.message);
         setRetained(existing.photo_paths.map((path, index) => ({ path, url: existing.photo_urls[index] })));
       }
-      setValidatedModeKey(routeModeKey); setInitialState('ready');
+      setValidatedIdentityKey(`${requestIdentity.postId}:${requestIdentity.mode}:${requestIdentity.generation}`); setInitialState('ready');
     }).catch(() => { if (!isCurrent()) return; setError('Could not verify this request and your offers.'); setInitialState('error'); });
     return () => {
       cancelled = true;
@@ -70,20 +79,21 @@ export default function WantedOfferScreen() {
   }, [id, offerId, routeModeKey]);
 
   const pick = async () => {
-    const pickModeKey = routeModeKey;
+    const pickIdentity = { ...currentScreenIdentity.current };
+    const isPickCurrent = () => isCurrentWantedOfferLoad(currentScreenIdentity.current, pickIdentity, false);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (currentRouteModeKey.current !== pickModeKey) return;
+    if (!isPickCurrent()) return;
     if (!permission.granted) return Alert.alert('Permission needed', 'Allow photo access to show what you are offering.');
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: .8, allowsEditing: true, aspect: [1, 1] });
-    if (currentRouteModeKey.current === pickModeKey && !result.canceled) setPhotos((all) => [...all, result.assets[0].uri].slice(0, 6 - retained.length));
+    if (isPickCurrent() && !result.canceled) setPhotos((all) => [...all, result.assets[0].uri].slice(0, 6 - retained.length));
   };
 
   const submit = async () => {
-    if (initialState !== 'ready' || validatedModeKey !== routeModeKey) return;
-    const submitModeKey = routeModeKey;
+    if (initialState !== 'ready' || validatedIdentityKey !== screenIdentityKey) return;
+    const submitIdentity = { ...currentScreenIdentity.current };
     const submitOfferUuid = offerUuid;
     const submitInitial = initial;
-    const isSubmitCurrent = () => currentRouteModeKey.current === submitModeKey;
+    const isSubmitCurrent = () => isCurrentWantedOfferLoad(currentScreenIdentity.current, submitIdentity, false);
     const amount = Number(price);
     if (!Number.isSafeInteger(amount) || amount <= 0 || !description.trim() || !message.trim() || retained.length + photos.length < 1) { setError('Add at least one photo, a whole-dollar price, description, and message.'); return; }
     setBusy(true); setError('');
@@ -97,7 +107,7 @@ export default function WantedOfferScreen() {
       const photoPaths = [...retained.map((item) => item.path), ...(upload?.paths ?? [])];
       const saved = submitInitial?.status === 'pending'
         ? await updateWantedOffer(submitInitial.id, { price: amount, description, message, photo_paths: photoPaths })
-        : await createWantedOffer(id, { id: submitOfferUuid, price: amount, description, message, photo_paths: photoPaths });
+        : await createWantedOffer(submitIdentity.postId, { id: submitOfferUuid, price: amount, description, message, photo_paths: photoPaths });
       const superseded = (submitInitial?.photo_paths ?? []).filter((path) => !saved.photo_paths.includes(path));
       if (superseded.length) await cleanupWantedPhotos(superseded, 'offer').catch(() => {});
       if (!isSubmitCurrent()) return;
@@ -122,7 +132,7 @@ export default function WantedOfferScreen() {
       {initialState === 'loading' ? <Text style={{ fontFamily: F.medium, color: T.muted, marginTop: 14 }}>Loading your offer…</Text> : null}
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: F.medium, color: T.cardinal, marginTop: 14 }}>{error}</Text> : null}
       {redirectOffer ? <Pressable accessibilityRole="button" accessibilityLabel={redirectOffer.label} onPress={() => router.replace(`/wanted/${id}/offer?offerId=${redirectOffer.id}`)} style={{ borderWidth: 1, borderColor: T.rule, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 14 }}><Text style={{ fontFamily: F.bold, color: T.ink }}>{redirectOffer.label}</Text></Pressable> : null}
-      <Pressable accessibilityRole="button" accessibilityLabel="Save Wanted offer" accessibilityState={{ disabled: busy || initialState !== 'ready' || validatedModeKey !== routeModeKey, busy }} disabled={busy || initialState !== 'ready' || validatedModeKey !== routeModeKey} onPress={submit} style={{ backgroundColor: T.cardinal, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 22, opacity: busy || initialState !== 'ready' || validatedModeKey !== routeModeKey ? .5 : 1 }}><Text style={{ fontFamily: F.bold, color: '#fff' }}>{busy ? 'Saving…' : initial?.status === 'pending' ? 'Save offer' : 'Send private offer'}</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Save Wanted offer" accessibilityState={{ disabled: busy || initialState !== 'ready' || validatedIdentityKey !== screenIdentityKey, busy }} disabled={busy || initialState !== 'ready' || validatedIdentityKey !== screenIdentityKey} onPress={submit} style={{ backgroundColor: T.cardinal, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 22, opacity: busy || initialState !== 'ready' || validatedIdentityKey !== screenIdentityKey ? .5 : 1 }}><Text style={{ fontFamily: F.bold, color: '#fff' }}>{busy ? 'Saving…' : initial?.status === 'pending' ? 'Save offer' : 'Send private offer'}</Text></Pressable>
     </FormScroll>
   </View>;
 }

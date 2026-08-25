@@ -12,10 +12,21 @@ describe('Wanted request generations', () => {
   });
 
   it('rejects both old success and old error after an offer route-mode transition', () => {
-    const current = { key: 'offer-2', generation: 2 };
-    const old = { key: 'new', generation: 1 };
+    const current = { postId: 'post-a', mode: 'offer-2', generation: 2, mounted: true };
+    const old = { postId: 'post-a', mode: 'new', generation: 1, mounted: true };
     expect(isCurrentWantedOfferLoad(current, old, false)).toBe(false);
     expect(isCurrentWantedOfferLoad(current, old, true)).toBe(false);
     expect(isCurrentWantedOfferLoad(current, current, false)).toBe(true);
+  });
+
+  it('rejects async work from another post even when both routes are new-offer mode', () => {
+    const old = { postId: 'post-a', mode: 'new', generation: 4, mounted: true };
+    const current = { postId: 'post-b', mode: 'new', generation: 4, mounted: true };
+    expect(isCurrentWantedOfferLoad(current, old, false)).toBe(false);
+  });
+
+  it('rejects async work after the offer screen unmounts', () => {
+    const request = { postId: 'post-a', mode: 'new', generation: 4, mounted: true };
+    expect(isCurrentWantedOfferLoad({ ...request, mounted: false }, request, false)).toBe(false);
   });
 });
