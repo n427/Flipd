@@ -143,3 +143,29 @@ export interface RatingSummary {
   count: number;
   reviews: RatingReview[];
 }
+
+export interface WantedPostInput {
+  title: string;
+  category: 'goods' | 'services' | 'housing';
+  max_budget: number;
+  description: string;
+  location: string;
+  photo_urls: string[];
+  needed_by: string;
+}
+
+// This is the complete public boundary for a wanted post. Keep it separate
+// from database rows: offers and the buyer's identity are deliberately absent.
+export interface WantedPostDTO {
+  id: string;
+  title: string;
+  category: WantedPostInput['category'];
+  max_budget: number;
+  description: string;
+  location: string;
+  photo_urls: string[];
+  needed_by: string;
+  status: 'active' | 'fulfilled' | 'expired' | 'deleted';
+  created_at: string;
+  offer_count: number;
+}
