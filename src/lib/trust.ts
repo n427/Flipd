@@ -10,7 +10,7 @@ import { admin } from '@/lib/supabase/admin';
 export type SwapCounts = { asBuyer: number; asSeller: number };
 
 export async function fetchSwapCounts(userId: string): Promise<SwapCounts> {
-  const [buyer, seller] = await Promise.all([
+  const [saleBuyer, saleSeller, wantedBuyer, wantedSeller] = await Promise.all([
     admin
       .from('reveal_requests')
       .select('id', { count: 'exact', head: true })
@@ -21,6 +21,21 @@ export async function fetchSwapCounts(userId: string): Promise<SwapCounts> {
       .select('id', { count: 'exact', head: true })
       .eq('seller_id', userId)
       .eq('status', 'completed'),
+    admin
+      .from('wanted_offers')
+      .select('id', { count: 'exact', head: true })
+      .eq('buyer_id', userId)
+      .eq('status', 'accepted')
+      .not('completed_at', 'is', null),
+    admin
+      .from('wanted_offers')
+      .select('id', { count: 'exact', head: true })
+      .eq('seller_id', userId)
+      .eq('status', 'accepted')
+      .not('completed_at', 'is', null),
   ]);
-  return { asBuyer: buyer.count ?? 0, asSeller: seller.count ?? 0 };
+  return {
+    asBuyer: (saleBuyer.count ?? 0) + (wantedBuyer.count ?? 0),
+    asSeller: (saleSeller.count ?? 0) + (wantedSeller.count ?? 0),
+  };
 }

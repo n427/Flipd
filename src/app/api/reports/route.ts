@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { parseReportTarget } from '@/lib/report-target';
+import { wantedPermissions } from '@/lib/wanted-authorization';
 
 const REASONS = ['scam', 'prohibited', 'harassment', 'other'];
 
@@ -37,12 +38,21 @@ export async function POST(req: NextRequest) {
   if (target.kind === 'wanted_offer') {
     const { data: offer } = await admin
       .from('wanted_offers')
-      .select('buyer_id, seller_id')
+      .select('buyer_id, seller_id, status, completed_at')
       .eq('id', target.id)
+      .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
       .maybeSingle();
-    if (!offer || (offer.buyer_id !== user.id && offer.seller_id !== user.id)) {
+    const permitted = offer && wantedPermissions({
+      actor: offer.buyer_id === user.id ? 'owner' : 'seller',
+      postStatus: offer.status === 'accepted' ? 'fulfilled' : 'active',
+      offerStatus: offer.status,
+      blocked: false,
+      offerCompleted: Boolean(offer.completed_at),
+      competingAccepted: false,
+    }).reportOffer;
+    if (!permitted) {
       // A private offer's existence and participants are not public metadata.
-      return NextResponse.json({ error: 'wanted offer not found' }, { status: 403 });
+      return NextResponse.json({ error: 'wanted offer not found' }, { status: 404 });
     }
   }
 

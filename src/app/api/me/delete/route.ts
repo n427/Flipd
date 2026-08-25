@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteAccount, type AccountDeletionAdmin } from '@/lib/account-deletion';
+import { ACCOUNT_STORAGE_BUCKETS, deleteAccount, type AccountDeletionAdmin } from '@/lib/account-deletion';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { admin } from '@/lib/supabase/admin';
 
-const STORAGE_BUCKETS = ['avatars', 'listing-photos', 'message-attachments'] as const;
-
 async function listStoragePaths(bucket: string, prefix: string): Promise<string[]> {
-  const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: 1000 });
-  if (error) throw error;
-
   const paths: string[] = [];
-  for (const entry of data ?? []) {
-    const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.id) paths.push(path);
-    else paths.push(...(await listStoragePaths(bucket, path)));
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: 1000, offset });
+    if (error) throw error;
+    const entries = data ?? [];
+    for (const entry of entries) {
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.id) paths.push(path);
+      else paths.push(...(await listStoragePaths(bucket, path)));
+    }
+    if (entries.length < 1000) break;
   }
   return paths;
 }
@@ -36,13 +37,15 @@ function createDeletionAdapter(): AccountDeletionAdmin {
 
       // Native uploads use the user prefix. Web listing uploads use listing ID
       // prefixes, so both must be removed before their rows disappear.
-      await Promise.all(STORAGE_BUCKETS.map((bucket) => removeFolder(bucket, userId)));
+      await Promise.all(ACCOUNT_STORAGE_BUCKETS.map((bucket) => removeFolder(bucket, userId)));
       await Promise.all(
         (listings ?? []).map((listing) => removeFolder('listing-photos', listing.id)),
       );
     },
 
     async cleanupDatabase(userId) {
+      const { error: uploadsError } = await admin.from('wanted_uploads').delete().eq('owner_id', userId);
+      if (uploadsError) throw uploadsError;
       const { error } = await admin.rpc('cleanup_deleted_account', {
         target_user_id: userId,
       });

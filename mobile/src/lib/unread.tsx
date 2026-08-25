@@ -3,7 +3,9 @@ import { AppState } from 'react-native';
 import { useSession } from './session';
 import { fetchUnreadCount, countNewListingsSince } from './listings';
 import { registerForPush } from './push';
-import { fetchWantedNotifications, updateWantedNotifications } from './wanted';
+import { fetchWantedNotifications, fetchWantedOffers, updateWantedNotifications } from './wanted';
+import { fetchThreads } from './messages';
+import { countWantedUnreadAttention } from './wantedUnread';
 
 type Ctx = {
   count: number; // unread reveal requests → chat badge
@@ -14,6 +16,20 @@ type Ctx = {
 const UnreadContext = createContext<Ctx>({ count: 0, refresh: () => {}, eventsCount: 0, markEventsSeen: () => {} });
 
 const POLL_MS = 60_000;
+
+async function fetchAllReceivedWantedOffers() {
+  const offers: Awaited<ReturnType<typeof fetchWantedOffers>>['wanted_offers'] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await fetchWantedOffers('received', cursor);
+    offers.push(...page.wanted_offers);
+    if (!page.next_cursor || seenCursors.has(page.next_cursor)) break;
+    seenCursors.add(page.next_cursor);
+    cursor = page.next_cursor;
+  } while (cursor);
+  return offers;
+}
 
 // Tracks the unread-reveals count (chat badge) and new-listing events (bell
 // dot). Polls on a timer, on app-foreground, and on demand.
@@ -30,13 +46,18 @@ export function UnreadProvider({ children }: { children: React.ReactNode }) {
       setEventsCount(0);
       return;
     }
-    const [c, listingEvents, wantedEvents] = await Promise.all([
+    const [c, listingEvents, wantedEvents, received, threads] = await Promise.all([
       fetchUnreadCount(),
       countNewListingsSince(eventsSeenAt.current, user.id),
       fetchWantedNotifications().catch(() => []),
+      fetchAllReceivedWantedOffers().catch(() => []),
+      fetchThreads().catch(() => []),
     ]);
     setCount(c);
-    setEventsCount(listingEvents + wantedEvents.filter((event) => !event.read_at).length);
+    const unreadChatOfferIds = threads
+      .filter((thread) => thread.unread && thread.wanted_offer_id)
+      .map((thread) => thread.wanted_offer_id as string);
+    setEventsCount(listingEvents + countWantedUnreadAttention(received, wantedEvents, unreadChatOfferIds));
   }, [user]);
 
   // Opening the bell tab clears the dot until newer listings appear.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deleteAccount, type AccountDeletionAdmin } from './account-deletion';
+import { ACCOUNT_STORAGE_BUCKETS, deleteAccount, type AccountDeletionAdmin } from './account-deletion';
 
 function recordingAdmin(calls: string[]): AccountDeletionAdmin {
   return {
@@ -16,6 +16,10 @@ function recordingAdmin(calls: string[]): AccountDeletionAdmin {
 }
 
 describe('deleteAccount', () => {
+  it('enumerates both Wanted media buckets as required cleanup', () => {
+    expect(ACCOUNT_STORAGE_BUCKETS).toContain('wanted-reference-photos');
+    expect(ACCOUNT_STORAGE_BUCKETS).toContain('wanted-offer-photos');
+  });
   it('removes files and public identity before revoking auth access', async () => {
     const calls: string[] = [];
 
@@ -38,5 +42,17 @@ describe('deleteAccount', () => {
 
     await expect(deleteAccount(adapter, 'user-1')).rejects.toThrow('cleanup failed');
     expect(calls).toEqual(['delete-storage:user-1', 'cleanup-database:user-1']);
+  });
+
+  it('does not clean database or revoke auth when required storage cleanup fails', async () => {
+    const calls: string[] = [];
+    const adapter = recordingAdmin(calls);
+    adapter.deleteStorage = async () => {
+      calls.push('delete-storage:user-1');
+      throw new Error('wanted storage failed');
+    };
+
+    await expect(deleteAccount(adapter, 'user-1')).rejects.toThrow('wanted storage failed');
+    expect(calls).toEqual(['delete-storage:user-1']);
   });
 });

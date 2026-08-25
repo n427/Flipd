@@ -7,6 +7,7 @@ import type {
 } from './types';
 import { effectiveRevealStatus, formatEventWindow, type RevealStatus } from './validation';
 import { wantedClient, type WantedNotificationEvent } from './wanted-client';
+import { countWantedUnreadAttention } from './wanted-unread';
 
 type DbSeller = {
   id: string;
@@ -60,6 +61,20 @@ type RevealDto = {
   decline_reason?: string | null;
   thread_id?: string | null;
 };
+
+async function fetchAllReceivedWantedOffers(): Promise<Array<{ id: string; status: string }>> {
+  const offers: Array<{ id: string; status: string }> = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await wantedClient.offers('received', cursor);
+    offers.push(...page.wanted_offers);
+    if (!page.next_cursor || seenCursors.has(page.next_cursor)) break;
+    seenCursors.add(page.next_cursor);
+    cursor = page.next_cursor;
+  } while (cursor);
+  return offers;
+}
 
 // Per-photo crop styling. `cover` fills the tile; the extra scale() lets a
 // seller push baked-in letterbox bars (screenshots) outside the frame.
@@ -238,12 +253,16 @@ export function useFlipdStore(): FlipdStore {
   const [popupReminderIds, setPopupReminderIds] = React.useState<Set<string>>(() => new Set());
   const [activity, setActivity] = React.useState<ActivityItem[]>([]);
   const [wantedNotifications, setWantedNotifications] = React.useState<WantedNotificationEvent[]>([]);
+  const [wantedReceivedOffers, setWantedReceivedOffers] = React.useState<Array<{ id: string; status: string }>>([]);
+  const [unreadWantedChatOfferIds, setUnreadWantedChatOfferIds] = React.useState<string[]>([]);
   const [blockedIds, setBlockedIds] = React.useState<Set<string>>(() => new Set());
 
   const refreshActivity = React.useCallback(async () => {
-    const [revealResult, wantedResult] = await Promise.allSettled([
+    const [revealResult, wantedResult, offersResult, threadsResult] = await Promise.allSettled([
       fetch('/api/reveals'),
       wantedClient.notifications(),
+      fetchAllReceivedWantedOffers(),
+      fetch('/api/threads'),
     ]);
     if (revealResult.status === 'fulfilled' && revealResult.value.ok) {
       const { incoming, outgoing } = await revealResult.value.json();
@@ -257,6 +276,15 @@ export function useFlipdStore(): FlipdStore {
     }
     if (wantedResult.status === 'fulfilled') {
       setWantedNotifications(wantedResult.value.notification_events);
+    }
+    if (offersResult.status === 'fulfilled') {
+      setWantedReceivedOffers(offersResult.value);
+    }
+    if (threadsResult.status === 'fulfilled' && threadsResult.value.ok) {
+      const body = await threadsResult.value.json() as { threads?: Array<{ wanted_offer_id: string | null; unread: boolean }> };
+      setUnreadWantedChatOfferIds((body.threads ?? [])
+        .filter((thread) => thread.unread && thread.wanted_offer_id)
+        .map((thread) => thread.wanted_offer_id as string));
     }
   }, []);
 
@@ -602,7 +630,11 @@ export function useFlipdStore(): FlipdStore {
   const pastListings = listings.filter((l) => l.mine && l.archived);
   const savedListings = listings.filter((l) => savedIds.has(l.id) && !l.archived);
   const pendingCount = activity.filter((a) => a.dir === 'in' && a.status === 'PENDING').length;
-  const wantedUnreadCount = wantedNotifications.filter((event) => !event.read_at && !event.dismissed_at).length;
+  const wantedUnreadCount = countWantedUnreadAttention(
+    wantedReceivedOffers,
+    wantedNotifications,
+    unreadWantedChatOfferIds,
+  );
   const unreadCount = activity.filter((a) => a.unread && !a.dismissed).length + wantedUnreadCount;
 
   return {

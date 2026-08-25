@@ -10,6 +10,9 @@ import {
   wantedOfferRpcErrorStatus,
   type WantedOfferRow,
 } from '@/lib/wanted-offers';
+import { effectiveWantedStatus } from '@/lib/wanted-contract';
+import { wantedPermissions, type WantedPermissions } from '@/lib/wanted-authorization';
+import { blockedUserIdsFromLookup } from '@/lib/wanted';
 
 const OFFER_SELECT = 'id,wanted_post_id,buyer_id,seller_id,price,description,message,photo_paths,status,created_at,updated_at,resolved_at,completed_at';
 const EDITABLE_FIELDS = new Set(['price', 'description', 'message', 'photo_paths']);
@@ -19,13 +22,30 @@ async function loadOfferForUser(offerId: string, userId: string) {
     .from('wanted_offers')
     .select(OFFER_SELECT)
     .eq('id', offerId)
-    .single();
+    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+    .maybeSingle();
   if (error || !data) return { ok: false as const, response: NextResponse.json({ error: 'not found' }, { status: 404 }) };
   const offer = data as WantedOfferRow;
-  if (offer.buyer_id !== userId && offer.seller_id !== userId) {
-    return { ok: false as const, response: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
-  }
   return { ok: true as const, offer };
+}
+
+async function permissionsForOffer(offer: WantedOfferRow, userId: string): Promise<WantedPermissions | null> {
+  const counterpart = offer.buyer_id === userId ? offer.seller_id : offer.buyer_id;
+  const [{ data: post, error: postError }, { data: blocks, error: blockError }] = await Promise.all([
+    admin.from('wanted_posts').select('status,needed_by').eq('id', offer.wanted_post_id).maybeSingle(),
+    admin.from('blocks').select('blocker_id,blocked_id')
+      .or(`and(blocker_id.eq.${userId},blocked_id.eq.${counterpart}),and(blocker_id.eq.${counterpart},blocked_id.eq.${userId})`),
+  ]);
+  const blockLookup = blockedUserIdsFromLookup(userId, { data: blocks, error: blockError });
+  if (postError || !post || !blockLookup.ok) return null;
+  return wantedPermissions({
+    actor: offer.buyer_id === userId ? 'owner' : 'seller',
+    postStatus: effectiveWantedStatus(post.status, post.needed_by),
+    offerStatus: offer.status,
+    blocked: blockLookup.value.has(counterpart),
+    offerCompleted: Boolean(offer.completed_at),
+    competingAccepted: offer.status === 'declined' && post.status === 'fulfilled',
+  });
 }
 
 async function offerDto(row: WantedOfferRow, userId: string) {
@@ -102,8 +122,10 @@ export async function PATCH(
   const loaded = await loadOfferForUser(id, user.id);
   if (!loaded.ok) return loaded.response;
   const { offer } = loaded;
+  const permissions = await permissionsForOffer(offer, user.id);
+  if (!permissions) return NextResponse.json({ error: 'not found' }, { status: 404 });
   if (record.action === 'edit') {
-    if (offer.seller_id !== user.id) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    if (!permissions.editOffer) return NextResponse.json({ error: 'wanted offer is no longer available' }, { status: 409 });
     const parsed = parseWantedOfferInput({ ...offer, ...record });
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
     if (!hasWantedOfferPhotoPrefix(parsed.value.photo_paths, user.id, id)) {
@@ -118,7 +140,7 @@ export async function PATCH(
     }
   }
 
-  if (offer.buyer_id !== user.id) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  if (!permissions.decline) return NextResponse.json({ error: 'wanted offer is no longer available' }, { status: 409 });
   const result = await mutate(id, user.id, 'decline');
   if (!result.ok) return result.response;
   try {
@@ -139,7 +161,9 @@ export async function DELETE(
   if (!id) return NextResponse.json({ error: 'not found' }, { status: 404 });
   const loaded = await loadOfferForUser(id, user.id);
   if (!loaded.ok) return loaded.response;
-  if (loaded.offer.seller_id !== user.id) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  const permissions = await permissionsForOffer(loaded.offer, user.id);
+  if (!permissions) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  if (!permissions.withdraw) return NextResponse.json({ error: 'wanted offer is no longer available' }, { status: 409 });
   const result = await mutate(id, user.id, 'withdraw');
   if (!result.ok) return result.response;
   try {

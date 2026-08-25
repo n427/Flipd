@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { counterpartId, loadTransactionForUser, parseTransactionSourceIds } from '@/lib/transaction';
+import { blockedUserIdsFromLookup } from '@/lib/wanted';
+import { wantedPermissions } from '@/lib/wanted-authorization';
 
 // GET /api/ratings?user=<id> — aggregate + recent reviews for a profile.
 export async function GET(req: NextRequest) {
@@ -55,6 +57,18 @@ export async function POST(req: NextRequest) {
   }
   const rateeId = counterpartId(transaction, user.id);
   if (!rateeId) return NextResponse.json({ error: 'transaction not found' }, { status: 404 });
+  if (source.kind === 'wanted') {
+    const { data: blocks, error: blockError } = await admin.from('blocks').select('blocker_id,blocked_id')
+      .or(`and(blocker_id.eq.${user.id},blocked_id.eq.${rateeId}),and(blocker_id.eq.${rateeId},blocked_id.eq.${user.id})`);
+    const blockLookup = blockedUserIdsFromLookup(user.id, { data: blocks, error: blockError });
+    if (!blockLookup.ok) return NextResponse.json({ error: blockLookup.error }, { status: 500 });
+    const permissions = wantedPermissions({
+      actor: transaction.buyerId === user.id ? 'owner' : 'seller',
+      postStatus: 'fulfilled', offerStatus: 'accepted', blocked: blockLookup.value.has(rateeId),
+      offerCompleted: true, competingAccepted: false,
+    });
+    if (!permissions.rate) return NextResponse.json({ error: 'transaction is no longer rateable' }, { status: 409 });
+  }
 
   const { error } = await admin.from('ratings').insert({
     request_id: source.kind === 'sale' ? source.id : null,

@@ -4,6 +4,14 @@ export type AccountDeletionAdmin = {
   deleteAuthUser(userId: string): Promise<void>;
 };
 
+export const ACCOUNT_STORAGE_BUCKETS = [
+  'avatars',
+  'listing-photos',
+  'message-attachments',
+  'wanted-reference-photos',
+  'wanted-offer-photos',
+] as const;
+
 export async function deleteAccount(
   adapter: AccountDeletionAdmin,
   userId: string,

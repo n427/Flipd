@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { admin as supabase } from '@/lib/supabase/admin';
-import { blockedUserIdsFromLookup, canViewWantedPostDetail, toPublicWantedPost, parseWantedPostInput } from '@/lib/wanted';
+import { blockedUserIdsFromLookup, toPublicWantedPost, parseWantedPostInput } from '@/lib/wanted';
 import { effectiveWantedStatus } from '@/lib/wanted-contract';
 import { hasWantedOfferPhotoPrefix, signWantedOfferPhotos, toParticipantWantedOffer, type WantedOfferRow } from '@/lib/wanted-offers';
+import { wantedPermissions } from '@/lib/wanted-authorization';
 
 const WANTED_SELECT = 'id,buyer_id,title,category,max_budget,description,location,photo_urls,needed_by,status,created_at,updated_at,resolved_at,offers:wanted_offers(count)';
 const EDITABLE_FIELDS = new Set(['title', 'category', 'max_budget', 'description', 'location', 'photo_urls', 'needed_by']);
@@ -40,13 +41,22 @@ export async function GET(
       .eq('wanted_post_id', id).eq('seller_id', user.id).eq('status', 'accepted').maybeSingle();
     acceptedOffer = offer as WantedOfferRow | null;
   }
-  if (!canViewWantedPostDetail(effectiveStatus, owner, Boolean(acceptedOffer))) {
-    return NextResponse.json({ error: 'not found' }, { status: 404 });
-  }
+  let blocked = false;
   if (!owner) {
     const blockLookup = await usersAreBlocked(user.id, data.buyer_id);
     if (!blockLookup.ok) return NextResponse.json({ error: blockLookup.error }, { status: 500 });
-    if (blockLookup.value) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    blocked = blockLookup.value;
+  }
+  const permissions = wantedPermissions({
+    actor: owner ? 'owner' : acceptedOffer ? 'seller' : 'stranger',
+    postStatus: effectiveStatus,
+    offerStatus: acceptedOffer?.status ?? null,
+    blocked,
+    offerCompleted: Boolean(acceptedOffer?.completed_at),
+    competingAccepted: false,
+  });
+  if (!permissions.viewPost) {
+    return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
 
   const response: Record<string, unknown> = { wanted_post: toPublicWantedPost(data, now) };
@@ -100,8 +110,16 @@ export async function PATCH(
     .eq('id', id)
     .single();
   if (existingError || !existing) return NextResponse.json({ error: 'not found' }, { status: 404 });
-  if (existing.buyer_id !== user.id) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  if (effectiveWantedStatus(existing.status, existing.needed_by) !== 'active') {
+  const permissions = wantedPermissions({
+    actor: existing.buyer_id === user.id ? 'owner' : 'stranger',
+    postStatus: effectiveWantedStatus(existing.status, existing.needed_by),
+    offerStatus: null,
+    blocked: false,
+    offerCompleted: false,
+    competingAccepted: false,
+  });
+  if (existing.buyer_id !== user.id) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  if (!permissions.editPost) {
     return NextResponse.json({ error: 'only active wanted posts may be edited' }, { status: 409 });
   }
 
