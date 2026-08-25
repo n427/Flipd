@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import { useSession } from './session';
 import { fetchUnreadCount, countNewListingsSince } from './listings';
 import { registerForPush } from './push';
+import { fetchWantedNotifications, updateWantedNotifications } from './wanted';
 
 type Ctx = {
   count: number; // unread reveal requests → chat badge
@@ -29,15 +30,23 @@ export function UnreadProvider({ children }: { children: React.ReactNode }) {
       setEventsCount(0);
       return;
     }
-    const [c, ev] = await Promise.all([fetchUnreadCount(), countNewListingsSince(eventsSeenAt.current, user.id)]);
+    const [c, listingEvents, wantedEvents] = await Promise.all([
+      fetchUnreadCount(),
+      countNewListingsSince(eventsSeenAt.current, user.id),
+      fetchWantedNotifications().catch(() => []),
+    ]);
     setCount(c);
-    setEventsCount(ev);
+    setEventsCount(listingEvents + wantedEvents.filter((event) => !event.read_at).length);
   }, [user]);
 
   // Opening the bell tab clears the dot until newer listings appear.
   const markEventsSeen = useCallback(() => {
     eventsSeenAt.current = new Date().toISOString();
     setEventsCount(0);
+    void fetchWantedNotifications()
+      .then((events) => events.filter((event) => !event.read_at).map((event) => event.id))
+      .then((ids) => ids.length > 0 ? updateWantedNotifications(ids, 'read') : undefined)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {

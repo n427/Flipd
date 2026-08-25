@@ -20,6 +20,7 @@ import { NotificationExplainer } from '@/components/NotificationExplainer';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { CATEGORIES } from '@/lib/catalog';
 import { T, F, S } from '@/lib/theme';
+import { HeaderNotificationButton } from '@/components/HeaderNotificationButton';
 
 const CATS = [{ id: 'all', label: 'All' }, ...CATEGORIES];
 
@@ -142,9 +143,12 @@ export default function Feed() {
     // content lines up with the cards (10 + 6 = 16 outer edge, and each card
     // adds its own 6 margin to reach the same 16).
     <View style={{ paddingHorizontal: 6, paddingTop: S.screenTop }}>
-      <Text style={{ fontFamily: F.black, fontSize: 28, color: T.ink, letterSpacing: -1, marginBottom: 16 }}>
-        Flipd<Text style={{ color: T.cardinal }}>.</Text>
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <Text style={{ fontFamily: F.black, fontSize: 28, color: T.ink, letterSpacing: -1 }}>
+          Flipd<Text style={{ color: T.cardinal }}>.</Text>
+        </Text>
+        <HeaderNotificationButton />
+      </View>
       <View
         style={{
           flexDirection: 'row',

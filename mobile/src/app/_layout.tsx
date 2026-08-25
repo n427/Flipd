@@ -17,6 +17,7 @@ import { openDeepLink } from '@/lib/nav';
 import { routeAllowedDuringOnboarding } from '@/lib/onboardingRoute';
 import { UnreadProvider } from '@/lib/unread';
 import { T } from '@/lib/theme';
+import { wantedPushNotificationDestination } from '@/lib/wanted';
 
 // Show a banner even when the app is foregrounded.
 Notifications.setNotificationHandler({
@@ -64,6 +65,13 @@ function AuthWatcher() {
       const type = res.notification.request.content.data?.type;
       if (type === 'new_request' || type === 'approval') {
         openDeepLink('/(tabs)/requests');
+      } else if (typeof type === 'string') {
+        const data = res.notification.request.content.data;
+        const target = wantedPushNotificationDestination(
+          type,
+          typeof data.wanted_post_id === 'string' ? data.wanted_post_id : null,
+        );
+        if (target) openDeepLink(target as Parameters<typeof openDeepLink>[0]);
       }
     });
     return () => sub.remove();

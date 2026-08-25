@@ -34,29 +34,6 @@ function RequestsIcon({ color, size }: { color: string; size: number }) {
   );
 }
 
-// Bell icon with a presence dot for event notifications.
-function NotificationsIcon({ color, size }: { color: string; size: number }) {
-  const { eventsCount } = useUnread();
-  return (
-    <View>
-      <Feather name="bell" color={color} size={size} />
-      {eventsCount > 0 ? (
-        <View
-          style={{
-            position: 'absolute',
-            top: -2,
-            right: -2,
-            width: 9,
-            height: 9,
-            borderRadius: 5,
-            backgroundColor: T.cardinal,
-          }}
-        />
-      ) : null}
-    </View>
-  );
-}
-
 export default function TabsLayout() {
   return (
     <Tabs
@@ -71,18 +48,18 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="feed"
-        options={{ title: 'Feed', tabBarAccessibilityLabel: 'Marketplace feed', tabBarIcon: ({ color, size }) => <Feather name="home" color={color} size={size} /> }}
+        options={{ title: 'Home', tabBarAccessibilityLabel: 'Home marketplace', tabBarIcon: ({ color, size }) => <Feather name="home" color={color} size={size} /> }}
       />
       <Tabs.Screen
-        name="requests"
-        options={{ title: 'Requests', tabBarAccessibilityLabel: 'Requests and messages', tabBarIcon: ({ color, size }) => <RequestsIcon color={color} size={size} /> }}
+        name="wanted"
+        options={{ title: 'Wanted', tabBarAccessibilityLabel: 'Wanted marketplace', tabBarIcon: ({ color, size }) => <Feather name="search" color={color} size={size} /> }}
       />
       {/* Post — raised center button, rounded square, no glow */}
       <Tabs.Screen
         name="post"
         options={{
           title: 'Post',
-          tabBarAccessibilityLabel: 'Create a listing',
+          tabBarAccessibilityLabel: 'Create a post',
           tabBarIcon: () => (
             <View
               style={{
@@ -101,13 +78,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="notifications"
-        options={{ title: 'Notifications', tabBarAccessibilityLabel: 'Notifications', tabBarIcon: ({ color, size }) => <NotificationsIcon color={color} size={size} /> }}
+        name="requests"
+        options={{ title: 'Requests', tabBarAccessibilityLabel: 'Requests and messages', tabBarIcon: ({ color, size }) => <RequestsIcon color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="profile"
         options={{ title: 'Profile', tabBarAccessibilityLabel: 'Your profile', tabBarIcon: ({ color, size }) => <Feather name="user" color={color} size={size} /> }}
       />
+      <Tabs.Screen name="notifications" options={{ href: null, title: 'Notifications' }} />
     </Tabs>
   );
 }
