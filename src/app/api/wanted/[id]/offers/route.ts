@@ -11,6 +11,8 @@ import {
   wantedOfferRpcErrorStatus,
   type WantedOfferRow,
 } from '@/lib/wanted-offers';
+import { effectiveWantedStatus } from '@/lib/wanted-contract';
+import { wantedPermissions } from '@/lib/wanted-authorization';
 
 const OFFER_SELECT = 'id,wanted_post_id,buyer_id,seller_id,price,description,message,photo_paths,status,created_at,updated_at,resolved_at,completed_at';
 
@@ -46,7 +48,7 @@ export async function GET(
 
   const { data: post, error: postError } = await admin
     .from('wanted_posts')
-    .select('id,buyer_id')
+    .select('id,buyer_id,status,needed_by')
     .eq('id', id)
     .single();
   if (postError || !post) return NextResponse.json({ error: 'not found' }, { status: 404 });
@@ -68,11 +70,15 @@ export async function GET(
       .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`);
     const blockLookup = blockedUserIdsFromLookup(user.id, { data: blocks, error: blockError });
     if (!blockLookup.ok) return NextResponse.json({ error: blockLookup.error }, { status: 500 });
-    rows = ((data ?? []) as WantedOfferRow[]).filter((offer) => !blockLookup.value.has(offer.seller_id));
+    rows = ((data ?? []) as WantedOfferRow[]).filter((offer) => wantedPermissions({
+      actor: 'owner', postStatus: effectiveWantedStatus(post.status, post.needed_by),
+      offerStatus: offer.status, blocked: blockLookup.value.has(offer.seller_id),
+      offerCompleted: Boolean(offer.completed_at), competingAccepted: offer.status === 'declined' && post.status === 'fulfilled',
+    }).viewOffer);
   } else {
     const blockLookup = await usersAreBlocked(user.id, post.buyer_id);
     if (!blockLookup.ok) return NextResponse.json({ error: blockLookup.error }, { status: 500 });
-    if (blockLookup.value) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    if (blockLookup.value) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
     const { data, error } = await admin
       .from('wanted_offers')
@@ -81,8 +87,15 @@ export async function GET(
       .eq('seller_id', user.id)
       .maybeSingle();
     if (error) return NextResponse.json({ error: 'unable to load wanted offers' }, { status: 500 });
-    if (!data) return NextResponse.json({ wanted_offers: [] });
-    rows = [data as WantedOfferRow];
+    if (!data) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    const offer = data as WantedOfferRow;
+    const permissions = wantedPermissions({
+      actor: 'seller', postStatus: effectiveWantedStatus(post.status, post.needed_by),
+      offerStatus: offer.status, blocked: false, offerCompleted: Boolean(offer.completed_at),
+      competingAccepted: offer.status === 'declined' && post.status === 'fulfilled',
+    });
+    if (!permissions.viewOffer) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    rows = [offer];
   }
 
   try {
@@ -110,6 +123,27 @@ export async function POST(
   if (!hasWantedOfferPhotoPrefix(parsed.value.photo_paths, user.id, offerId)) {
     return NextResponse.json({ error: 'photo_paths must use the seller and offer ID prefix' }, { status: 400 });
   }
+
+  const { data: post, error: postError } = await admin.from('wanted_posts')
+    .select('buyer_id,status,needed_by').eq('id', wantedPostId).maybeSingle();
+  if (postError || !post) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  if (post.buyer_id === user.id) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  const [{ data: existing, error: existingError }, blockLookup] = await Promise.all([
+    admin.from('wanted_offers').select('status,completed_at').eq('wanted_post_id', wantedPostId)
+      .eq('seller_id', user.id).maybeSingle(),
+    usersAreBlocked(user.id, post.buyer_id),
+  ]);
+  if (existingError || !blockLookup.ok) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  if (blockLookup.value) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  const permissions = wantedPermissions({
+    actor: existing ? 'seller' : 'stranger',
+    postStatus: effectiveWantedStatus(post.status, post.needed_by),
+    offerStatus: existing?.status ?? null,
+    blocked: false,
+    offerCompleted: Boolean(existing?.completed_at),
+    competingAccepted: Boolean(existing?.status === 'declined' && post.status === 'fulfilled'),
+  });
+  if (!permissions.submit) return NextResponse.json({ error: 'wanted offer is no longer available' }, { status: 409 });
 
   const { data: savedOfferId, error } = await admin.rpc('submit_wanted_offer', {
     target_post_id: wantedPostId,

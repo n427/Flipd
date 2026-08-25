@@ -185,8 +185,13 @@ export async function fetchWantedOffers(direction: 'received' | 'sent', cursor?:
 }
 
 export async function fetchWantedOffersForPost(postId: string, deps?: WantedClientDependencies) {
-  const body = await requestJson<{ wanted_offers: WantedOffer[] }>(`/api/wanted/${postId}/offers`, {}, deps);
-  return body.wanted_offers;
+  try {
+    const body = await requestJson<{ wanted_offers: WantedOffer[] }>(`/api/wanted/${postId}/offers`, {}, deps);
+    return body.wanted_offers;
+  } catch (error) {
+    if (error instanceof WantedApiError && error.status === 404) return [];
+    throw error;
+  }
 }
 
 export async function createWantedOffer(postId: string, input: WantedOfferInput, deps?: WantedClientDependencies) {
@@ -244,14 +249,34 @@ export async function cleanupWantedPhotos(paths: string[], mode: 'reference' | '
   await requestJson<{ ok: true }>('/api/wanted-uploads', json('DELETE', { paths, mode }), deps);
 }
 
+export async function fetchWantedNotificationPage(cursor?: string, deps?: WantedClientDependencies) {
+  const path = `/api/notification-events${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`;
+  return requestJson<{ notification_events: WantedNotificationEvent[]; next_cursor: string | null }>(path, {}, deps);
+}
+
 export async function fetchWantedNotifications(deps?: WantedClientDependencies): Promise<WantedNotificationEvent[]> {
-  const body = await requestJson<{ notification_events: WantedNotificationEvent[] }>('/api/notification-events', {}, deps);
-  return body.notification_events;
+  const events: WantedNotificationEvent[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await fetchWantedNotificationPage(cursor, deps);
+    events.push(...page.notification_events);
+    if (!page.next_cursor || seenCursors.has(page.next_cursor)) break;
+    seenCursors.add(page.next_cursor);
+    cursor = page.next_cursor;
+  } while (cursor && seenCursors.size < 10_000);
+  return events;
 }
 
 export async function updateWantedNotifications(ids: string[], action: 'read' | 'dismiss', deps?: WantedClientDependencies) {
-  const body = await requestJson<{ notification_events: WantedNotificationEvent[] }>('/api/notification-events', json('PATCH', { ids, action }), deps);
-  return body.notification_events;
+  const events: WantedNotificationEvent[] = [];
+  for (let index = 0; index < ids.length; index += 100) {
+    const body = await requestJson<{ notification_events: WantedNotificationEvent[] }>(
+      '/api/notification-events', json('PATCH', { ids: ids.slice(index, index + 100), action }), deps,
+    );
+    events.push(...body.notification_events);
+  }
+  return events;
 }
 
 export function wantedNotificationDestination(event: WantedNotificationEvent): string {

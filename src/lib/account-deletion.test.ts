@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACCOUNT_STORAGE_BUCKETS, deleteAccount, type AccountDeletionAdmin } from './account-deletion';
+import { ACCOUNT_STORAGE_BUCKETS, deleteAccount, removeStoragePathsInBatches, type AccountDeletionAdmin } from './account-deletion';
 
 function recordingAdmin(calls: string[]): AccountDeletionAdmin {
   return {
@@ -54,5 +54,19 @@ describe('deleteAccount', () => {
 
     await expect(deleteAccount(adapter, 'user-1')).rejects.toThrow('wanted storage failed');
     expect(calls).toEqual(['delete-storage:user-1']);
+  });
+
+  it('removes more than one conservative Storage batch and stops on a middle failure', async () => {
+    const paths = Array.from({ length: 205 }, (_, index) => `path-${index}`);
+    const batches: string[][] = [];
+    await expect(removeStoragePathsInBatches(paths, async (batch) => {
+      batches.push(batch);
+      if (batches.length === 2) throw new Error('remove failed');
+    })).rejects.toThrow('remove failed');
+    expect(batches.map((batch) => batch.length)).toEqual([100, 100]);
+
+    const retry: number[] = [];
+    await removeStoragePathsInBatches(paths, async (batch) => { retry.push(batch.length); });
+    expect(retry).toEqual([100, 100, 5]);
   });
 });

@@ -83,6 +83,18 @@ describe('mobile Wanted client', () => {
     });
   });
 
+  it('aggregates compound-cursor notification pages and stops on a repeated cursor', async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(Response.json({ notification_events: [{ id: 'event-1' }], next_cursor: 'next-page' }))
+      .mockResolvedValueOnce(Response.json({ notification_events: [{ id: 'event-2' }], next_cursor: 'next-page' }));
+    const events = await fetchWantedNotifications(auth(fetcher));
+    expect(events.map((event) => event.id)).toEqual(['event-1', 'event-2']);
+    expect(fetcher).toHaveBeenNthCalledWith(2, 'https://flipd.test/api/notification-events?cursor=next-page', {
+      headers: { Authorization: 'Bearer token' },
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
   it('maps the Wanted push payload names emitted by the lifecycle worker', () => {
     expect(wantedPushNotificationDestination('wanted_reminder', 'post-1')).toBe('/wanted/post-1');
     expect(wantedPushNotificationDestination('wanted_expired', 'post-1')).toBe('/(tabs)/requests?tab=wanted&direction=sent');

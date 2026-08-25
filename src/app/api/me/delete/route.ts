@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ACCOUNT_STORAGE_BUCKETS, deleteAccount, type AccountDeletionAdmin } from '@/lib/account-deletion';
+import { ACCOUNT_STORAGE_BUCKETS, deleteAccount, removeStoragePathsInBatches, type AccountDeletionAdmin } from '@/lib/account-deletion';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { admin } from '@/lib/supabase/admin';
 
@@ -22,25 +22,37 @@ async function listStoragePaths(bucket: string, prefix: string): Promise<string[
 async function removeFolder(bucket: string, prefix: string): Promise<void> {
   const paths = await listStoragePaths(bucket, prefix);
   if (paths.length === 0) return;
-  const { error } = await admin.storage.from(bucket).remove(paths);
-  if (error) throw error;
+  await removeStoragePathsInBatches(paths, async (batch) => {
+    const { error } = await admin.storage.from(bucket).remove(batch);
+    if (error) throw error;
+  });
+}
+
+async function listOwnedListingIds(userId: string): Promise<string[]> {
+  const ids: string[] = [];
+  let after: string | null = null;
+  for (;;) {
+    let query = admin.from('listings').select('id').eq('seller_id', userId)
+      .order('id', { ascending: true }).limit(500);
+    if (after) query = query.gt('id', after);
+    const { data, error } = await query;
+    if (error) throw error;
+    const page = data ?? [];
+    ids.push(...page.map((listing) => listing.id));
+    if (page.length < 500) return ids;
+    after = page[page.length - 1].id;
+  }
 }
 
 function createDeletionAdapter(): AccountDeletionAdmin {
   return {
     async deleteStorage(userId) {
-      const { data: listings, error } = await admin
-        .from('listings')
-        .select('id')
-        .eq('seller_id', userId);
-      if (error) throw error;
+      const listingIds = await listOwnedListingIds(userId);
 
       // Native uploads use the user prefix. Web listing uploads use listing ID
       // prefixes, so both must be removed before their rows disappear.
       await Promise.all(ACCOUNT_STORAGE_BUCKETS.map((bucket) => removeFolder(bucket, userId)));
-      await Promise.all(
-        (listings ?? []).map((listing) => removeFolder('listing-photos', listing.id)),
-      );
+      for (const listingId of listingIds) await removeFolder('listing-photos', listingId);
     },
 
     async cleanupDatabase(userId) {

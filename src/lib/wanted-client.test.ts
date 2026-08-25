@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
   dismissNotificationWithoutNavigation,
   prepareWantedPostInput,
@@ -80,5 +80,17 @@ describe('Wanted web client', () => {
     );
     expect(propagationStopped).toBe(true);
     expect(dismissed).toBe('event-1');
+  });
+
+  it('requests the next notification page with an opaque cursor', async () => {
+    const originalFetch = globalThis.fetch;
+    const fetcher = vi.fn(async () => Response.json({ notification_events: [], next_cursor: null }));
+    globalThis.fetch = fetcher as typeof fetch;
+    try {
+      await wantedClient.notifications('opaque cursor');
+      expect(fetcher).toHaveBeenCalledWith('/api/notification-events?cursor=opaque%20cursor', undefined);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

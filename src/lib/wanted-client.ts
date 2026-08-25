@@ -122,7 +122,12 @@ export const wantedClient = {
     return requestJson<{ wanted_offers: WantedOfferDTO[]; next_cursor: string | null }>(`${url.pathname}${url.search}`);
   },
   async offersForPost(postId: string) {
-    return requestJson<{ wanted_offers: WantedOfferDTO[] }>(`/api/wanted/${postId}/offers`);
+    try {
+      return await requestJson<{ wanted_offers: WantedOfferDTO[] }>(`/api/wanted/${postId}/offers`);
+    } catch (error) {
+      if (error instanceof WantedClientError && error.status === 404) return { wanted_offers: [] };
+      throw error;
+    }
   },
   async createOffer(postId: string, id: string, input: WantedOfferInput) {
     return requestJson<{ wanted_offer: WantedOfferDTO }>(`/api/wanted/${postId}/offers`, jsonInit('POST', { id, ...input }));
@@ -149,12 +154,18 @@ export const wantedClient = {
   async cleanupPhotos(paths: string[], mode: 'reference' | 'offer') {
     return requestJson<{ ok: true }>('/api/wanted-uploads', jsonInit('DELETE', { paths, mode }));
   },
-  async notifications() {
-    return requestJson<{ notification_events: WantedNotificationEvent[] }>('/api/notification-events');
+  async notifications(cursor?: string) {
+    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return requestJson<{ notification_events: WantedNotificationEvent[]; next_cursor: string | null }>(`/api/notification-events${query}`);
   },
   async updateNotifications(ids: string[], action: 'read' | 'dismiss') {
-    return requestJson<{ notification_events: WantedNotificationEvent[] }>(
-      '/api/notification-events', jsonInit('PATCH', { ids, action }),
-    );
+    const notification_events: WantedNotificationEvent[] = [];
+    for (let index = 0; index < ids.length; index += 100) {
+      const page = await requestJson<{ notification_events: WantedNotificationEvent[] }>(
+        '/api/notification-events', jsonInit('PATCH', { ids: ids.slice(index, index + 100), action }),
+      );
+      notification_events.push(...page.notification_events);
+    }
+    return { notification_events };
   },
 };

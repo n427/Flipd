@@ -76,6 +76,20 @@ async function fetchAllReceivedWantedOffers(): Promise<Array<{ id: string; statu
   return offers;
 }
 
+async function fetchAllWantedNotifications(): Promise<WantedNotificationEvent[]> {
+  const events: WantedNotificationEvent[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await wantedClient.notifications(cursor);
+    events.push(...page.notification_events);
+    if (!page.next_cursor || seenCursors.has(page.next_cursor)) break;
+    seenCursors.add(page.next_cursor);
+    cursor = page.next_cursor;
+  } while (cursor && seenCursors.size < 10_000);
+  return events;
+}
+
 // Per-photo crop styling. `cover` fills the tile; the extra scale() lets a
 // seller push baked-in letterbox bars (screenshots) outside the frame.
 // transform-origin follows the focus point so zooming keeps the chosen
@@ -260,7 +274,7 @@ export function useFlipdStore(): FlipdStore {
   const refreshActivity = React.useCallback(async () => {
     const [revealResult, wantedResult, offersResult, threadsResult] = await Promise.allSettled([
       fetch('/api/reveals'),
-      wantedClient.notifications(),
+      fetchAllWantedNotifications(),
       fetchAllReceivedWantedOffers(),
       fetch('/api/threads'),
     ]);
@@ -275,7 +289,7 @@ export function useFlipdStore(): FlipdStore {
       setActivity(items);
     }
     if (wantedResult.status === 'fulfilled') {
-      setWantedNotifications(wantedResult.value.notification_events);
+      setWantedNotifications(wantedResult.value);
     }
     if (offersResult.status === 'fulfilled') {
       setWantedReceivedOffers(offersResult.value);

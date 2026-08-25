@@ -6,6 +6,7 @@ import { registerForPush } from './push';
 import { fetchWantedNotifications, fetchWantedOffers, updateWantedNotifications } from './wanted';
 import { fetchThreads } from './messages';
 import { countWantedUnreadAttention } from './wantedUnread';
+import { mergeWantedUnreadSnapshot, type WantedUnreadSnapshot } from './unreadState';
 
 type Ctx = {
   count: number; // unread reveal requests → chat badge
@@ -39,35 +40,56 @@ export function UnreadProvider({ children }: { children: React.ReactNode }) {
   const [eventsCount, setEventsCount] = useState(0);
   const eventsSeenAt = useRef<string>(new Date(0).toISOString());
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const refreshGeneration = useRef(0);
+  const wantedSnapshot = useRef<WantedUnreadSnapshot>({ offers: [], events: [], unreadChatOfferIds: [] });
+  const snapshotUserId = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
+    const generation = ++refreshGeneration.current;
+    const userId = user?.id ?? null;
+    if (snapshotUserId.current !== userId) {
+      snapshotUserId.current = userId;
+      wantedSnapshot.current = { offers: [], events: [], unreadChatOfferIds: [] };
+      eventsSeenAt.current = new Date(0).toISOString();
+    }
     if (!user) {
       setCount(0);
       setEventsCount(0);
       return;
     }
-    const [c, listingEvents, wantedEvents, received, threads] = await Promise.all([
+    const [c, listingEvents, wantedEvents, received, threads] = await Promise.allSettled([
       fetchUnreadCount(),
       countNewListingsSince(eventsSeenAt.current, user.id),
-      fetchWantedNotifications().catch(() => []),
-      fetchAllReceivedWantedOffers().catch(() => []),
-      fetchThreads().catch(() => []),
+      fetchWantedNotifications(),
+      fetchAllReceivedWantedOffers(),
+      fetchThreads(),
     ]);
-    setCount(c);
-    const unreadChatOfferIds = threads
-      .filter((thread) => thread.unread && thread.wanted_offer_id)
-      .map((thread) => thread.wanted_offer_id as string);
-    setEventsCount(listingEvents + countWantedUnreadAttention(received, wantedEvents, unreadChatOfferIds));
+    if (generation !== refreshGeneration.current) return;
+    const next = mergeWantedUnreadSnapshot(wantedSnapshot.current, {
+      offers: received.status === 'fulfilled' ? received.value : undefined,
+      events: wantedEvents.status === 'fulfilled' ? wantedEvents.value : undefined,
+      unreadChatOfferIds: threads.status === 'fulfilled'
+        ? threads.value.filter((thread) => thread.unread && thread.wanted_offer_id)
+          .map((thread) => thread.wanted_offer_id as string)
+        : undefined,
+    });
+    wantedSnapshot.current = next;
+    if (c.status === 'fulfilled') setCount(c.value);
+    const listingCount = listingEvents.status === 'fulfilled' ? listingEvents.value : 0;
+    setEventsCount(listingCount + countWantedUnreadAttention(next.offers, next.events, next.unreadChatOfferIds));
   }, [user]);
 
   // Opening the bell tab clears the dot until newer listings appear.
   const markEventsSeen = useCallback(() => {
     eventsSeenAt.current = new Date().toISOString();
     setEventsCount(0);
-    void fetchWantedNotifications()
-      .then((events) => events.filter((event) => !event.read_at).map((event) => event.id))
-      .then((ids) => ids.length > 0 ? updateWantedNotifications(ids, 'read') : undefined)
-      .catch(() => {});
+    const ids = wantedSnapshot.current.events.filter((event) => !event.read_at).map((event) => event.id);
+    const readAt = new Date().toISOString();
+    wantedSnapshot.current = {
+      ...wantedSnapshot.current,
+      events: wantedSnapshot.current.events.map((event) => ({ ...event, read_at: event.read_at ?? readAt })),
+    };
+    if (ids.length > 0) void updateWantedNotifications(ids, 'read').catch(() => {});
   }, []);
 
   useEffect(() => {

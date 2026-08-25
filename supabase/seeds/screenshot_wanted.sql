@@ -21,8 +21,8 @@ values
 on conflict (id) do update set display_name=excluded.display_name, handle=excluded.handle,
   school_unit=excluded.school_unit, class_year=excluded.class_year, avatar_url=excluded.avatar_url;
 
--- Exactly three public requests. The viewer owns one and has two received offers;
--- the other two give the viewer two sent offers, one of them accepted.
+-- Exactly three active public requests, plus one fulfilled history anchor for
+-- the accepted conversation. The viewer has two received and two sent offers.
 insert into public.wanted_posts (id,buyer_id,title,category,max_budget,description,location,photo_urls,needed_by,status,created_at,resolved_at)
 select v.id::uuid,
   case when v.mine then u.id else v.buyer_id::uuid end,
@@ -30,9 +30,10 @@ select v.id::uuid,
   case when v.status='fulfilled' then now()-interval '25 minutes' else null end
 from auth.users u join screenshot_wanted_config c on lower(u.email)=lower(c.viewer_email)
 cross join (values
- ('b2200000-0000-4000-8000-000000000001',true,null,'Looking for a compact desk','goods',120,'A small desk that fits beside a dorm bed. Light wood preferred.','USC Village','https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?w=1200',interval '8 days','active',interval '2 hours'),
- ('b2200000-0000-4000-8000-000000000002',false,'b1100000-0000-4000-8000-000000000001','Need graduation photos','services',150,'Looking for a one-hour golden-hour portrait session around campus.','Tommy Trojan','https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=1200',interval '12 days','fulfilled',interval '1 day'),
- ('b2200000-0000-4000-8000-000000000003',false,'b1100000-0000-4000-8000-000000000002','Seeking summer sublet','housing',1400,'Quiet furnished room within walking distance of campus for June and July.','North University Park','https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200',interval '20 days','active',interval '4 hours')
+ ('b2200000-0000-4000-8000-000000000001',true,null,'Looking for a compact desk','goods',120,'A small desk that fits beside a dorm bed. Light wood preferred.','USC Village','https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?w=1200',interval '8 days','active',interval '2 hours'), -- ACTIVE_PUBLIC_FIXTURE
+ ('b2200000-0000-4000-8000-000000000002',false,'b1100000-0000-4000-8000-000000000001','Need graduation photos','services',150,'Looking for a one-hour golden-hour portrait session around campus.','Tommy Trojan','https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=1200',interval '12 days','active',interval '1 day'), -- ACTIVE_PUBLIC_FIXTURE
+ ('b2200000-0000-4000-8000-000000000003',false,'b1100000-0000-4000-8000-000000000002','Seeking summer sublet','housing',1400,'Quiet furnished room within walking distance of campus for June and July.','North University Park','https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200',interval '20 days','active',interval '4 hours'), -- ACTIVE_PUBLIC_FIXTURE
+ ('b2200000-0000-4000-8000-000000000004',false,'b1100000-0000-4000-8000-000000000003','Portrait session booked','services',150,'Accepted screenshot transaction retained outside the public feed.','Tommy Trojan','https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=1200',interval '12 days','fulfilled',interval '2 days')
 ) v(id,mine,buyer_id,title,category,budget,description,location,photo,deadline,status,age)
 on conflict (id) do update set title=excluded.title,description=excluded.description,max_budget=excluded.max_budget,
   photo_urls=excluded.photo_urls,needed_by=excluded.needed_by,status=excluded.status,resolved_at=excluded.resolved_at;
@@ -44,10 +45,10 @@ select v.id::uuid,v.post_id::uuid,p.buyer_id,
   v.status,now()-v.age,now()-v.age,case when v.status='accepted' then now()-interval '25 minutes' else null end
 from auth.users u join screenshot_wanted_config c on lower(u.email)=lower(c.viewer_email)
 cross join (values
- ('b3300000-0000-4000-8000-000000000001','b2200000-0000-4000-8000-000000000001',false,'b1100000-0000-4000-8000-000000000001',85,'Solid oak writing desk in great condition.','I can bring it to the Village tomorrow afternoon.','pending',interval '35 minutes'),
- ('b3300000-0000-4000-8000-000000000002','b2200000-0000-4000-8000-000000000001',false,'b1100000-0000-4000-8000-000000000003',105,'Minimal white desk with two drawers.','Pickup is near Expo Park and I can help load it.','pending',interval '1 hour'),
- ('b3300000-0000-4000-8000-000000000003','b2200000-0000-4000-8000-000000000002',true,null,125,'One-hour campus session with 25 edited photos.','Golden hour Tuesday works perfectly for me.','accepted',interval '3 hours'),
- ('b3300000-0000-4000-8000-000000000004','b2200000-0000-4000-8000-000000000003',true,null,1325,'Furnished private room with utilities included.','The room is open for both months and is a ten-minute walk.','pending',interval '50 minutes')
+ ('b3300000-0000-4000-8000-000000000001','b2200000-0000-4000-8000-000000000001',false,'b1100000-0000-4000-8000-000000000001',85,'Solid oak writing desk in great condition.','I can bring it to the Village tomorrow afternoon.','pending',interval '35 minutes'), -- RECEIVED_FIXTURE
+ ('b3300000-0000-4000-8000-000000000002','b2200000-0000-4000-8000-000000000001',false,'b1100000-0000-4000-8000-000000000003',105,'Minimal white desk with two drawers.','Pickup is near Expo Park and I can help load it.','pending',interval '1 hour'), -- RECEIVED_FIXTURE
+ ('b3300000-0000-4000-8000-000000000003','b2200000-0000-4000-8000-000000000004',true,null,125,'One-hour campus session with 25 edited photos.','Golden hour Tuesday works perfectly for me.','accepted',interval '3 hours'), -- SENT_FIXTURE ACCEPTED_CONVERSATION_FIXTURE
+ ('b3300000-0000-4000-8000-000000000004','b2200000-0000-4000-8000-000000000002',true,null,135,'Campus portrait session with edited digital photos.','I have Wednesday and Thursday at golden hour open.','pending',interval '50 minutes') -- SENT_FIXTURE
 ) v(id,post_id,viewer_sells,seller_id,price,description,message,status,age)
 join public.wanted_posts p on p.id=v.post_id::uuid
 on conflict (id) do update set price=excluded.price,description=excluded.description,message=excluded.message,
