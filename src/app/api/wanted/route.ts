@@ -136,11 +136,13 @@ export async function POST(req: NextRequest) {
   const parsed = parseWantedPostInput(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-  const { data, error } = await supabase
-    .from('wanted_posts')
-    .insert({ ...parsed.value, buyer_id: user.id })
-    .select(WANTED_SELECT)
-    .single();
+  const { data: postId, error: createError } = await supabase.rpc('create_wanted_post_with_uploads', {
+    actor_id: user.id, post_title: parsed.value.title, post_category: parsed.value.category,
+    post_max_budget: parsed.value.max_budget, post_description: parsed.value.description,
+    post_location: parsed.value.location, post_photo_urls: parsed.value.photo_urls, post_needed_by: parsed.value.needed_by,
+  });
+  if (createError || !postId) return NextResponse.json({ error: createError?.message || 'unable to create wanted post' }, { status: 500 });
+  const { data, error } = await supabase.from('wanted_posts').select(WANTED_SELECT).eq('id', postId).single();
   if (error || !data) return NextResponse.json({ error: error?.message || 'unable to create wanted post' }, { status: 500 });
 
   return NextResponse.json({ wanted_post: toPublicWantedPost(data) }, { status: 201 });

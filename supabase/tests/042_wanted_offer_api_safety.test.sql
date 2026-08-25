@@ -60,6 +60,11 @@ values
   ('f4200000-0000-4000-8000-000000000006', 'a4200000-0000-4000-8000-000000000001',
    'Expired mutation guard', 'goods', 20, 'An elapsed deadline rejects mutation.', 'USC', now() + interval '2 seconds', 'active');
 
+insert into public.wanted_uploads(path,bucket,owner_id) values
+('b4200000-0000-4000-8000-000000000002/a4200000-0000-4000-8000-000000000007/front.jpg','wanted-offer-photos','b4200000-0000-4000-8000-000000000002'),
+('b4200000-0000-4000-8000-000000000002/c4200000-0000-4000-8000-000000000009/front.jpg','wanted-offer-photos','b4200000-0000-4000-8000-000000000002')
+on conflict(path) do update set state='uploaded',attached_kind=null,attached_id=null;
+
 select public.submit_wanted_offer(
   'd4200000-0000-4000-8000-000000000004',
   'b4200000-0000-4000-8000-000000000002',

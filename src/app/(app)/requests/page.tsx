@@ -21,6 +21,7 @@ import { WantedOfferForm } from '@/components/WantedOfferForm';
 import { wantedClient, type WantedOfferDirection } from '@/lib/wanted-client';
 import { wantedOfferStatusLabel } from '@/lib/wanted-presentation';
 import type { WantedOfferDTO } from '@/lib/wanted-offers';
+import { applyWantedOfferInboxResponse } from '@/lib/wanted-offer-inbox';
 
 // Offered when declining. Optional — declining stays a single tap — but a
 // reason keeps the loop useful for the buyer without feeling punitive.
@@ -318,14 +319,25 @@ function WantedOffersPanel({ direction, onDirection }: { direction: WantedOfferD
   const [editing, setEditing] = React.useState<WantedOfferDTO | null>(null);
   const [cursor, setCursor] = React.useState<string | null>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
+  const generation = React.useRef(0);
+  const currentDirection = React.useRef(direction);
+  currentDirection.current = direction;
   const load = React.useCallback((next?: string) => {
-    setError(''); if (next) setLoadingMore(true); else setOffers(null);
+    const request = { direction, generation: ++generation.current };
+    setError('');
+    if (next) setLoadingMore(true);
+    else { setOffers(null); setCursor(null); setLoadingMore(false); }
     wantedClient.offers(direction, next).then((result) => {
-      setOffers((current) => next ? [...(current ?? []), ...result.wanted_offers] : result.wanted_offers);
+      if (request.generation !== generation.current || request.direction !== currentDirection.current) return;
+      setOffers((current) => applyWantedOfferInboxResponse(
+        { direction: currentDirection.current, generation: generation.current, items: current ?? undefined },
+        request, result.wanted_offers, Boolean(next),
+      ).items ?? null);
       setCursor(result.next_cursor);
     }).catch((cause) => {
+      if (request.generation !== generation.current || request.direction !== currentDirection.current) return;
       if (!next) setOffers([]); setError(cause instanceof Error ? cause.message : 'Could not load Wanted offers.');
-    }).finally(() => setLoadingMore(false));
+    }).finally(() => { if (request.generation === generation.current && request.direction === currentDirection.current) setLoadingMore(false); });
   }, [direction]);
   React.useEffect(() => { load(); }, [load]);
   const replace = (next: WantedOfferDTO) => setOffers((all) => all?.map((offer) => offer.id === next.id ? next : offer) ?? all);

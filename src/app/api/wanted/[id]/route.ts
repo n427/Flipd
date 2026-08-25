@@ -85,14 +85,13 @@ export async function PATCH(
   const parsed = parseWantedPostInput({ ...existing, ...body });
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-  const { data, error } = await supabase
-    .from('wanted_posts')
-    .update(parsed.value)
-    .eq('id', id)
-    .eq('buyer_id', user.id)
-    .eq('status', 'active')
-    .select(WANTED_SELECT)
-    .single();
+  const { data: savedId, error: updateError } = await supabase.rpc('update_wanted_post_with_uploads', {
+    target_post_id: id, actor_id: user.id, post_title: parsed.value.title, post_category: parsed.value.category,
+    post_max_budget: parsed.value.max_budget, post_description: parsed.value.description,
+    post_location: parsed.value.location, post_photo_urls: parsed.value.photo_urls, post_needed_by: parsed.value.needed_by,
+  });
+  if (updateError || !savedId) return NextResponse.json({ error: updateError?.message || 'unable to update wanted post' }, { status: 409 });
+  const { data, error } = await supabase.from('wanted_posts').select(WANTED_SELECT).eq('id', savedId).single();
   if (error || !data) return NextResponse.json({ error: error?.message || 'unable to update wanted post' }, { status: 409 });
   return NextResponse.json({ wanted_post: toPublicWantedPost(data) });
 }

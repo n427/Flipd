@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
   const bucket = mode === 'offer' ? 'wanted-offer-photos' : 'wanted-reference-photos';
   const folder = mode === 'offer' ? `${user.id}/${offerId}` : `${user.id}/${crypto.randomUUID()}`;
   const uploaded: string[] = [];
+  const registered: string[] = [];
   for (const [index, file] of files.entries()) {
     const extension = file.name.match(/\.([a-zA-Z0-9]+)$/)?.[1]?.toLowerCase() ?? 'jpg';
     const path = `${folder}/${index}-${crypto.randomUUID()}.${extension}`;
@@ -31,10 +32,25 @@ export async function POST(req: NextRequest) {
       contentType: file.type, upsert: false,
     });
     if (error) {
+      if (registered.length) await admin.rpc('claim_wanted_upload_cleanup', {
+        upload_paths: registered, target_bucket: bucket, actor_id: user.id,
+      });
       if (uploaded.length) await admin.storage.from(bucket).remove(uploaded);
       return NextResponse.json({ error: 'unable to upload photos' }, { status: 500 });
     }
     uploaded.push(path);
+    const publicUrl = mode === 'reference' ? admin.storage.from(bucket).getPublicUrl(path).data.publicUrl : null;
+    const { error: registerError } = await admin.rpc('register_wanted_upload', {
+      upload_path: path, upload_bucket: bucket, actor_id: user.id, upload_public_url: publicUrl,
+    });
+    if (registerError) {
+      if (registered.length) await admin.rpc('claim_wanted_upload_cleanup', {
+        upload_paths: registered, target_bucket: bucket, actor_id: user.id,
+      });
+      await admin.storage.from(bucket).remove(uploaded);
+      return NextResponse.json({ error: 'unable to register photos' }, { status: 500 });
+    }
+    registered.push(path);
   }
   if (mode === 'offer') return NextResponse.json({ paths: uploaded });
   return NextResponse.json({
@@ -52,21 +68,16 @@ export async function DELETE(req: NextRequest) {
   if ((mode !== 'reference' && mode !== 'offer') || paths.length < 1 || paths.length > 6) {
     return NextResponse.json({ error: 'invalid cleanup request' }, { status: 400 });
   }
-  let referenced = new Set<string>();
-  let referenceError: unknown | null = null;
-  if (mode === 'offer') {
-    const lookup = await admin.from('wanted_offers').select('photo_paths').overlaps('photo_paths', paths);
-    referenceError = lookup.error;
-    referenced = new Set((lookup.data ?? []).flatMap((row) => row.photo_paths ?? []));
-  } else {
-    const bucket = admin.storage.from('wanted-reference-photos');
-    const byUrl = new Map(paths.map((path) => [bucket.getPublicUrl(path).data.publicUrl, path]));
-    const lookup = await admin.from('wanted_posts').select('photo_urls').overlaps('photo_urls', [...byUrl.keys()]);
-    referenceError = lookup.error;
-    referenced = new Set((lookup.data ?? []).flatMap((row) => row.photo_urls ?? []).map((url) => byUrl.get(url)).filter((path): path is string => Boolean(path)));
-  }
-  const removable = validateWantedCleanupPaths(paths, user.id, referenced, referenceError);
-  if (!removable) return NextResponse.json({ error: 'photos are referenced or ownership could not be verified' }, { status: 409 });
-  const { error } = await admin.storage.from(mode === 'offer' ? 'wanted-offer-photos' : 'wanted-reference-photos').remove(removable);
+  const removable = validateWantedCleanupPaths(paths, user.id, new Set(), null);
+  if (!removable) return NextResponse.json({ error: 'invalid cleanup ownership' }, { status: 400 });
+  const bucket = mode === 'offer' ? 'wanted-offer-photos' : 'wanted-reference-photos';
+  const { data: claimed, error: claimError } = await admin.rpc('claim_wanted_upload_cleanup', {
+    upload_paths: removable, target_bucket: bucket, actor_id: user.id,
+  });
+  if (claimError || !claimed) return NextResponse.json({ error: 'photos are attached or unavailable' }, { status: 409 });
+  // The committed cleanup_claimed tombstone is deliberately retained whether
+  // Storage succeeds or fails. A retry may remove the object; no later attach
+  // can resurrect or reference it after successful deletion.
+  const { error } = await admin.storage.from(bucket).remove(claimed as string[]);
   return error ? NextResponse.json({ error: 'unable to remove photos' }, { status: 500 }) : NextResponse.json({ ok: true });
 }
