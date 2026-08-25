@@ -17,16 +17,14 @@ create unique index wanted_uploads_public_url_uniq on public.wanted_uploads(publ
 create index wanted_uploads_attachment_idx on public.wanted_uploads(attached_kind, attached_id) where state = 'attached';
 alter table public.wanted_uploads enable row level security;
 
--- Backfill private offer media before wrappers begin requiring registry rows.
-insert into public.wanted_uploads(path,bucket,owner_id,state,attached_kind,attached_id)
-select path, 'wanted-offer-photos', offer.seller_id, 'attached', 'offer', offer.id
-from public.wanted_offers offer cross join lateral unnest(offer.photo_paths) path
-on conflict (path) do nothing;
-
-insert into public.wanted_uploads(path,bucket,owner_id,public_url,state,attached_kind,attached_id)
-select post.buyer_id::text || '/legacy/' || md5(url), 'wanted-reference-photos', post.buyer_id, url, 'attached', 'post', post.id
-from public.wanted_posts post cross join lateral unnest(post.photo_urls) url
-on conflict do nothing;
+-- Wanted has not been activated before this migration. Refuse to guess at
+-- ownership if that rollout invariant is violated: legacy URLs may be shared,
+-- so ON CONFLICT backfill would silently attach one row and strand another.
+do $$ begin
+  if exists(select 1 from public.wanted_posts) or exists(select 1 from public.wanted_offers) then
+    raise exception 'wanted upload registry requires zero pre-activation wanted rows; reconcile explicitly before retrying migration';
+  end if;
+end $$;
 
 create or replace function public.register_wanted_upload(
   upload_path text, upload_bucket text, actor_id uuid, upload_public_url text default null
