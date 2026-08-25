@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { parseWantedPostInput, toPublicWantedPost } from './wanted';
+import {
+  blockedUserIdsFromLookup,
+  parseWantedCursor,
+  parseWantedPostInput,
+  serializeWantedCursor,
+  toPublicWantedPost,
+  wantedCursorFilter,
+  wantedPostComesAfterCursor,
+} from './wanted';
 
 describe('Wanted posts', () => {
   it('requires a future deadline and positive whole-dollar budget', () => {
@@ -62,5 +70,41 @@ describe('Wanted posts', () => {
       location: 'Village', photo_urls: [], needed_by: '2026-08-24T12:00:00Z',
       status: 'expired', created_at: '2026-08-25T12:00:00Z', offer_count: 3,
     });
+  });
+
+  it('round-trips opaque cursors without truncating PostgreSQL microseconds', () => {
+    const cursor = {
+      created_at: '2026-08-25T12:00:00.123456+00:00',
+      id: 'a0000000-0000-4000-8000-000000000001',
+    };
+
+    expect(parseWantedCursor(serializeWantedCursor(cursor))).toEqual(cursor);
+    expect(parseWantedCursor('not-a-cursor')).toBeNull();
+  });
+
+  it('uses ID as a descending tiebreaker after the same timestamp', () => {
+    const cursor = {
+      created_at: '2026-08-25T12:00:00.123456+00:00',
+      id: 'b0000000-0000-4000-8000-000000000002',
+    };
+
+    expect(wantedPostComesAfterCursor({
+      created_at: '2026-08-25T12:00:00.123456+00:00',
+      id: 'a0000000-0000-4000-8000-000000000001',
+    }, cursor)).toBe(true);
+    expect(wantedPostComesAfterCursor({
+      created_at: '2026-08-25T12:00:00.123456+00:00',
+      id: 'c0000000-0000-4000-8000-000000000003',
+    }, cursor)).toBe(false);
+    expect(wantedCursorFilter(cursor)).toBe(
+      'created_at.lt.2026-08-25T12:00:00.123456+00:00,and(created_at.eq.2026-08-25T12:00:00.123456+00:00,id.lt.b0000000-0000-4000-8000-000000000002)',
+    );
+  });
+
+  it('fails closed when a block lookup errors', () => {
+    expect(blockedUserIdsFromLookup('viewer', {
+      data: [{ blocker_id: 'viewer', blocked_id: 'buyer' }],
+      error: new Error('database unavailable'),
+    })).toEqual({ ok: false, error: 'unable to verify blocks' });
   });
 });

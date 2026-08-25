@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { admin as supabase } from '@/lib/supabase/admin';
-import { toPublicWantedPost, parseWantedPostInput } from '@/lib/wanted';
+import {
+  blockedUserIdsFromLookup,
+  parseWantedCursor,
+  parseWantedPostInput,
+  serializeWantedCursor,
+  toPublicWantedPost,
+  wantedCursorFilter,
+} from '@/lib/wanted';
 import { effectiveWantedStatus, isWantedCategory, type WantedPostStatus } from '@/lib/wanted-contract';
 
 const WANTED_SELECT = 'id,buyer_id,title,category,max_budget,description,location,photo_urls,needed_by,status,created_at,offers:wanted_offers(count)';
@@ -35,16 +42,12 @@ function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&');
 }
 
-async function blockedUserIds(userId: string): Promise<Set<string>> {
-  const { data } = await supabase
+async function blockedUserIds(userId: string) {
+  const { data, error } = await supabase
     .from('blocks')
     .select('blocker_id,blocked_id')
     .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
-  const blocked = new Set<string>();
-  for (const block of data ?? []) {
-    blocked.add(block.blocker_id === userId ? block.blocked_id : block.blocker_id);
-  }
-  return blocked;
+  return blockedUserIdsFromLookup(userId, { data, error });
 }
 
 export async function GET(req: NextRequest) {
@@ -59,7 +62,7 @@ export async function GET(req: NextRequest) {
   const limit = parseLimit(searchParams.get('limit'));
   const budget = parsePositiveInteger(searchParams.get('budget'));
   const neededBefore = parseTimestamp(searchParams.get('needed_before'));
-  const cursor = parseTimestamp(searchParams.get('cursor'));
+  const cursor = parseWantedCursor(searchParams.get('cursor'));
   const requestedStatus = searchParams.get('status');
 
   if (limit === null || budget === null || neededBefore === null || cursor === null
@@ -76,6 +79,7 @@ export async function GET(req: NextRequest) {
     .from('wanted_posts')
     .select(WANTED_SELECT)
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(limit);
 
   if (mine) {
@@ -90,7 +94,9 @@ export async function GET(req: NextRequest) {
   if (budget !== undefined) query = query.lte('max_budget', budget);
   if (location) query = query.ilike('location', `%${escapeLike(location)}%`);
   if (neededBefore !== undefined) query = query.lte('needed_by', neededBefore);
-  if (cursor !== undefined) query = query.lt('created_at', cursor);
+  if (cursor !== undefined) {
+    query = query.or(wantedCursorFilter(cursor));
+  }
 
   if (mine && requestedStatus) {
     if (requestedStatus === 'expired') {
@@ -104,8 +110,9 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const rows = data ?? [];
-  const blocked = mine ? new Set<string>() : await blockedUserIds(user.id);
-  const visibleRows = mine ? rows : rows.filter((row) => !blocked.has(row.buyer_id));
+  const blockLookup = mine ? { ok: true as const, value: new Set<string>() } : await blockedUserIds(user.id);
+  if (!blockLookup.ok) return NextResponse.json({ error: blockLookup.error }, { status: 500 });
+  const visibleRows = rows.filter((row) => !blockLookup.value.has(row.buyer_id));
   const wantedPosts = visibleRows
     .map((row) => toPublicWantedPost(row, now))
     .filter((post) => mine || effectiveWantedStatus(post.status, post.needed_by, now) === 'active');
@@ -115,7 +122,9 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     wanted_posts: wantedPosts,
-    next_cursor: rows.length === limit && lastScanned ? lastScanned.created_at : null,
+    next_cursor: rows.length === limit && lastScanned
+      ? serializeWantedCursor({ created_at: lastScanned.created_at, id: lastScanned.id })
+      : null,
   });
 }
 

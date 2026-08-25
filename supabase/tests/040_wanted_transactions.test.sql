@@ -14,7 +14,8 @@ where id in (
   'd4000000-0000-4000-8000-000000000004'::uuid,
   'e4000000-0000-4000-8000-000000000005'::uuid,
   'f4000000-0000-4000-8000-000000000006'::uuid,
-  'a4000000-0000-4000-8000-000000000007'::uuid
+  'a4000000-0000-4000-8000-000000000007'::uuid,
+  'b4000000-0000-4000-8000-000000000009'::uuid
 );
 
 insert into public.wanted_posts (
@@ -181,3 +182,58 @@ where id in (
   'e4000000-0000-4000-8000-000000000005'::uuid,
   'a4000000-0000-4000-8000-000000000007'::uuid
 );
+
+-- `delete_wanted_post` locks the parent and changes the post plus all open
+-- competitors in one transaction. A retry must be harmless and retain the
+-- first resolution time.
+insert into public.wanted_posts (
+  id, buyer_id, title, category, max_budget, description, location, needed_by
+) values (
+  'b4000000-0000-4000-8000-000000000009', 'a4000000-0000-4000-8000-000000000001',
+  'Delete RPC guard', 'goods', 10, 'Pending offer must close atomically.', 'USC', now() + interval '1 day'
+);
+
+insert into public.wanted_offers (
+  id, wanted_post_id, seller_id, buyer_id, price, description, message, photo_paths
+) values (
+  'c4000000-0000-4000-8000-000000000010', 'b4000000-0000-4000-8000-000000000009',
+  'b4000000-0000-4000-8000-000000000002', 'a4000000-0000-4000-8000-000000000001',
+  10, 'Delete RPC offer', 'This pending offer must be declined.', array['offer.jpg']
+);
+
+do $$
+declare first_resolution timestamptz;
+begin
+  if public.delete_wanted_post(
+    'b4000000-0000-4000-8000-000000000009',
+    'a4000000-0000-4000-8000-000000000001'
+  ) <> 'deleted'
+  or not exists (
+    select 1 from public.wanted_posts
+    where id = 'b4000000-0000-4000-8000-000000000009'
+      and status = 'deleted' and resolved_at is not null
+  )
+  or not exists (
+    select 1 from public.wanted_offers
+    where id = 'c4000000-0000-4000-8000-000000000010'
+      and status = 'declined' and resolved_at is not null
+  ) then
+    raise exception 'FAIL: delete RPC did not atomically close post and pending offer';
+  end if;
+
+  select resolved_at into first_resolution
+  from public.wanted_posts where id = 'b4000000-0000-4000-8000-000000000009';
+
+  if public.delete_wanted_post(
+    'b4000000-0000-4000-8000-000000000009',
+    'a4000000-0000-4000-8000-000000000001'
+  ) <> 'already_deleted'
+  or (select resolved_at from public.wanted_posts where id = 'b4000000-0000-4000-8000-000000000009') <> first_resolution then
+    raise exception 'FAIL: delete RPC retry was not idempotent';
+  end if;
+  raise notice 'PASS: delete RPC atomically declines pending offers and retries safely';
+end;
+$$;
+
+delete from public.wanted_posts
+where id = 'b4000000-0000-4000-8000-000000000009';
