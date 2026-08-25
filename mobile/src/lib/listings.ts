@@ -664,7 +664,7 @@ export async function updateMyProfile(
   if (error) throw error;
 }
 
-// Seller responds to a reveal request (approve/decline/complete) via the
+// Seller responds to a reveal request, or either participant completes it, via the
 // token-authed web API. Reveal writes go through the server so the mutual-
 // reveal rules + emails run (RLS blocks direct client writes by design).
 // When markSold is passed with an approve, the server also archives the
@@ -676,11 +676,18 @@ export async function respondReveal(
   declineReason?: string | null,
 ): Promise<void> {
   const token = await requireToken();
-  const res = await fetch(`${API_BASE}/api/reveals/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ action, mark_sold: markSold, decline_reason: declineReason ?? null }),
-  });
+  const res = await fetch(
+    action === 'complete'
+      ? `${API_BASE}/api/transactions/sale/${id}/complete`
+      : `${API_BASE}/api/reveals/${id}`,
+    action === 'complete'
+      ? { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
+      : {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ action, mark_sold: markSold, decline_reason: declineReason ?? null }),
+        },
+  );
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Request failed (${res.status})`);

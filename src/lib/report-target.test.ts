@@ -13,4 +13,16 @@ describe('parseReportTarget', () => {
     expect(parseReportTarget({})).toBeNull();
     expect(parseReportTarget({ listing_id: 'listing-1', thread_id: 'thread-1' })).toBeNull();
   });
+
+  it('accepts a Wanted post or Wanted offer as the sole report target', () => {
+    expect(parseReportTarget({ wanted_post_id: 'p1' })).toEqual({
+      kind: 'wanted_post',
+      id: 'p1',
+    });
+    expect(parseReportTarget({ wanted_offer_id: 'o1' })).toEqual({
+      kind: 'wanted_offer',
+      id: 'o1',
+    });
+    expect(parseReportTarget({ wanted_post_id: 'p1', thread_id: 't1' })).toBeNull();
+  });
 });

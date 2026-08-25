@@ -1,7 +1,9 @@
 export type ReportTarget =
   | { kind: 'listing'; id: string }
   | { kind: 'user'; id: string }
-  | { kind: 'thread'; id: string };
+  | { kind: 'thread'; id: string }
+  | { kind: 'wanted_post'; id: string }
+  | { kind: 'wanted_offer'; id: string };
 
 export function parseReportTarget(body: Record<string, unknown>): ReportTarget | null {
   const candidates: ReportTarget[] = [];
@@ -13,6 +15,12 @@ export function parseReportTarget(body: Record<string, unknown>): ReportTarget |
   }
   if (typeof body.thread_id === 'string' && body.thread_id) {
     candidates.push({ kind: 'thread', id: body.thread_id });
+  }
+  if (typeof body.wanted_post_id === 'string' && body.wanted_post_id) {
+    candidates.push({ kind: 'wanted_post', id: body.wanted_post_id });
+  }
+  if (typeof body.wanted_offer_id === 'string' && body.wanted_offer_id) {
+    candidates.push({ kind: 'wanted_offer', id: body.wanted_offer_id });
   }
   return candidates.length === 1 ? candidates[0] : null;
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
+import { counterpartId, loadTransaction, parseTransactionSourceIds } from '@/lib/transaction';
 
 // GET /api/ratings?user=<id> — aggregate + recent reviews for a profile.
 export async function GET(req: NextRequest) {
@@ -37,29 +38,27 @@ export async function POST(req: NextRequest) {
   const user = await getRequestUser(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  const { request_id, score, text } = await req.json().catch(() => ({}));
+  const { request_id, wanted_offer_id, score, text } = await req.json().catch(() => ({}));
   const scoreNum = Number(score);
-  if (!request_id || !Number.isInteger(scoreNum) || scoreNum < 1 || scoreNum > 5) {
-    return NextResponse.json({ error: 'request_id and a score of 1-5 are required' }, { status: 400 });
+  const source = parseTransactionSourceIds({ request_id, wanted_offer_id });
+  if (!source || !Number.isInteger(scoreNum) || scoreNum < 1 || scoreNum > 5) {
+    return NextResponse.json(
+      { error: 'exactly one transaction source and a score of 1-5 are required' },
+      { status: 400 },
+    );
   }
 
-  const { data: request } = await admin
-    .from('reveal_requests')
-    .select('id, buyer_id, seller_id, status')
-    .eq('id', request_id)
-    .single();
-  if (!request) return NextResponse.json({ error: 'transaction not found' }, { status: 404 });
-  if (request.status !== 'completed') {
+  const transaction = await loadTransaction(source);
+  if (!transaction) return NextResponse.json({ error: 'transaction not found' }, { status: 404 });
+  if (transaction.status !== 'completed') {
     return NextResponse.json({ error: 'you can only rate a completed transaction' }, { status: 409 });
   }
-  // The rater must be a party; the ratee is the other party.
-  let rateeId: string | null = null;
-  if (user.id === request.buyer_id) rateeId = request.seller_id;
-  else if (user.id === request.seller_id) rateeId = request.buyer_id;
+  const rateeId = counterpartId(transaction, user.id);
   if (!rateeId) return NextResponse.json({ error: 'not your transaction' }, { status: 403 });
 
   const { error } = await admin.from('ratings').insert({
-    request_id,
+    request_id: source.kind === 'sale' ? source.id : null,
+    wanted_offer_id: source.kind === 'wanted' ? source.id : null,
     rater_id: user.id,
     ratee_id: rateeId,
     score: scoreNum,

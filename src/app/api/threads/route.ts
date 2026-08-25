@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
+import { signWantedOfferPhotos } from '@/lib/wanted-offers';
+import { parseTransactionSource } from '@/lib/wanted-transition';
 
 type ProfileRef = { id: string; display_name: string | null; avatar_url: string | null };
 type ThreadListRow = {
   id: string;
-  request_id: string;
+  request_id: string | null;
+  wanted_offer_id: string | null;
   listing_id: string | null;
   listing_title: string | null;
   buyer_id: string;
@@ -15,6 +18,11 @@ type ThreadListRow = {
   buyer_seen_at: string | null;
   seller_seen_at: string | null;
   listing: { title: string; price: number | null; photo_urls: string[] | null; archived: boolean } | null;
+  wanted_offer: {
+    price: number;
+    photo_paths: string[] | null;
+    wanted_post: { title: string } | null;
+  } | null;
   buyer: ProfileRef | null;
   seller: ProfileRef | null;
 };
@@ -28,8 +36,9 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from('message_threads')
-    .select(`id, request_id, listing_id, listing_title, buyer_id, seller_id, created_at, last_message_at, buyer_seen_at, seller_seen_at,
+    .select(`id, request_id, wanted_offer_id, listing_id, listing_title, buyer_id, seller_id, created_at, last_message_at, buyer_seen_at, seller_seen_at,
       listing:listings(title, price, photo_urls, archived),
+      wanted_offer:wanted_offers(price, photo_paths, wanted_post:wanted_posts(title)),
       buyer:profiles!message_threads_buyer_id_fkey(id, display_name, avatar_url),
       seller:profiles!message_threads_seller_id_fkey(id, display_name, avatar_url)`)
     .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
@@ -37,6 +46,29 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const rows = (data ?? []) as unknown as ThreadListRow[];
+
+  // This route already restricted every row to the caller's conversations.
+  // Only after that participant check do private Wanted-offer paths get signed.
+  const wantedPhotoRows = rows.flatMap((row) => {
+    const source = parseTransactionSource(row);
+    const path = source?.kind === 'wanted' ? row.wanted_offer?.photo_paths?.[0] : null;
+    return path ? [{ threadId: row.id, path }] : [];
+  });
+  let wantedPhotoUrls = new Map<string, string>();
+  if (wantedPhotoRows.length > 0) {
+    try {
+      const urls = await signWantedOfferPhotos(
+        admin.storage,
+        wantedPhotoRows.map(({ path }) => path),
+      );
+      wantedPhotoUrls = new Map(wantedPhotoRows.map((row, index) => [row.threadId, urls[index]]));
+    } catch (signingError) {
+      return NextResponse.json(
+        { error: signingError instanceof Error ? signingError.message : 'unable to sign wanted offer photos' },
+        { status: 500 },
+      );
+    }
+  }
 
   // One query for the newest message across all threads, rather than N+1.
   const ids = rows.map((r) => r.id);
@@ -56,6 +88,9 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     threads: rows.map((r) => {
+      const source = parseTransactionSource(r);
+      if (!source) throw new Error('message thread must have exactly one transaction source');
+      const isWanted = source.kind === 'wanted';
       const isBuyer = r.buyer_id === user.id;
       const counterpart = isBuyer ? r.seller : r.buyer;
       const seenAt = isBuyer ? r.buyer_seen_at : r.seller_seen_at;
@@ -63,14 +98,20 @@ export async function GET(req: NextRequest) {
       return {
         id: r.id,
         request_id: r.request_id,
+        wanted_offer_id: r.wanted_offer_id,
+        source_type: source.kind,
         listing_id: r.listing_id,
         // Falls back to the denormalized title when the listing is gone, the
         // same way reveal_requests.listing_title survives a deletion.
-        listing_title: r.listing?.title ?? r.listing_title ?? '',
-        listing_price: r.listing?.price ?? null,
-        listing_photo: r.listing?.photo_urls?.[0] ?? null,
-        listing_archived: r.listing?.archived ?? false,
-        listing_removed: !r.listing,
+        listing_title: isWanted
+          ? r.wanted_offer?.wanted_post?.title ?? r.listing_title ?? ''
+          : r.listing?.title ?? r.listing_title ?? '',
+        listing_price: isWanted ? r.wanted_offer?.price ?? null : r.listing?.price ?? null,
+        listing_photo: isWanted
+          ? wantedPhotoUrls.get(r.id) ?? null
+          : r.listing?.photo_urls?.[0] ?? null,
+        listing_archived: isWanted ? false : r.listing?.archived ?? false,
+        listing_removed: isWanted ? false : !r.listing,
         counterpart,
         last_message_at: r.last_message_at,
         last_message: preview?.body ?? null,

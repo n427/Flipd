@@ -17,8 +17,8 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { action, mark_sold, decline_reason } = await req.json().catch(() => ({}));
-  if (action !== 'approve' && action !== 'decline' && action !== 'complete') {
-    return NextResponse.json({ error: "action must be 'approve', 'decline', or 'complete'" }, { status: 400 });
+  if (action !== 'approve' && action !== 'decline') {
+    return NextResponse.json({ error: "action must be 'approve' or 'decline'" }, { status: 400 });
   }
   // Optional: declining without a reason stays a single tap.
   if (decline_reason != null && !DECLINE_REASONS.includes(decline_reason)) {
@@ -35,11 +35,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
   const status = effectiveRevealStatus(existing.status as RevealStatus, existing.expires_at);
-  if (action === 'complete') {
-    if (status !== 'approved') {
-      return NextResponse.json({ error: `only approved requests can be completed (this one is ${status})` }, { status: 409 });
-    }
-  } else if (action === 'decline') {
+  if (action === 'decline') {
     // Decline stays available after approval: talking to someone is not a
     // commitment, and without this a seller who changed their mind had no way
     // to close the request. Any conversation opened by the approval is removed
@@ -54,7 +50,7 @@ export async function PATCH(
   const { data, error } = await admin
     .from('reveal_requests')
     .update({
-      status: action === 'approve' ? 'approved' : action === 'complete' ? 'completed' : 'declined',
+      status: action === 'approve' ? 'approved' : 'declined',
       resolved_at: new Date().toISOString(),
       ...(action === 'decline' && decline_reason ? { decline_reason } : {}),
     })

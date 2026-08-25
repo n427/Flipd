@@ -34,12 +34,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'conversation not found' }, { status: 403 });
     }
   }
+  if (target.kind === 'wanted_offer') {
+    const { data: offer } = await admin
+      .from('wanted_offers')
+      .select('buyer_id, seller_id')
+      .eq('id', target.id)
+      .maybeSingle();
+    if (!offer || (offer.buyer_id !== user.id && offer.seller_id !== user.id)) {
+      // A private offer's existence and participants are not public metadata.
+      return NextResponse.json({ error: 'wanted offer not found' }, { status: 403 });
+    }
+  }
 
   const { error } = await admin.from('reports').insert({
     reporter_id: user.id,
     target_listing_id: target.kind === 'listing' ? target.id : null,
     target_user_id: target.kind === 'user' ? target.id : null,
     target_thread_id: target.kind === 'thread' ? target.id : null,
+    target_wanted_post_id: target.kind === 'wanted_post' ? target.id : null,
+    target_wanted_offer_id: target.kind === 'wanted_offer' ? target.id : null,
     reason: fullReason,
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

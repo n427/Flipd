@@ -449,11 +449,16 @@ export function useFlipdStore(): FlipdStore {
   };
 
   const respondReveal = async (id: string, action: 'approve' | 'decline' | 'complete', opts: { markSold?: boolean; declineReason?: string } = {}) => {
-    const res = await fetch(`/api/reveals/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, mark_sold: opts.markSold === true, decline_reason: opts.declineReason ?? null }),
-    }).catch(() => null);
+    const res = await fetch(
+      action === 'complete' ? `/api/transactions/sale/${id}/complete` : `/api/reveals/${id}`,
+      action === 'complete'
+        ? { method: 'POST' }
+        : {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, mark_sold: opts.markSold === true, decline_reason: opts.declineReason ?? null }),
+          },
+    ).catch(() => null);
     if (!res || !res.ok) return false;
     setActivity((prev) => prev.map((a) =>
       a.id === id ? { ...a, status: action === 'approve' ? 'APPROVED' : action === 'complete' ? 'COMPLETED' : 'DECLINED' } : a,

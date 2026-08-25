@@ -65,6 +65,8 @@ function StatusBadge({ status }: { status: string }) {
 
 type ThreadRow = {
   id: string;
+  source_type: 'sale' | 'wanted';
+  wanted_offer_id: string | null;
   listing_title: string;
   listing_price: number | null;
   listing_photo: string | null;

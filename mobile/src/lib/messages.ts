@@ -26,6 +26,8 @@ export type Message = {
 
 export type ThreadSummary = {
   id: string;
+  source_type: 'sale' | 'wanted';
+  wanted_offer_id: string | null;
   listing_id: string | null;
   listing_title: string;
   listing_photo: string | null;
@@ -38,6 +40,8 @@ export type ThreadSummary = {
 
 export type ThreadHead = {
   id: string;
+  source_type: 'sale' | 'wanted';
+  wanted_offer_id: string | null;
   listing_id: string | null;
   listing_title: string;
   listing_price: number | null;

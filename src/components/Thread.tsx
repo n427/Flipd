@@ -32,6 +32,8 @@ type Message = {
 };
 type ThreadHead = {
   id: string;
+  source_type: 'sale' | 'wanted';
+  wanted_offer_id: string | null;
   listing_id: string | null;
   listing_title: string;
   listing_price: number | null;

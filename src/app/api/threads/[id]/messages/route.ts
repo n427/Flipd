@@ -14,6 +14,8 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
 } from '@/lib/validation';
 import { newMessageEmail, sendEmail, sendPush, verifiedEmailFor, wantsEmail, wantsPush } from '@/lib/notify';
+import { loadTransaction } from '@/lib/transaction';
+import { parseTransactionSource } from '@/lib/wanted-transition';
 
 // Send a message, with optional photo/video attachments.
 //
@@ -31,6 +33,10 @@ export async function POST(
 
   const thread = await loadThreadForUser(id, user.id);
   if (!thread) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  const source = parseTransactionSource(thread);
+  if (!source) throw new Error('message thread must have exactly one transaction source');
+  const transaction = await loadTransaction(source);
+  if (!transaction) return NextResponse.json({ error: 'transaction not found' }, { status: 404 });
 
   const contentType = req.headers.get('content-type') ?? '';
   let body = '';
@@ -131,7 +137,7 @@ export async function POST(
       admin.from('profiles').select('display_name').eq('id', user.id).single(),
     ]);
     const senderName = sender?.display_name ?? 'Someone';
-    const title = thread.listing_title ?? 'your listing';
+    const title = transaction.title || thread.listing_title || 'your transaction';
     if (wantsPush(recipient?.notify_prefs, 'new_message')) {
       void sendPush(recipientId, senderName, body.trim() || 'Sent an attachment', {
         type: 'new_message',

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
 import { loadThreadForUser, signAttachments, markThreadSeen, type AttachmentRow } from '@/lib/messaging';
+import { loadTransaction } from '@/lib/transaction';
+import { signWantedOfferPhotos } from '@/lib/wanted-offers';
+import { parseTransactionSource } from '@/lib/wanted-transition';
 
 // A single thread with its messages. Attachments come back as freshly signed
 // URLs, which is why this cannot be a plain client-side Supabase read.
@@ -19,19 +22,28 @@ export async function GET(
   const thread = await loadThreadForUser(id, user.id);
   if (!thread) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
-  const [{ data: messages }, { data: request }, { data: listing }, { data: counterpart }] = await Promise.all([
+  const source = parseTransactionSource(thread);
+  if (!source) throw new Error('message thread must have exactly one transaction source');
+
+  const [{ data: messages }, { data: origin }, { data: listing }, { data: counterpart }, transaction] = await Promise.all([
     admin
       .from('messages')
       .select('id, sender_id, body, created_at')
       .eq('thread_id', thread.id)
       .order('created_at', { ascending: true }),
-    // The intro message and approval date keep the thread's origin visible.
-    admin
-      .from('reveal_requests')
-      .select('intro_message, created_at, resolved_at, status, offer')
-      .eq('id', thread.request_id)
-      .single(),
-    thread.listing_id
+    // The intro message and approval date keep either transaction origin visible.
+    source.kind === 'sale'
+      ? admin
+          .from('reveal_requests')
+          .select('intro_message, created_at, resolved_at, offer')
+          .eq('id', source.id)
+          .single()
+      : admin
+          .from('wanted_offers')
+          .select('message, created_at, resolved_at, photo_paths')
+          .eq('id', source.id)
+          .single(),
+    source.kind === 'sale' && thread.listing_id
       ? admin
           .from('listings')
           .select('id, title, price, photo_urls, archived, category')
@@ -43,7 +55,28 @@ export async function GET(
       .select('id, display_name, avatar_url, school_unit, class_year')
       .eq('id', thread.buyer_id === user.id ? thread.seller_id : thread.buyer_id)
       .single(),
+    loadTransaction(source),
   ]);
+  if (!transaction) return NextResponse.json({ error: 'transaction not found' }, { status: 404 });
+
+  const saleOrigin = source.kind === 'sale'
+    ? origin as { intro_message: string | null; created_at: string; resolved_at: string | null; offer: number | null } | null
+    : null;
+  const wantedOrigin = source.kind === 'wanted'
+    ? origin as { message: string; created_at: string; resolved_at: string | null; photo_paths: string[] | null } | null
+    : null;
+  let wantedPhoto: string | null = null;
+  const wantedPhotoPath = wantedOrigin?.photo_paths?.[0];
+  if (wantedPhotoPath) {
+    try {
+      [wantedPhoto] = await signWantedOfferPhotos(admin.storage, [wantedPhotoPath]);
+    } catch (signingError) {
+      return NextResponse.json(
+        { error: signingError instanceof Error ? signingError.message : 'unable to sign wanted offer photos' },
+        { status: 500 },
+      );
+    }
+  }
 
   const rows = messages ?? [];
   const { data: attachmentRows } = rows.length
@@ -66,21 +99,25 @@ export async function GET(
     thread: {
       id: thread.id,
       request_id: thread.request_id,
+      wanted_offer_id: thread.wanted_offer_id,
+      source_type: source.kind,
       listing_id: thread.listing_id,
-      listing_title: listing?.title ?? thread.listing_title ?? '',
-      listing_price: listing?.price ?? null,
-      listing_photo: listing?.photo_urls?.[0] ?? null,
-      listing_archived: listing?.archived ?? false,
-      listing_removed: !listing,
+      listing_title: source.kind === 'wanted'
+        ? transaction.title
+        : listing?.title ?? thread.listing_title ?? '',
+      listing_price: source.kind === 'wanted' ? transaction.price : listing?.price ?? null,
+      listing_photo: source.kind === 'wanted' ? wantedPhoto : listing?.photo_urls?.[0] ?? null,
+      listing_archived: source.kind === 'wanted' ? false : listing?.archived ?? false,
+      listing_removed: source.kind === 'wanted' ? false : !listing,
       counterpart,
-      intro_message: request?.intro_message ?? null,
-      offer: request?.offer ?? null,
-      approved_at: request?.resolved_at ?? null,
+      intro_message: source.kind === 'wanted' ? wantedOrigin?.message ?? null : saleOrigin?.intro_message ?? null,
+      offer: source.kind === 'sale' ? saleOrigin?.offer ?? null : null,
+      approved_at: source.kind === 'wanted' ? wantedOrigin?.resolved_at ?? null : saleOrigin?.resolved_at ?? null,
       created_at: thread.created_at,
       // Who wrote the intro message, and when. The requester is always the
       // buyer, so the viewer's side is enough to attribute it without guessing.
       i_am_buyer: thread.buyer_id === user.id,
-      requested_at: request?.created_at ?? null,
+      requested_at: source.kind === 'wanted' ? wantedOrigin?.created_at ?? null : saleOrigin?.created_at ?? null,
     },
     messages: rows.map((m) => ({
       id: m.id,

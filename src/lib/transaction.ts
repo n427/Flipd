@@ -1,0 +1,104 @@
+import { admin } from './supabase/admin';
+import type { TransactionSource } from './wanted-transition';
+
+type SaleTransactionRow = {
+  buyer_id: string;
+  seller_id: string;
+  listing_title: string | null;
+  offer: number | null;
+  status: string;
+  listing?: { title: string; price: number | null } | null;
+};
+
+type WantedTransactionRow = {
+  buyer_id: string;
+  seller_id: string;
+  price: number;
+  status: string;
+  completed_at: string | null;
+  wanted_post: { title: string } | null;
+};
+
+export type TransactionAdapter = {
+  loadSale(id: string): Promise<SaleTransactionRow | null>;
+  loadWanted(id: string): Promise<WantedTransactionRow | null>;
+};
+
+export type NormalizedTransaction = {
+  source: TransactionSource;
+  buyerId: string;
+  sellerId: string;
+  title: string;
+  price: number | null;
+  status: 'approved' | 'completed';
+};
+
+export function parseTransactionSourceIds(
+  value: { request_id?: unknown; wanted_offer_id?: unknown },
+): TransactionSource | null {
+  const saleValue = value.request_id;
+  const wantedValue = value.wanted_offer_id;
+  if (saleValue != null && typeof saleValue !== 'string') return null;
+  if (wantedValue != null && typeof wantedValue !== 'string') return null;
+  const saleId = typeof saleValue === 'string' ? saleValue.trim() : '';
+  const wantedId = typeof wantedValue === 'string' ? wantedValue.trim() : '';
+  if (Boolean(saleId) === Boolean(wantedId)) return null;
+  return saleId ? { kind: 'sale', id: saleId } : { kind: 'wanted', id: wantedId };
+}
+
+const databaseTransactionAdapter: TransactionAdapter = {
+  async loadSale(id) {
+    const { data } = await admin
+      .from('reveal_requests')
+      .select('buyer_id, seller_id, listing_title, offer, status, listing:listings(title, price)')
+      .eq('id', id)
+      .maybeSingle();
+    return data as unknown as SaleTransactionRow | null;
+  },
+  async loadWanted(id) {
+    const { data } = await admin
+      .from('wanted_offers')
+      .select('buyer_id, seller_id, price, status, completed_at, wanted_post:wanted_posts(title)')
+      .eq('id', id)
+      .maybeSingle();
+    return data as unknown as WantedTransactionRow | null;
+  },
+};
+
+export async function loadTransaction(
+  source: TransactionSource,
+  adapter: TransactionAdapter = databaseTransactionAdapter,
+): Promise<NormalizedTransaction | null> {
+  if (source.kind === 'sale') {
+    const row = await adapter.loadSale(source.id);
+    if (!row || (row.status !== 'approved' && row.status !== 'completed')) return null;
+    return {
+      source,
+      buyerId: row.buyer_id,
+      sellerId: row.seller_id,
+      title: row.listing?.title ?? row.listing_title ?? '',
+      price: row.offer ?? row.listing?.price ?? null,
+      status: row.status,
+    };
+  }
+
+  const row = await adapter.loadWanted(source.id);
+  if (!row || row.status !== 'accepted' || !row.wanted_post) return null;
+  return {
+    source,
+    buyerId: row.buyer_id,
+    sellerId: row.seller_id,
+    title: row.wanted_post.title,
+    price: row.price,
+    status: row.completed_at ? 'completed' : 'approved',
+  };
+}
+
+export function counterpartId(
+  transaction: NormalizedTransaction,
+  participantId: string,
+): string | null {
+  if (participantId === transaction.buyerId) return transaction.sellerId;
+  if (participantId === transaction.sellerId) return transaction.buyerId;
+  return null;
+}
