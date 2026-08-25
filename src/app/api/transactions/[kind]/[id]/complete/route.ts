@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
-import { loadTransaction } from '@/lib/transaction';
+import { loadTransactionForUser } from '@/lib/transaction';
 import type { TransactionSource } from '@/lib/wanted-transition';
 
 export async function POST(
@@ -16,11 +16,8 @@ export async function POST(
     return NextResponse.json({ error: "kind must be 'sale' or 'wanted'" }, { status: 400 });
   }
   const source: TransactionSource = { kind, id };
-  const transaction = await loadTransaction(source);
+  const transaction = await loadTransactionForUser(source, user.id);
   if (!transaction) return NextResponse.json({ error: 'transaction not found' }, { status: 404 });
-  if (user.id !== transaction.buyerId && user.id !== transaction.sellerId) {
-    return NextResponse.json({ error: 'not your transaction' }, { status: 403 });
-  }
   if (transaction.status === 'completed') {
     return NextResponse.json({ error: 'transaction is already completed' }, { status: 409 });
   }

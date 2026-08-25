@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { admin } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/authAny';
-import { counterpartId, loadTransaction, parseTransactionSourceIds } from '@/lib/transaction';
+import { counterpartId, loadTransactionForUser, parseTransactionSourceIds } from '@/lib/transaction';
 
 // GET /api/ratings?user=<id> — aggregate + recent reviews for a profile.
 export async function GET(req: NextRequest) {
@@ -48,13 +48,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const transaction = await loadTransaction(source);
+  const transaction = await loadTransactionForUser(source, user.id);
   if (!transaction) return NextResponse.json({ error: 'transaction not found' }, { status: 404 });
   if (transaction.status !== 'completed') {
     return NextResponse.json({ error: 'you can only rate a completed transaction' }, { status: 409 });
   }
   const rateeId = counterpartId(transaction, user.id);
-  if (!rateeId) return NextResponse.json({ error: 'not your transaction' }, { status: 403 });
+  if (!rateeId) return NextResponse.json({ error: 'transaction not found' }, { status: 404 });
 
   const { error } = await admin.from('ratings').insert({
     request_id: source.kind === 'sale' ? source.id : null,

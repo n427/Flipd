@@ -20,8 +20,8 @@ type WantedTransactionRow = {
 };
 
 export type TransactionAdapter = {
-  loadSale(id: string): Promise<SaleTransactionRow | null>;
-  loadWanted(id: string): Promise<WantedTransactionRow | null>;
+  loadSale(id: string, participantId?: string): Promise<SaleTransactionRow | null>;
+  loadWanted(id: string, participantId?: string): Promise<WantedTransactionRow | null>;
 };
 
 export type NormalizedTransaction = {
@@ -47,32 +47,39 @@ export function parseTransactionSourceIds(
 }
 
 const databaseTransactionAdapter: TransactionAdapter = {
-  async loadSale(id) {
-    const { data } = await admin
+  async loadSale(id, participantId) {
+    let query = admin
       .from('reveal_requests')
       .select('buyer_id, seller_id, listing_title, offer, status, listing:listings(title, price)')
-      .eq('id', id)
-      .maybeSingle();
+      .eq('id', id);
+    if (participantId) {
+      query = query.or(`buyer_id.eq.${participantId},seller_id.eq.${participantId}`);
+    }
+    const { data } = await query.maybeSingle();
     return data as unknown as SaleTransactionRow | null;
   },
-  async loadWanted(id) {
-    const { data } = await admin
+  async loadWanted(id, participantId) {
+    let query = admin
       .from('wanted_offers')
       .select('buyer_id, seller_id, price, status, completed_at, wanted_post:wanted_posts(title)')
-      .eq('id', id)
-      .maybeSingle();
+      .eq('id', id);
+    if (participantId) {
+      query = query.or(`buyer_id.eq.${participantId},seller_id.eq.${participantId}`);
+    }
+    const { data } = await query.maybeSingle();
     return data as unknown as WantedTransactionRow | null;
   },
 };
 
-export async function loadTransaction(
+async function loadTransactionWithScope(
   source: TransactionSource,
-  adapter: TransactionAdapter = databaseTransactionAdapter,
+  adapter: TransactionAdapter,
+  participantId?: string,
 ): Promise<NormalizedTransaction | null> {
   if (source.kind === 'sale') {
-    const row = await adapter.loadSale(source.id);
+    const row = await adapter.loadSale(source.id, participantId);
     if (!row || (row.status !== 'approved' && row.status !== 'completed')) return null;
-    return {
+    const transaction: NormalizedTransaction = {
       source,
       buyerId: row.buyer_id,
       sellerId: row.seller_id,
@@ -80,11 +87,12 @@ export async function loadTransaction(
       price: row.offer ?? row.listing?.price ?? null,
       status: row.status,
     };
+    return participantId && !counterpartId(transaction, participantId) ? null : transaction;
   }
 
-  const row = await adapter.loadWanted(source.id);
+  const row = await adapter.loadWanted(source.id, participantId);
   if (!row || row.status !== 'accepted' || !row.wanted_post) return null;
-  return {
+  const transaction: NormalizedTransaction = {
     source,
     buyerId: row.buyer_id,
     sellerId: row.seller_id,
@@ -92,6 +100,22 @@ export async function loadTransaction(
     price: row.price,
     status: row.completed_at ? 'completed' : 'approved',
   };
+  return participantId && !counterpartId(transaction, participantId) ? null : transaction;
+}
+
+export async function loadTransaction(
+  source: TransactionSource,
+  adapter: TransactionAdapter = databaseTransactionAdapter,
+): Promise<NormalizedTransaction | null> {
+  return loadTransactionWithScope(source, adapter);
+}
+
+export async function loadTransactionForUser(
+  source: TransactionSource,
+  userId: string,
+  adapter: TransactionAdapter = databaseTransactionAdapter,
+): Promise<NormalizedTransaction | null> {
+  return loadTransactionWithScope(source, adapter, userId);
 }
 
 export function counterpartId(

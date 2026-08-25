@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   counterpartId,
   loadTransaction,
+  loadTransactionForUser,
   parseTransactionSourceIds,
   type TransactionAdapter,
 } from './transaction';
@@ -18,8 +19,9 @@ function transactionFixture(): TransactionAdapter {
         status: 'completed',
       };
     },
-    async loadWanted(id) {
+    async loadWanted(id, participantId) {
       if (id !== 'wanted-1') return null;
+      if (participantId && participantId !== 'buyer-1' && participantId !== 'seller-1') return null;
       return {
         buyer_id: 'buyer-1',
         seller_id: 'seller-1',
@@ -118,5 +120,44 @@ describe('parseTransactionSourceIds', () => {
     });
     expect(parseTransactionSourceIds({ request_id: 'sale-1', wanted_offer_id: 'wanted-1' })).toBeNull();
     expect(parseTransactionSourceIds({ request_id: 42, wanted_offer_id: 'wanted-1' })).toBeNull();
+  });
+});
+
+describe('loadTransactionForUser', () => {
+  it('returns null for a missing private Wanted offer', async () => {
+    const transaction = await loadTransactionForUser(
+      { kind: 'wanted', id: 'missing-offer' },
+      'outsider-1',
+      transactionFixture(),
+    );
+
+    expect(transaction).toBeNull();
+  });
+
+  it('returns the same null result for an outsider to an existing private Wanted offer', async () => {
+    const transaction = await loadTransactionForUser(
+      { kind: 'wanted', id: 'wanted-1' },
+      'outsider-1',
+      transactionFixture(),
+    );
+
+    expect(transaction).toBeNull();
+  });
+
+  it('reveals normalized state to a participant only', async () => {
+    const transaction = await loadTransactionForUser(
+      { kind: 'wanted', id: 'wanted-1' },
+      'buyer-1',
+      transactionFixture(),
+    );
+
+    expect(transaction).toMatchObject({
+      source: { kind: 'wanted', id: 'wanted-1' },
+      buyerId: 'buyer-1',
+      sellerId: 'seller-1',
+      title: 'Desk lamp',
+      price: 24,
+      status: 'approved',
+    });
   });
 });
