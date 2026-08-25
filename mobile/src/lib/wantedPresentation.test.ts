@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { losAngelesEndOfDayUtc, referencePhotoPath, wantedActionState, wantedCardCopy, wantedOfferActions, wantedOfferEntryState, wantedOfferStatusLabel } from './wantedPresentation';
+import { losAngelesEndOfDayUtc, referencePhotoPath, wantedActionState, wantedCardCopy, wantedOfferActions, wantedOfferEntryState, wantedOfferMutationId, wantedOfferStatusLabel } from './wantedPresentation';
 
 describe('mobile Wanted presentation', () => {
   it('formats the same public card copy as web', () => {
@@ -57,5 +57,12 @@ describe('mobile Wanted presentation', () => {
     expect(wantedOfferEntryState({ owner: false, postStatus: 'active', existing: { id: 'o1', role: 'seller', status: 'withdrawn' } })).toEqual({ kind: 'redirect', offerId: 'o1', label: 'Resubmit withdrawn offer' });
     expect(wantedOfferEntryState({ owner: false, postStatus: 'active', requestedId: 'o1', existing: { id: 'o1', role: 'seller', status: 'withdrawn' } })).toEqual({ kind: 'resubmit' });
     expect(wantedOfferEntryState({ owner: false, postStatus: 'active', requestedId: 'o1', existing: { id: 'o1', role: 'buyer', status: 'pending' } })).toEqual({ kind: 'blocked', message: 'This offer is unavailable or you do not have access.' });
+  });
+
+  it('switches from a generated new-offer UUID to the routed withdrawn UUID', () => {
+    const generated = 'a4000000-0000-4000-8000-000000000001';
+    const withdrawn = 'b4000000-0000-4000-8000-000000000002';
+    expect(wantedOfferMutationId(undefined, generated)).toBe(generated);
+    expect(wantedOfferMutationId(withdrawn, generated)).toBe(withdrawn);
   });
 });

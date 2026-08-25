@@ -66,6 +66,10 @@ export function wantedOfferEntryState(input: { owner: boolean; postStatus: Wante
   return { kind: 'blocked' as const, message: 'Only your pending or withdrawn offer can be changed.' };
 }
 
+export function wantedOfferMutationId(requestedId: string | undefined, generatedNewId: string): string {
+  return requestedId ?? generatedNewId;
+}
+
 export function referencePhotoPath(url: string, ownerId: string): string | null {
   try {
     const marker = '/storage/v1/object/public/wanted-reference-photos/';

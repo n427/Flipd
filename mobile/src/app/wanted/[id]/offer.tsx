@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Field } from '@/components/Field';
 import { FormScroll } from '@/components/FormScroll';
 import { cleanupWantedPhotos, createWantedOffer, fetchWantedOffersForPost, fetchWantedPost, updateWantedOffer, uploadWantedPhotos, WantedOffer } from '@/lib/wanted';
-import { wantedOfferEntryState } from '@/lib/wantedPresentation';
+import { wantedOfferEntryState, wantedOfferMutationId } from '@/lib/wantedPresentation';
 import { useUnread } from '@/lib/unread';
 import { F, T } from '@/lib/theme';
 
@@ -16,11 +16,14 @@ export default function WantedOfferScreen() {
   const { id, offerId } = useLocalSearchParams<{ id: string; offerId?: string }>();
   const router = useRouter();
   const { refresh: refreshBadge } = useUnread();
-  const offerUuid = useRef(offerId ?? globalThis.crypto.randomUUID()).current;
+  const generatedNewOfferUuid = useRef(globalThis.crypto.randomUUID()).current;
+  const offerUuid = wantedOfferMutationId(offerId, generatedNewOfferUuid);
+  const routeModeKey = offerId ?? 'new';
   const { width } = useWindowDimensions();
   const tile = (width - 60) / 3;
   const [initial, setInitial] = useState<WantedOffer | null>(null);
   const [initialState, setInitialState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [validatedModeKey, setValidatedModeKey] = useState<string | null>(null);
   const [redirectOffer, setRedirectOffer] = useState<{ id: string; label: string } | null>(null);
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
@@ -33,6 +36,8 @@ export default function WantedOfferScreen() {
   useEffect(() => {
     if (!id) return;
     setInitialState('loading');
+    setValidatedModeKey(null);
+    setInitial(null); setPrice(''); setDescription(''); setMessage(''); setPhotos([]); setRetained([]);
     setError(''); setRedirectOffer(null);
     Promise.all([fetchWantedPost(id), fetchWantedOffersForPost(id)]).then(([detail, rows]) => {
       const requested = offerId ? rows.find((row) => row.id === offerId) : undefined;
@@ -45,9 +50,9 @@ export default function WantedOfferScreen() {
         setInitial(existing); setPrice(String(existing.price)); setDescription(existing.description); setMessage(existing.message);
         setRetained(existing.photo_paths.map((path, index) => ({ path, url: existing.photo_urls[index] })));
       }
-      setInitialState('ready');
+      setValidatedModeKey(routeModeKey); setInitialState('ready');
     }).catch(() => { setError('Could not verify this request and your offers.'); setInitialState('error'); });
-  }, [id, offerId]);
+  }, [id, offerId, routeModeKey]);
 
   const pick = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -57,7 +62,7 @@ export default function WantedOfferScreen() {
   };
 
   const submit = async () => {
-    if (initialState !== 'ready') return;
+    if (initialState !== 'ready' || validatedModeKey !== routeModeKey) return;
     const amount = Number(price);
     if (!Number.isSafeInteger(amount) || amount <= 0 || !description.trim() || !message.trim() || retained.length + photos.length < 1) { setError('Add at least one photo, a whole-dollar price, description, and message.'); return; }
     setBusy(true); setError('');
@@ -90,7 +95,7 @@ export default function WantedOfferScreen() {
       {initialState === 'loading' ? <Text style={{ fontFamily: F.medium, color: T.muted, marginTop: 14 }}>Loading your offer…</Text> : null}
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: F.medium, color: T.cardinal, marginTop: 14 }}>{error}</Text> : null}
       {redirectOffer ? <Pressable accessibilityRole="button" accessibilityLabel={redirectOffer.label} onPress={() => router.replace(`/wanted/${id}/offer?offerId=${redirectOffer.id}`)} style={{ borderWidth: 1, borderColor: T.rule, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 14 }}><Text style={{ fontFamily: F.bold, color: T.ink }}>{redirectOffer.label}</Text></Pressable> : null}
-      <Pressable accessibilityRole="button" accessibilityLabel="Save Wanted offer" accessibilityState={{ disabled: busy || initialState !== 'ready', busy }} disabled={busy || initialState !== 'ready'} onPress={submit} style={{ backgroundColor: T.cardinal, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 22, opacity: busy || initialState !== 'ready' ? .5 : 1 }}><Text style={{ fontFamily: F.bold, color: '#fff' }}>{busy ? 'Saving…' : initial?.status === 'pending' ? 'Save offer' : 'Send private offer'}</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Save Wanted offer" accessibilityState={{ disabled: busy || initialState !== 'ready' || validatedModeKey !== routeModeKey, busy }} disabled={busy || initialState !== 'ready' || validatedModeKey !== routeModeKey} onPress={submit} style={{ backgroundColor: T.cardinal, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 22, opacity: busy || initialState !== 'ready' || validatedModeKey !== routeModeKey ? .5 : 1 }}><Text style={{ fontFamily: F.bold, color: '#fff' }}>{busy ? 'Saving…' : initial?.status === 'pending' ? 'Save offer' : 'Send private offer'}</Text></Pressable>
     </FormScroll>
   </View>;
 }
