@@ -48,12 +48,14 @@ function AppChrome({ children }: { children: React.ReactNode }) {
         onLogo={() => router.push('/feed')}
         query={query}
         setQuery={onSearch}
-        onPost={() => router.push('/post')}
+        onPost={() => router.push('/post/choose')}
         onProfile={() => router.push('/profile')}
         onBell={() => { setNotifOpen(true); store.markAllSeen(); }}
         onRequests={() => router.push('/requests')}
+        onWanted={() => router.push('/wanted')}
         pendingCount={store.pendingCount}
         unreadCount={store.unreadCount}
+        wantedUnreadCount={store.wantedUnreadCount}
         meName={store.me?.display_name ?? 'Me'}
         meAvatarUrl={store.me?.avatar_url ?? undefined}
       />
@@ -67,11 +69,15 @@ function AppChrome({ children }: { children: React.ReactNode }) {
       {notifOpen && (
         <WebNotifications
           activity={store.activity}
+          wantedNotifications={store.wantedNotifications}
           onClose={() => setNotifOpen(false)}
           onApprove={approve}
           onDecline={decline}
           onDismiss={(id) => store.dismissNotification(id)}
           onMarkAllRead={() => store.markAllSeen()}
+          onNavigateWanted={(event) => {
+            router.push(event.wanted_post_id ? `/wanted/${event.wanted_post_id}` : '/requests?tab=wanted');
+          }}
           onNavigate={(a) => {
             if (a.dir === 'in') { router.push('/requests'); return; }
             if (a.listingRemoved || a.listingArchived || a.status === 'DECLINED' || a.status === 'EXPIRED') {

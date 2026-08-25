@@ -16,6 +16,7 @@ import { captureSearch } from '@/lib/digest/capture';
 import { timeLeftLabel, parseEventWindow, formatEventWindow, fillZoom, findContactInfo, profilePath, conversationHref, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
 import type { ActivityItem, ActivityStatus, FeedRange, Listing, Profile, RatingSummary } from '@/lib/types';
 import { FeedSkeleton } from '@/components/Skeletons';
+import type { WantedNotificationEvent } from '@/lib/wanted-client';
 
 const TITLE_MAX = 80;
 
@@ -91,10 +92,11 @@ function spaClick(spa: () => void) {
 }
 
 export function WebAppHeader({
-  onLogo, query, setQuery, onPost, onProfile, onBell, onRequests, pendingCount, unreadCount, meName, meAvatarUrl,
+  onLogo, query, setQuery, onPost, onProfile, onBell, onRequests, onWanted, pendingCount, unreadCount, wantedUnreadCount, meName, meAvatarUrl,
 }: {
   onLogo: () => void; query: string; setQuery: (q: string) => void;
-  onPost: () => void; onProfile: () => void; onBell: () => void; onRequests: () => void; pendingCount: number; unreadCount: number;
+  onPost: () => void; onProfile: () => void; onBell: () => void; onRequests: () => void; onWanted: () => void;
+  pendingCount: number; unreadCount: number; wantedUnreadCount: number;
   meName: string; meAvatarUrl?: string;
 }) {
   return (
@@ -119,6 +121,12 @@ export function WebAppHeader({
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginLeft: 'auto' }}>
+        <a href="/feed" onClick={spaClick(onLogo)} style={{ textDecoration: 'none', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>
+          Feed
+        </a>
+        <a href="/wanted" onClick={spaClick(onWanted)} style={{ textDecoration: 'none', fontFamily: 'var(--sans)', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>
+          Wanted
+        </a>
         <a
           href="/requests"
           onClick={spaClick(onRequests)}
@@ -133,13 +141,19 @@ export function WebAppHeader({
             <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)', flexShrink: 0 }} />
           )}
         </a>
-        <button onClick={onBell} aria-label="Notifications" style={{ background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+        <button
+          onClick={onBell}
+          aria-label={unreadCount > 0
+            ? `Notifications, ${unreadCount} unread${wantedUnreadCount > 0 ? `, including ${wantedUnreadCount} Wanted` : ''}`
+            : 'Notifications'}
+          style={{ background: 'none', border: 0, padding: 0, position: 'relative', display: 'inline-flex', alignItems: 'center' }}
+        >
           <Icon name="bell" size={18} color="var(--ink)" />
           {unreadCount > 0 && (
             <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fff' }}>{unreadCount}</span>
           )}
         </button>
-        <Button kind="primary" size="sm" icon="plus" onClick={onPost}>Post a listing</Button>
+        <Button kind="primary" size="sm" icon="plus" onClick={onPost}>Post</Button>
         <a href="/profile" onClick={spaClick(onProfile)} aria-label="Your profile" style={{ display: 'inline-flex', padding: 0 }}>
           <Avatar name={meName} src={meAvatarUrl} size={30} tone="ink" />
         </a>
@@ -326,12 +340,18 @@ function ActivityRow({
 
 // ── Notifications panel (slides from bell) ──────────────────────────
 export function WebNotifications({
-  activity, onClose, onApprove, onDecline, onNavigate, onDismiss, onMarkAllRead,
+  activity, wantedNotifications, onClose, onApprove, onDecline, onNavigate, onNavigateWanted, onDismiss, onMarkAllRead,
 }: {
-  activity: ActivityItem[]; onClose: () => void; onApprove: (id: string) => void; onDecline: (id: string) => void;
-  onNavigate: (a: ActivityItem) => void; onDismiss: (id: string) => void; onMarkAllRead: () => void;
+  activity: ActivityItem[]; wantedNotifications: WantedNotificationEvent[]; onClose: () => void; onApprove: (id: string) => void; onDecline: (id: string) => void;
+  onNavigate: (a: ActivityItem) => void; onNavigateWanted: (event: WantedNotificationEvent) => void;
+  onDismiss: (id: string) => void; onMarkAllRead: () => void;
 }) {
   const visible = activity.filter((a) => !a.dismissed);
+  const visibleWanted = wantedNotifications.filter((event) => !event.dismissed_at);
+  const notifications = [
+    ...visible.map((item) => ({ kind: 'reveal' as const, createdAt: item.createdAt, item })),
+    ...visibleWanted.map((item) => ({ kind: 'wanted' as const, createdAt: item.created_at, item })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 45 }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(26,26,26,0.18)' }} />
@@ -339,7 +359,7 @@ export function WebNotifications({
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 className="t-h3" style={{ margin: 0, fontSize: 15 }}>Notifications</h3>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
-            {visible.length > 0 && (
+            {notifications.length > 0 && (
               <button onClick={onMarkAllRead} style={{ background: 'none', border: 0, padding: 0, fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 600, color: 'var(--muted)', cursor: 'pointer' }}>
                 Mark all read
               </button>
@@ -350,12 +370,14 @@ export function WebNotifications({
           </span>
         </div>
         <div style={{ maxHeight: 420, overflow: 'auto' }}>
-          {visible.length === 0 ? (
-            <EmptyState icon="bell" title="No activity yet" sub="Reveal requests you send and receive show up here." />
+          {notifications.length === 0 ? (
+            <EmptyState icon="bell" title="No activity yet" sub="Marketplace updates show up here." />
           ) : (
-            visible.map((a, i) => (
+            notifications.map((notification, i) => notification.kind === 'reveal' ? (() => {
+              const a = notification.item;
+              return (
               <div
-                key={a.id}
+                key={`reveal-${a.id}`}
                 role="button"
                 tabIndex={0}
                 aria-label={`${a.who}, ${a.listingTitle}${a.unread ? ', unread' : ''}`}
@@ -366,7 +388,7 @@ export function WebNotifications({
                 {a.unread && (
                   <span style={{ position: 'absolute', left: 7, top: 22, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />
                 )}
-                <ActivityRow a={a} compact dismissable onApprove={onApprove} onDecline={onDecline} last={i === visible.length - 1} />
+                <ActivityRow a={a} compact dismissable onApprove={onApprove} onDecline={onDecline} last={i === notifications.length - 1} />
                 <button
                   onClick={(e) => { e.stopPropagation(); onDismiss(a.id); }}
                   aria-label="Dismiss notification"
@@ -375,7 +397,32 @@ export function WebNotifications({
                   <Icon name="x" size={10} />
                 </button>
               </div>
-            ))
+              );
+            })() : (() => {
+              const event = notification.item;
+              return (
+                <div
+                  key={`wanted-${event.id}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${event.title}${event.read_at ? '' : ', unread'}`}
+                  style={{ position: 'relative', cursor: 'pointer', padding: '15px 44px 15px 20px', borderBottom: i === notifications.length - 1 ? 0 : '1px solid var(--rule)' }}
+                  onClick={() => { onNavigateWanted(event); onClose(); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigateWanted(event); onClose(); } }}
+                >
+                  {!event.read_at && <span aria-hidden style={{ position: 'absolute', left: 7, top: 22, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />}
+                  <div style={{ fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.35 }}>{event.title}</div>
+                  <div style={{ fontFamily: 'var(--sans)', fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.45, marginTop: 3 }}>{event.body}</div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDismiss(event.id); }}
+                    aria-label="Dismiss notification"
+                    style={{ position: 'absolute', top: 10, right: 10, width: 20, height: 20, borderRadius: '50%', border: 0, background: 'var(--surface)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                  >
+                    <Icon name="x" size={10} />
+                  </button>
+                </div>
+              );
+            })())
           )}
         </div>
       </div>
@@ -1878,11 +1925,13 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         onLogo={onExit || goFeed}
         query={query}
         setQuery={onSearch}
-        onPost={() => setView('create')}
+        onPost={() => { if (typeof window !== 'undefined') window.location.href = '/post/choose'; }}
         onProfile={() => setView('profile')}
         onBell={() => setNotifOpen(true)}
         onRequests={() => { if (typeof window !== 'undefined') window.location.href = '/requests'; }}
+        onWanted={() => { if (typeof window !== 'undefined') window.location.href = '/wanted'; }}
         unreadCount={store.unreadCount}
+        wantedUnreadCount={store.wantedUnreadCount}
         pendingCount={store.pendingCount}
         meName={store.me?.display_name ?? 'Me'}
         meAvatarUrl={store.me?.avatar_url ?? undefined}
@@ -1925,7 +1974,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
         />
       )}
 
-      {notifOpen && <WebNotifications activity={store.activity} onClose={() => setNotifOpen(false)} onApprove={approve} onDecline={decline} onNavigate={() => setView('profile')} onDismiss={(id) => store.dismissNotification(id)} onMarkAllRead={() => store.markAllSeen()} />}
+      {notifOpen && <WebNotifications activity={store.activity} wantedNotifications={store.wantedNotifications} onClose={() => setNotifOpen(false)} onApprove={approve} onDecline={decline} onNavigate={() => setView('profile')} onNavigateWanted={(event) => { if (typeof window !== 'undefined') window.location.href = event.wanted_post_id ? `/wanted/${event.wanted_post_id}` : '/requests?tab=wanted'; }} onDismiss={(id) => store.dismissNotification(id)} onMarkAllRead={() => store.markAllSeen()} />}
     </div>
   );
 }

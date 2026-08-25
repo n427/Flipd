@@ -6,6 +6,7 @@ import type {
   ActivityItem, ActivityStatus, FeedRange, FilterArgs, Listing, Profile, RatingSummary, Seller,
 } from './types';
 import { effectiveRevealStatus, formatEventWindow, type RevealStatus } from './validation';
+import { wantedClient, type WantedNotificationEvent } from './wanted-client';
 
 type DbSeller = {
   id: string;
@@ -194,6 +195,7 @@ export interface FlipdStore {
   savedIds: Set<string>;
   popupReminderIds: Set<string>;
   activity: ActivityItem[];
+  wantedNotifications: WantedNotificationEvent[];
   isSaved: (id: string) => boolean;
   toggleSave: (id: string) => void;
   isReminded: (id: string) => boolean;
@@ -214,6 +216,7 @@ export interface FlipdStore {
   rateTransaction: (requestId: string, score: number, text?: string) => Promise<{ ok: boolean; error?: string }>;
   fetchRatings: (userId?: string) => Promise<RatingSummary>;
   unreadCount: number;
+  wantedUnreadCount: number;
   markAllSeen: () => Promise<void>;
   dismissNotification: (id: string) => Promise<void>;
   refreshActivity: () => Promise<void>;
@@ -234,19 +237,27 @@ export function useFlipdStore(): FlipdStore {
   const [savedIds, setSavedIds] = React.useState<Set<string>>(() => new Set());
   const [popupReminderIds, setPopupReminderIds] = React.useState<Set<string>>(() => new Set());
   const [activity, setActivity] = React.useState<ActivityItem[]>([]);
+  const [wantedNotifications, setWantedNotifications] = React.useState<WantedNotificationEvent[]>([]);
   const [blockedIds, setBlockedIds] = React.useState<Set<string>>(() => new Set());
 
   const refreshActivity = React.useCallback(async () => {
-    const res = await fetch('/api/reveals').catch(() => null);
-    if (!res || !res.ok) return;
-    const { incoming, outgoing } = await res.json();
-    const items = [
-      ...(incoming as RevealDto[]).map((r) => ({ dto: r, dir: 'in' as const })),
-      ...(outgoing as RevealDto[]).map((r) => ({ dto: r, dir: 'out' as const })),
-    ]
-      .sort((a, b) => new Date(b.dto.created_at).getTime() - new Date(a.dto.created_at).getTime())
-      .map(({ dto, dir }) => mapReveal(dto, dir));
-    setActivity(items);
+    const [revealResult, wantedResult] = await Promise.allSettled([
+      fetch('/api/reveals'),
+      wantedClient.notifications(),
+    ]);
+    if (revealResult.status === 'fulfilled' && revealResult.value.ok) {
+      const { incoming, outgoing } = await revealResult.value.json();
+      const items = [
+        ...(incoming as RevealDto[]).map((r) => ({ dto: r, dir: 'in' as const })),
+        ...(outgoing as RevealDto[]).map((r) => ({ dto: r, dir: 'out' as const })),
+      ]
+        .sort((a, b) => new Date(b.dto.created_at).getTime() - new Date(a.dto.created_at).getTime())
+        .map(({ dto, dir }) => mapReveal(dto, dir));
+      setActivity(items);
+    }
+    if (wantedResult.status === 'fulfilled') {
+      setWantedNotifications(wantedResult.value.notification_events);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -536,14 +547,28 @@ export function useFlipdStore(): FlipdStore {
 
   const markAllSeen = async () => {
     setActivity((prev) => prev.map((a) => ({ ...a, unread: false })));
-    await fetch('/api/reveals/seen', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mark: 'seen' }),
-    }).catch(() => {});
+    const wantedIds = wantedNotifications.filter((event) => !event.read_at).map((event) => event.id);
+    const readAt = new Date().toISOString();
+    setWantedNotifications((prev) => prev.map((event) => ({ ...event, read_at: event.read_at ?? readAt })));
+    await Promise.allSettled([
+      fetch('/api/reveals/seen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mark: 'seen' }),
+      }),
+      wantedIds.length ? wantedClient.updateNotifications(wantedIds, 'read') : Promise.resolve(),
+    ]);
   };
 
   const dismissNotification = async (id: string) => {
+    if (wantedNotifications.some((event) => event.id === id)) {
+      const dismissedAt = new Date().toISOString();
+      setWantedNotifications((prev) => prev.map((event) => (
+        event.id === id ? { ...event, dismissed_at: dismissedAt, read_at: event.read_at ?? dismissedAt } : event
+      )));
+      await wantedClient.updateNotifications([id], 'dismiss').catch(() => {});
+      return;
+    }
     setActivity((prev) => prev.map((a) => (a.id === id ? { ...a, dismissed: true } : a)));
     await fetch('/api/reveals/seen', {
       method: 'POST',
@@ -577,12 +602,13 @@ export function useFlipdStore(): FlipdStore {
   const pastListings = listings.filter((l) => l.mine && l.archived);
   const savedListings = listings.filter((l) => savedIds.has(l.id) && !l.archived);
   const pendingCount = activity.filter((a) => a.dir === 'in' && a.status === 'PENDING').length;
-  const unreadCount = activity.filter((a) => a.unread && !a.dismissed).length;
+  const wantedUnreadCount = wantedNotifications.filter((event) => !event.read_at && !event.dismissed_at).length;
+  const unreadCount = activity.filter((a) => a.unread && !a.dismissed).length + wantedUnreadCount;
 
   return {
-    me, listings, listingsLoading, savedIds, popupReminderIds, activity,
+    me, listings, listingsLoading, savedIds, popupReminderIds, activity, wantedNotifications,
     isSaved, toggleSave, isReminded, toggleReminder, addListing, updateListing, removeListing, getListing, setArchived,
-    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, blockedIds, blockUser, unblockUser, reportTarget, rateTransaction, fetchRatings, unreadCount, markAllSeen, dismissNotification, signOut,
+    requestReveal, respondReveal, refreshActivity, refreshMe, myRevealFor, latestRevealFor, pendingByListing, blockedIds, blockUser, unblockUser, reportTarget, rateTransaction, fetchRatings, unreadCount, wantedUnreadCount, markAllSeen, dismissNotification, signOut,
     myListings, pastListings, savedListings, pendingCount,
   };
 }
