@@ -2,6 +2,41 @@
 -- API functions directly; block insertion obtains FK KEY SHARE locks on the
 -- same profile rows that the functions lock FOR UPDATE.
 
+do $$
+declare
+  trigger_function text;
+begin
+  if not exists (
+    select 1
+    from pg_trigger as trigger
+    join pg_class as relation on relation.oid = trigger.tgrelid
+    join pg_namespace as namespace on namespace.oid = relation.relnamespace
+    where trigger.tgname = 'blocks_lock_wanted_offer_participants'
+      and relation.relname = 'blocks'
+      and namespace.nspname = 'public'
+      and not trigger.tgisinternal
+  ) then
+    raise exception 'FAIL: blocks ordered-lock trigger is missing';
+  end if;
+
+  select pg_get_functiondef('public.lock_block_participants_before_insert()'::regprocedure)
+    into trigger_function;
+  if position('lock_wanted_offer_participants' in trigger_function) = 0
+     or position('before insert' in lower((
+       select pg_get_triggerdef(trigger.oid)
+       from pg_trigger as trigger
+       join pg_class as relation on relation.oid = trigger.tgrelid
+       join pg_namespace as namespace on namespace.oid = relation.relnamespace
+       where trigger.tgname = 'blocks_lock_wanted_offer_participants'
+         and relation.relname = 'blocks'
+         and namespace.nspname = 'public'
+     ))) = 0 then
+    raise exception 'FAIL: block trigger does not share the ordered lock contract';
+  end if;
+  raise notice 'PASS: block insertion shares the ordered participant lock contract';
+end;
+$$;
+
 insert into public.profiles (id, display_name, handle)
 values
   ('a4200000-0000-4000-8000-000000000001', 'Wanted safety buyer', 'wanted.safety.buyer'),

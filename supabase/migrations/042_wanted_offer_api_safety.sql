@@ -16,9 +16,10 @@ declare
   earlier_user_id uuid;
   later_user_id uuid;
 begin
-  if first_user_id is null or second_user_id is null or first_user_id = second_user_id then
-    raise exception 'wanted offer participants are invalid' using errcode = '42501';
-  end if;
+  -- Callers that need participant validation do it themselves. This helper
+  -- only establishes the common lock order, so the blocks trigger can leave
+  -- null, self-block, and missing-profile errors to its table constraints/FKs.
+  if first_user_id is null or second_user_id is null or first_user_id = second_user_id then return; end if;
 
   if first_user_id < second_user_id then
     earlier_user_id := first_user_id;
@@ -29,11 +30,35 @@ begin
   end if;
 
   select id into locked_profile_id from public.profiles where id = earlier_user_id for update;
-  if not found then raise exception 'wanted offer participant not found' using errcode = 'P0002'; end if;
   select id into locked_profile_id from public.profiles where id = later_user_id for update;
-  if not found then raise exception 'wanted offer participant not found' using errcode = 'P0002'; end if;
 end;
 $$;
+
+-- A block insert must acquire the same sorted row locks before its FK checks
+-- request KEY SHARE. Otherwise a block and an offer RPC can each hold one
+-- profile lock and wait forever on the other in reverse order.
+create or replace function public.lock_block_participants_before_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  -- Preserve the existing NOT NULL, self-block CHECK, and profile FK error
+  -- behavior. The helper intentionally does no validation or writes.
+  if new.blocker_id is not null
+     and new.blocked_id is not null
+     and new.blocker_id <> new.blocked_id then
+    perform public.lock_wanted_offer_participants(new.blocker_id, new.blocked_id);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists blocks_lock_wanted_offer_participants on public.blocks;
+create trigger blocks_lock_wanted_offer_participants
+  before insert on public.blocks
+  for each row execute function public.lock_block_participants_before_insert();
 
 create or replace function public.submit_wanted_offer(
   target_post_id uuid,
@@ -282,6 +307,7 @@ end;
 $$;
 
 revoke all on function public.lock_wanted_offer_participants(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.lock_block_participants_before_insert() from public, anon, authenticated;
 revoke all on function public.submit_wanted_offer(uuid, uuid, uuid, integer, text, text, text[]) from public, anon, authenticated;
 revoke all on function public.mutate_wanted_offer(uuid, uuid, text, integer, text, text, text[]) from public, anon, authenticated;
 revoke all on function public.accept_wanted_offer(uuid, uuid) from public, anon, authenticated;

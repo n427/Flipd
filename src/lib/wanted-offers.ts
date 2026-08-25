@@ -78,7 +78,8 @@ export function canonicalizeWantedOfferId(value: unknown): string | null {
 export function wantedOfferRpcErrorStatus(error: { code?: string } | null): number {
   if (error?.code === 'P0002') return 404;
   if (error?.code === '42501') return 403;
-  if (error?.code === 'P0001' || error?.code === '23514' || error?.code === '40001') return 409;
+  if (error?.code === 'P0001' || error?.code === '23514' || error?.code === '40001' || error?.code === '40P01') return 409;
+  if (error?.code === '55P03') return 503;
   return 500;
 }
 

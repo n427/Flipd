@@ -53,6 +53,8 @@ describe('Wanted offers', () => {
     expect(wantedOfferRpcErrorStatus({ code: 'P0002' })).toBe(404);
     expect(wantedOfferRpcErrorStatus({ code: '42501' })).toBe(403);
     expect(wantedOfferRpcErrorStatus({ code: 'P0001' })).toBe(409);
+    expect(wantedOfferRpcErrorStatus({ code: '40P01' })).toBe(409);
+    expect(wantedOfferRpcErrorStatus({ code: '55P03' })).toBe(503);
     expect(wantedOfferRpcErrorStatus({ code: 'XX000' })).toBe(500);
   });
 });
