@@ -35,3 +35,5 @@ export async function runSweep(producers: Producer[]): Promise<SweepResult> {
   // signal (which producer broke) would be buried in scheduler noise.
   return { ok: true, counts, errors };
 }
+
+export { wantedLifecycleProducer } from './wanted-lifecycle';

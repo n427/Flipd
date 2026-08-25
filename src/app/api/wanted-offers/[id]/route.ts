@@ -10,6 +10,7 @@ import {
   wantedOfferRpcErrorStatus,
   type WantedOfferRow,
 } from '@/lib/wanted-offers';
+import { persistWantedNotificationSafely, wantedNotificationKey } from '@/lib/notify';
 
 const OFFER_SELECT = 'id,wanted_post_id,buyer_id,seller_id,price,description,message,photo_paths,status,created_at,updated_at,resolved_at,completed_at';
 const EDITABLE_FIELDS = new Set(['price', 'description', 'message', 'photo_paths']);
@@ -121,6 +122,20 @@ export async function PATCH(
   if (offer.buyer_id !== user.id) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   const result = await mutate(id, user.id, 'decline');
   if (!result.ok) return result.response;
+  const { data: post } = await admin
+    .from('wanted_posts')
+    .select('title')
+    .eq('id', result.offer.wanted_post_id)
+    .single();
+  await persistWantedNotificationSafely({
+    eventKey: wantedNotificationKey('declined', result.offer.id),
+    userId: result.offer.seller_id,
+    eventType: 'declined',
+    wantedPostId: result.offer.wanted_post_id,
+    wantedOfferId: result.offer.id,
+    title: 'Offer declined',
+    body: `Your offer for “${post?.title ?? 'a wanted request'}” was declined.`,
+  });
   try {
     return NextResponse.json({ wanted_offer: await offerDto(result.offer, user.id) });
   } catch {

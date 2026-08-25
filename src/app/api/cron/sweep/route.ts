@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runSweep } from '@/lib/sweep';
+import { runSweep, wantedLifecycleProducer } from '@/lib/sweep';
 import { popupRemindersProducer } from '@/lib/sweep/popup-reminders';
 import { requestLifecycleProducer } from '@/lib/sweep/request-lifecycle';
 import { digestProducer } from '@/lib/digest';
@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
   const result = await runSweep([
     popupRemindersProducer,
     requestLifecycleProducer,
+    wantedLifecycleProducer,
     digestProducer,
   ]);
   return NextResponse.json(result);

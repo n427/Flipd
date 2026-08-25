@@ -1,5 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { wantsEmail, wantsPush, popupReminderEmail, titleCase, digestEmailBody } from './notify';
+import {
+  digestEmailBody,
+  popupReminderEmail,
+  titleCase,
+  wantedNotificationKey,
+  wantsEmail,
+  wantsPush,
+} from './notify';
+
+describe('wantedNotificationKey', () => {
+  it('builds deterministic event keys for offer lifecycle events', () => {
+    expect(wantedNotificationKey('new-offer', 'offer-1')).toBe('wanted:new-offer:offer-1');
+    expect(wantedNotificationKey('accepted', 'offer-1')).toBe('wanted:accepted:offer-1');
+    expect(wantedNotificationKey('declined', 'offer-1')).toBe('wanted:declined:offer-1');
+  });
+
+  it('includes the committed update timestamp for material post edits', () => {
+    const updatedAt = '2026-08-25T12:34:56.000Z';
+    expect(wantedNotificationKey('edit', 'post-1', updatedAt)).toBe(
+      'wanted:edit:post-1:2026-08-25T12:34:56.000Z',
+    );
+    expect(wantedNotificationKey('edit', 'post-1', updatedAt)).toBe(
+      wantedNotificationKey('edit', 'post-1', updatedAt),
+    );
+  });
+});
 
 describe('email and push keep defaulting ON for the new event', () => {
   it('treats listing_match like every other event', () => {
