@@ -32,6 +32,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { ListingDetailSkeleton } from '@/components/Skeletons';
 import { MapPreview } from '@/components/MapPreview';
 import { Sheet, SheetGrabber, CLOSE_MS } from '@/components/Sheet';
+import { repostAvailability, repostListing } from '@/lib/repost';
 
 const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -120,6 +121,7 @@ export default function ListingDetailScreen() {
   );
 
   const isOwner = !!user && !!listing && user.id === listing.seller_id;
+  const repost = listing ? repostAvailability(!listing.archived, listing.created_at) : { allowed: false as const, availableAt: null };
   // Popups carry both ends of the window; a half-set pair renders no pill.
   const eventPill =
     listing?.event_start && listing?.event_end
@@ -137,6 +139,18 @@ export default function ListingDetailScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const onRepost = async () => {
+    if (!listing) return;
+    setBusy(true);
+    try {
+      const postedAt = await repostListing(listing.id);
+      setListing({ ...listing, created_at: postedAt, feed_at: postedAt });
+      Alert.alert('Reposted', 'Your listing is back at the top of recent posts.');
+    } catch (e) {
+      Alert.alert('Could not repost', e instanceof Error ? e.message : 'Try again.');
+    } finally { setBusy(false); }
   };
 
   const onDelete = () => {
@@ -432,6 +446,17 @@ export default function ListingDetailScreen() {
               >
                 <Text style={{ fontFamily: F.bold, color: '#fff', fontSize: 16 }}>Edit listing</Text>
               </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Repost listing"
+                accessibilityState={{ disabled: !repost.allowed || busy }}
+                onPress={onRepost}
+                disabled={!repost.allowed || busy}
+                style={{ backgroundColor: T.fieldbg, borderRadius: 14, paddingVertical: 15, alignItems: 'center', opacity: !repost.allowed || busy ? 0.55 : 1 }}
+              >
+                <Text style={{ fontFamily: F.bold, color: T.ink, fontSize: 15 }}>Repost listing</Text>
+              </Pressable>
+              {!repost.allowed && repost.availableAt ? <Text style={{ fontFamily: F.medium, color: T.muted, fontSize: 12, textAlign: 'center' }}>Available {new Date(repost.availableAt).toLocaleDateString()}</Text> : null}
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <Pressable
                   onPress={onToggleSold}

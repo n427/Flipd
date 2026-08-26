@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('listings')
     .select(SELLER_JOIN)
-    .order('created_at', { ascending: false });
+    .order('feed_at', { ascending: false });
 
   if (mine) query = query.eq('seller_id', user.id);
   if (includeArchived) {

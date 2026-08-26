@@ -14,6 +14,7 @@ type WantedPostRow = {
   needed_by: string;
   status: WantedPostStatus;
   created_at: string;
+  feed_at?: string | null;
   offers?: Array<{ count?: number | null; [key: string]: unknown }> | null;
 };
 
@@ -88,7 +89,7 @@ export function wantedPostComesAfterCursor(row: WantedCursor, cursor: WantedCurs
 }
 
 export function wantedCursorFilter(cursor: WantedCursor): string {
-  return `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`;
+  return `feed_at.lt.${cursor.created_at},and(feed_at.eq.${cursor.created_at},id.lt.${cursor.id})`;
 }
 
 /** Block lookups must fail closed: callers must not treat an error as no blocks. */
@@ -167,7 +168,7 @@ export function toPublicWantedPost(row: WantedPostRow, now = new Date()): Wanted
     photo_urls: row.photo_urls ?? [],
     needed_by: row.needed_by,
     status: effectiveWantedStatus(row.status, row.needed_by, now),
-    created_at: row.created_at,
+    created_at: row.feed_at ?? row.created_at,
     offer_count: Number(row.offers?.[0]?.count ?? 0),
   };
 }

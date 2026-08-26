@@ -55,6 +55,18 @@ describe('Wanted web client', () => {
     }
   });
 
+  it('reposts a Wanted request through its owner endpoint', async () => {
+    const originalFetch = globalThis.fetch;
+    const fetcher = vi.fn(async () => Response.json({ posted_at: '2026-09-08T12:00:00Z' }));
+    globalThis.fetch = fetcher as typeof fetch;
+    try {
+      await expect(wantedClient.repostPost('post-1')).resolves.toEqual({ posted_at: '2026-09-08T12:00:00Z' });
+      expect(fetcher).toHaveBeenCalledWith('/api/wanted/post-1/repost', { method: 'POST' });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('routes offer lifecycle events to the participant inbox and live post events to detail', () => {
     const event = {
       id: 'event-1', event_key: 'key', wanted_post_id: 'post-1', wanted_offer_id: 'offer-1',

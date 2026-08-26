@@ -69,7 +69,7 @@ export async function fetchFeed(opts: FeedQuery = {}): Promise<{ listings: FeedL
 
   let q = supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, photo_focus, photo_zoom, seller_id, category, created_at')
+    .select('id, title, price, location, photo_urls, photo_focus, photo_zoom, seller_id, category, created_at, feed_at')
     .eq('archived', false);
 
   if (opts.category && opts.category !== 'all') q = q.eq('category', opts.category);
@@ -83,11 +83,11 @@ export async function fetchFeed(opts: FeedQuery = {}): Promise<{ listings: FeedL
   }
   // Applied before the sort, so price ordering ranks only in-window listings.
   const since = rangeSince(opts.range);
-  if (since) q = q.gte('created_at', since);
+  if (since) q = q.gte('feed_at', since);
 
   if (opts.sort === 'price_low') q = q.order('price', { ascending: true, nullsFirst: true });
   else if (opts.sort === 'price_high') q = q.order('price', { ascending: false, nullsFirst: false });
-  else q = q.order('created_at', { ascending: false });
+  else q = q.order('feed_at', { ascending: false });
 
   // Fetch one extra row to detect a next page without a count query.
   const { data: rows, error } = await q.range(offset, offset + limit);
@@ -110,6 +110,7 @@ export async function fetchFeed(opts: FeedQuery = {}): Promise<{ listings: FeedL
   return {
     listings: page.map((l) => ({
       ...l,
+      created_at: (l as typeof l & { feed_at?: string | null }).feed_at ?? l.created_at,
       price: l.price ?? 0,
       photo_urls: l.photo_urls ?? [],
       photo_focus: l.photo_focus ?? null,
@@ -138,6 +139,8 @@ export type ListingDetail = {
   event_end: string | null;
   archived: boolean;
   seller_id: string;
+  created_at: string;
+  feed_at: string;
   seller: FeedSeller | null;
 };
 
@@ -147,7 +150,7 @@ export async function fetchListing(id: string): Promise<ListingDetail | null> {
   const { data: row, error } = await supabase
     .from('listings')
     .select(
-      'id, title, price, negotiable, description, category, location, photo_urls, photo_focus, photo_zoom, lat, lng, place_name, event_start, event_end, archived, seller_id',
+      'id, title, price, negotiable, description, category, location, photo_urls, photo_focus, photo_zoom, lat, lng, place_name, event_start, event_end, archived, seller_id, created_at, feed_at',
     )
     .eq('id', id)
     .maybeSingle();
@@ -169,6 +172,8 @@ export async function fetchListing(id: string): Promise<ListingDetail | null> {
     photo_focus: row.photo_focus ?? null,
     photo_zoom: row.photo_zoom ?? null,
     archived: row.archived ?? false,
+    created_at: row.feed_at ?? row.created_at,
+    feed_at: row.feed_at ?? row.created_at,
     seller: (s as FeedSeller) ?? null,
   };
 }
@@ -274,14 +279,17 @@ export type MyListing = FeedListing & { archived: boolean };
 export async function fetchMyListings(userId: string): Promise<MyListing[]> {
   const { data, error } = await supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, seller_id, category, created_at, archived')
+    .select('id, title, price, location, photo_urls, photo_focus, photo_zoom, seller_id, category, created_at, feed_at, archived')
     .eq('seller_id', userId)
-    .order('created_at', { ascending: false });
+    .order('feed_at', { ascending: false });
   if (error) throw error;
   return ((data ?? []) as Omit<MyListing, 'seller'>[]).map((l) => ({
     ...l,
+    created_at: (l as typeof l & { feed_at?: string | null }).feed_at ?? l.created_at,
     price: l.price ?? 0,
     photo_urls: l.photo_urls ?? [],
+    photo_focus: l.photo_focus ?? null,
+    photo_zoom: l.photo_zoom ?? null,
     archived: l.archived ?? false,
     seller: null,
   }));
@@ -337,7 +345,7 @@ export async function fetchSavedListings(userId: string): Promise<FeedListing[]>
 
   const { data: rows, error: le } = await supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, seller_id, category, created_at')
+    .select('id, title, price, location, photo_urls, photo_focus, photo_zoom, seller_id, category, created_at, feed_at')
     .in('id', orderedIds)
     .eq('archived', false);
   if (le) throw le;
@@ -360,8 +368,11 @@ export async function fetchSavedListings(userId: string): Promise<FeedListing[]>
     .filter((l): l is Omit<FeedListing, 'seller'> => !!l)
     .map((l) => ({
       ...l,
+      created_at: (l as typeof l & { feed_at?: string | null }).feed_at ?? l.created_at,
       price: l.price ?? 0,
       photo_urls: l.photo_urls ?? [],
+      photo_focus: l.photo_focus ?? null,
+      photo_zoom: l.photo_zoom ?? null,
       seller: sellerMap.get(l.seller_id) ?? null,
     }));
 }
@@ -548,7 +559,7 @@ export async function countNewListingsSince(sinceIso: string, userId: string): P
       .select('id', { count: 'exact', head: true })
       .eq('archived', false)
       .neq('seller_id', userId)
-      .gt('created_at', sinceIso);
+      .gt('feed_at', sinceIso);
     if (error) return 0;
     return count ?? 0;
   } catch {
@@ -582,15 +593,18 @@ export async function fetchPublicProfile(userId: string): Promise<FeedSeller | n
 export async function fetchUserListings(userId: string): Promise<FeedListing[]> {
   const { data, error } = await supabase
     .from('listings')
-    .select('id, title, price, location, photo_urls, seller_id, category, created_at')
+    .select('id, title, price, location, photo_urls, photo_focus, photo_zoom, seller_id, category, created_at, feed_at')
     .eq('seller_id', userId)
     .eq('archived', false)
-    .order('created_at', { ascending: false });
+    .order('feed_at', { ascending: false });
   if (error) throw error;
   return ((data ?? []) as Omit<FeedListing, 'seller'>[]).map((l) => ({
     ...l,
+    created_at: (l as typeof l & { feed_at?: string | null }).feed_at ?? l.created_at,
     price: l.price ?? 0,
     photo_urls: l.photo_urls ?? [],
+    photo_focus: l.photo_focus ?? null,
+    photo_zoom: l.photo_zoom ?? null,
     seller: null,
   }));
 }

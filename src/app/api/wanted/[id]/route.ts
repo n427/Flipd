@@ -6,7 +6,7 @@ import { effectiveWantedStatus } from '@/lib/wanted-contract';
 import { hasWantedOfferPhotoPrefix, signWantedOfferPhotos, toParticipantWantedOffer, type WantedOfferRow } from '@/lib/wanted-offers';
 import { wantedPermissions } from '@/lib/wanted-authorization';
 
-const WANTED_SELECT = 'id,buyer_id,title,category,max_budget,description,location,photo_urls,needed_by,status,created_at,updated_at,resolved_at,offers:wanted_offers(count)';
+const WANTED_SELECT = 'id,buyer_id,title,category,max_budget,description,location,photo_urls,needed_by,status,created_at,reposted_at,feed_at,updated_at,resolved_at,offers:wanted_offers(count)';
 const EDITABLE_FIELDS = new Set(['title', 'category', 'max_budget', 'description', 'location', 'photo_urls', 'needed_by']);
 
 async function usersAreBlocked(userId: string, otherUserId: string) {

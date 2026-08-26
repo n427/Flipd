@@ -38,6 +38,7 @@ type DbListing = {
   photo_zoom?: string[] | null;
   archived?: boolean | null;
   created_at?: string | null;
+  feed_at?: string | null;
   event_start?: string | null;
   event_end?: string | null;
   seller?: DbSeller;
@@ -165,8 +166,8 @@ export function mapDbListing(row: DbListing, meId: string | null): Listing {
     photo_focus: row.photo_focus || [],
     photo_zoom: row.photo_zoom || [],
     archived: row.archived ?? false,
-    created_at: row.created_at || undefined,
-    postedLabel: formatPostedDate(row.created_at) || 'just now',
+    created_at: row.feed_at || row.created_at || undefined,
+    postedLabel: formatPostedDate(row.feed_at || row.created_at) || 'just now',
     contactMethods: (row.contact ?? []) as Listing['contactMethods'],
     eventStart: row.event_start ?? null,
     eventEnd: row.event_end ?? null,

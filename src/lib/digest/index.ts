@@ -47,8 +47,8 @@ export const digestProducer: Producer = {
       .from('listings')
       .select('id, title, price, category, seller_id, photo_urls')
       .eq('archived', false)
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
+      .gte('feed_at', since)
+      .order('feed_at', { ascending: false })
       .limit(CANDIDATE_CAP);
     if (listErr) throw new Error(`candidate query failed: ${listErr.message}`);
     if (!listings?.length) return { digests: 0, no_candidates: 1 };

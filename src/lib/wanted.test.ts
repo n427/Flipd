@@ -57,6 +57,16 @@ describe('Wanted posts', () => {
     expect(dto).not.toHaveProperty('buyer_id');
   });
 
+  it('uses the effective feed time as the public posted date', () => {
+    const dto = toPublicWantedPost({
+      id: 'p1', buyer_id: 'b1', title: 'Desk', category: 'goods', max_budget: 80,
+      description: 'Wood', location: 'Village', photo_urls: [],
+      needed_by: '2026-09-10T12:00:00Z', status: 'active',
+      created_at: '2026-08-01T12:00:00Z', feed_at: '2026-09-01T12:00:00Z', offers: [],
+    });
+    expect(dto.created_at).toBe('2026-09-01T12:00:00Z');
+  });
+
   it('computes expiry without exposing database-only fields', () => {
     const dto = toPublicWantedPost({
       id: 'p1', buyer_id: 'b1', title: 'Desk', category: 'goods', max_budget: 80,
@@ -98,7 +108,7 @@ describe('Wanted posts', () => {
       id: 'c0000000-0000-4000-8000-000000000003',
     }, cursor)).toBe(false);
     expect(wantedCursorFilter(cursor)).toBe(
-      'created_at.lt.2026-08-25T12:00:00.123456+00:00,and(created_at.eq.2026-08-25T12:00:00.123456+00:00,id.lt.b0000000-0000-4000-8000-000000000002)',
+      'feed_at.lt.2026-08-25T12:00:00.123456+00:00,and(feed_at.eq.2026-08-25T12:00:00.123456+00:00,id.lt.b0000000-0000-4000-8000-000000000002)',
     );
   });
 

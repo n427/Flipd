@@ -11,7 +11,7 @@ import {
 } from '@/lib/wanted';
 import { effectiveWantedStatus, isWantedCategory, type WantedPostStatus } from '@/lib/wanted-contract';
 
-const WANTED_SELECT = 'id,buyer_id,title,category,max_budget,description,location,photo_urls,needed_by,status,created_at,offers:wanted_offers(count)';
+const WANTED_SELECT = 'id,buyer_id,title,category,max_budget,description,location,photo_urls,needed_by,status,created_at,reposted_at,feed_at,offers:wanted_offers(count)';
 const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 20;
 const STATUSES: WantedPostStatus[] = ['active', 'fulfilled', 'expired', 'deleted'];
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('wanted_posts')
     .select(WANTED_SELECT)
-    .order('created_at', { ascending: false })
+    .order('feed_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(limit);
 
@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     wanted_posts: wantedPosts,
     next_cursor: rows.length === limit && lastScanned
-      ? serializeWantedCursor({ created_at: lastScanned.created_at, id: lastScanned.id })
+      ? serializeWantedCursor({ created_at: lastScanned.feed_at, id: lastScanned.id })
       : null,
   });
 }

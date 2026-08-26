@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .select('*, seller:profiles!listings_seller_id_fkey(id, display_name, handle, school_unit, class_year, is_demo, avatar_url)')
     .eq('seller_id', id)
     .eq('archived', false)
-    .order('created_at', { ascending: false });
+    .order('feed_at', { ascending: false });
 
   const { data: ratings } = await admin
     .from('ratings')

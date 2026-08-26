@@ -17,6 +17,7 @@ import { timeLeftLabel, parseEventWindow, formatEventWindow, fillZoom, findConta
 import type { ActivityItem, ActivityStatus, FeedRange, Listing, Profile, RatingSummary } from '@/lib/types';
 import { FeedSkeleton } from '@/components/Skeletons';
 import { dismissNotificationWithoutNavigation, wantedNotificationHref, type WantedNotificationEvent } from '@/lib/wanted-client';
+import { repostAvailability, repostListingRequest } from '@/lib/repost';
 
 const TITLE_MAX = 80;
 
@@ -550,7 +551,10 @@ export function WebListingDetail({
   const [reportNote, setReportNote] = React.useState('');
   const [reportSent, setReportSent] = React.useState(false);
   const [blockConfirm, setBlockConfirm] = React.useState(false);
+  const [reposting, setReposting] = React.useState(false);
+  const [repostError, setRepostError] = React.useState('');
   const n = photos.length;
+  const repost = repostAvailability({ active: !listing.archived, postedAt: listing.created_at ?? new Date().toISOString() });
 
   React.useEffect(() => {
     if (lightbox === null) return;
@@ -633,6 +637,24 @@ export function WebListingDetail({
               Move to past listings
             </Button>
           </div>
+          <Button
+            kind="outline"
+            full={full}
+            size="lg"
+            disabled={!repost.allowed || reposting}
+            aria-label="Repost listing"
+            onClick={async () => {
+              setReposting(true); setRepostError('');
+              try { await repostListingRequest(listing.id); window.location.href = '/feed'; }
+              catch (cause) { setRepostError(cause instanceof Error ? cause.message : 'Could not repost.'); }
+              finally { setReposting(false); }
+            }}
+            style={{ marginTop: 10 }}
+          >
+            {reposting ? 'Reposting…' : 'Repost listing'}
+          </Button>
+          {!repost.allowed && repost.availableAt && <div className="t-meta" style={{ fontSize: 11.5, marginTop: 8, color: 'var(--muted)' }}>Available {new Date(repost.availableAt).toLocaleDateString()}</div>}
+          {repostError && <div role="alert" className="t-meta" style={{ fontSize: 11.5, marginTop: 8, color: 'var(--accent)' }}>{repostError}</div>}
           <div className="t-meta" style={{ fontSize: 11.5, marginTop: 12, color: 'var(--muted)' }}>
             Removes it from the feed. You can restore it anytime.
           </div>

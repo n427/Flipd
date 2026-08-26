@@ -10,6 +10,7 @@ import { wantedClient, type WantedBuyerSummary } from '@/lib/wanted-client';
 import { wantedCardCopy } from '@/lib/wanted-presentation';
 import type { WantedPostDTO } from '@/lib/types';
 import type { WantedOfferDTO } from '@/lib/wanted-offers';
+import { repostAvailability } from '@/lib/repost';
 
 export default function WantedDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params); const router = useRouter();
@@ -18,10 +19,12 @@ export default function WantedDetailPage({ params }: { params: Promise<{ id: str
   const [offers, setOffers] = React.useState<WantedOfferDTO[]>([]); const [showOffer, setShowOffer] = React.useState(false);
   const [offerState, setOfferState] = React.useState<'loading' | 'ready' | 'error'>('loading');
   const [loading, setLoading] = React.useState(true); const [error, setError] = React.useState('');
+  const [reposting, setReposting] = React.useState(false);
   React.useEffect(() => { let alive = true; wantedClient.getPost(id).then(async (result) => { if (!alive) return; setPost(result.wanted_post); setOwner(Boolean(result.management)); setBuyer(result.buyer ?? null); if (result.buyer) fetch(`/api/safety?user=${result.buyer.id}&role=buyer`).then((response) => response.ok ? response.json() : null).then((body) => { if (alive) setSafety(body?.review ?? null); }).catch(() => {}); try { const response = await wantedClient.offersForPost(id); if (alive) { setOffers(response.wanted_offers); setOfferState('ready'); } } catch { if (alive) setOfferState('error'); } }).catch((cause) => setError(cause instanceof Error ? cause.message : 'Request not found.')).finally(() => setLoading(false)); return () => { alive = false; }; }, [id]);
   if (loading) return <div className="wanted-state">Loading request…</div>;
   if (!post) return <div className="wanted-state"><h2>Request not found</h2><p>{error}</p></div>;
   const copy = wantedCardCopy(post); const myOffer = !owner ? offers[0] : undefined;
+  const repost = repostAvailability({ active: post.status === 'active', postedAt: post.created_at });
   return (
     <main className="wanted-detail">
       <Link href="/wanted" className="wanted-back">← Back to Wanted</Link>
@@ -34,7 +37,7 @@ export default function WantedDetailPage({ params }: { params: Promise<{ id: str
         <div className="wanted-detail__description"><h2>What they need</h2><p>{post.description}</p></div>
         <div className="wanted-safety"><strong>Meet safely</strong><p>Keep personal details private until you are ready, meet in a public place, and report anything that feels wrong.</p></div>
       </section><aside>
-        {owner ? <div className="wanted-action-card"><h2>Manage your request</h2><Link href={`/wanted/${id}/edit`} className="btn btn-primary">Edit request</Link><Button kind="outline" onClick={async () => { if (!window.confirm('Delete this Wanted post? Pending offers will be declined.')) return; await wantedClient.deletePost(id); router.push('/wanted'); }}>Delete request</Button><Link href="/requests?tab=wanted&direction=received">Review private offers</Link></div>
+        {owner ? <div className="wanted-action-card"><h2>Manage your request</h2><Link href={`/wanted/${id}/edit`} className="btn btn-primary">Edit request</Link><Button kind="outline" disabled={!repost.allowed || reposting} onClick={async () => { setReposting(true); setError(''); try { await wantedClient.repostPost(id); router.push('/wanted'); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not repost.'); } finally { setReposting(false); } }}>{reposting ? 'Reposting…' : 'Repost request'}</Button>{!repost.allowed && repost.availableAt && <p>Available {new Date(repost.availableAt).toLocaleDateString()}</p>}{error && <p role="alert">{error}</p>}<Button kind="outline" onClick={async () => { if (!window.confirm('Delete this Wanted post? Pending offers will be declined.')) return; await wantedClient.deletePost(id); router.push('/wanted'); }}>Delete request</Button><Link href="/requests?tab=wanted&direction=received">Review private offers</Link></div>
           : post.status !== 'active' ? <div className="wanted-action-card"><h2>This request is closed</h2><p>It is no longer accepting offers.</p></div>
             : offerState === 'loading' ? <div className="wanted-action-card"><h2>Checking your offers…</h2></div>
               : offerState === 'error' ? <div className="wanted-action-card"><h2>Could not check your offers</h2><p>Refresh before making another offer.</p></div>
