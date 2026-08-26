@@ -93,6 +93,12 @@ export function wantedOfferRpcErrorStatus(error: { code?: string } | null): numb
   return 500;
 }
 
+/** Submit hides both missing rows and serialized authorization/block races. */
+export function wantedOfferSubmitRpcErrorStatus(error: { code?: string } | null): number {
+  if (error?.code === '42501') return 404;
+  return wantedOfferRpcErrorStatus(error);
+}
+
 /** A pending offer is the only offer state the seller can change or withdraw. */
 export function canMutateWantedOffer(status: WantedOfferStatus): boolean {
   return status === 'pending';

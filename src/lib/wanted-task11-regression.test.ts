@@ -9,6 +9,7 @@ describe('Task 11 route and screenshot contracts', () => {
     expect(route).toMatch(/wantedPermissions/);
     expect(route).toMatch(/\.viewOffer/);
     expect(route).toMatch(/\.submit/);
+    expect(route).toMatch(/wantedOfferSubmitRpcErrorStatus/);
     expect(route).not.toMatch(/error: 'forbidden'/);
   });
 

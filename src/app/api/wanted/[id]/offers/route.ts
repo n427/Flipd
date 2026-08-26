@@ -8,7 +8,7 @@ import {
   parseWantedOfferInput,
   signWantedOfferPhotos,
   toParticipantWantedOffer,
-  wantedOfferRpcErrorStatus,
+  wantedOfferSubmitRpcErrorStatus,
   type WantedOfferRow,
 } from '@/lib/wanted-offers';
 import { effectiveWantedStatus } from '@/lib/wanted-contract';
@@ -155,7 +155,7 @@ export async function POST(
     offered_photo_paths: parsed.value.photo_paths,
   });
   if (error || !savedOfferId) {
-    const status = wantedOfferRpcErrorStatus(error);
+    const status = wantedOfferSubmitRpcErrorStatus(error);
     const message = status === 404 ? 'not found'
       : status === 403 ? 'forbidden'
         : status === 409 ? 'wanted offer is no longer available'

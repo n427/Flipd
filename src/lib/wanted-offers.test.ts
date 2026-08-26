@@ -5,6 +5,7 @@ import {
   hasWantedOfferPhotoPrefix,
   parseWantedOfferInput,
   wantedOfferRpcErrorStatus,
+  wantedOfferSubmitRpcErrorStatus,
   mergeWantedOfferPhotoPaths,
   supersededWantedOfferPhotoPaths,
   wantedOfferTransactionActions,
@@ -59,6 +60,14 @@ describe('Wanted offers', () => {
     expect(wantedOfferRpcErrorStatus({ code: '40P01' })).toBe(409);
     expect(wantedOfferRpcErrorStatus({ code: '55P03' })).toBe(503);
     expect(wantedOfferRpcErrorStatus({ code: 'XX000' })).toBe(500);
+  });
+
+  it('hides a serialized submit authorization race without hiding conflicts', () => {
+    expect(wantedOfferSubmitRpcErrorStatus({ code: '42501' })).toBe(404);
+    expect(wantedOfferSubmitRpcErrorStatus({ code: 'P0002' })).toBe(404);
+    expect(wantedOfferSubmitRpcErrorStatus({ code: 'P0001' })).toBe(409);
+    expect(wantedOfferSubmitRpcErrorStatus({ code: '23514' })).toBe(409);
+    expect(wantedOfferSubmitRpcErrorStatus({ code: 'XX000' })).toBe(500);
   });
 
   it('retains existing photos, supports explicit removal, and appends new uploads', () => {
