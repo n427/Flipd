@@ -8,8 +8,12 @@ import { useSession } from '@/lib/session';
 import { fetchMyListings, MyListing } from '@/lib/listings';
 import { ListingCard } from '@/components/ListingCard';
 import { T, F, S } from '@/lib/theme';
+import { fetchWantedFeed, WantedPost } from '@/lib/wanted';
+import { WantedCard } from '@/components/WantedCard';
+import { wantedHistoryBucket } from '@/lib/myMarketplace';
 
 type Tab = 'active' | 'past';
+type Kind = 'selling' | 'wanted';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'active', label: 'Active' },
@@ -23,6 +27,8 @@ export default function MyListings() {
   const router = useRouter();
   const { user } = useSession();
   const [listings, setListings] = useState<MyListing[]>([]);
+  const [wanted, setWanted] = useState<WantedPost[]>([]);
+  const [kind, setKind] = useState<Kind>('selling');
   const [tab, setTab] = useState<Tab>('active');
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [refreshing, setRefreshing] = useState(false);
@@ -30,7 +36,12 @@ export default function MyListings() {
   const load = useCallback(async () => {
     if (!user) return;
     try {
-      setListings(await fetchMyListings(user.id));
+      const [saleRows, wantedRows] = await Promise.all([
+        fetchMyListings(user.id),
+        fetchWantedFeed({ mine: true, limit: 100 }),
+      ]);
+      setListings(saleRows);
+      setWanted(wantedRows.wanted_posts);
       setState('ready');
     } catch {
       setState('error');
@@ -52,6 +63,14 @@ export default function MyListings() {
   const active = useMemo(() => listings.filter((l) => !l.archived), [listings]);
   const past = useMemo(() => listings.filter((l) => l.archived), [listings]);
   const counts: Record<Tab, number> = { active: active.length, past: past.length };
+  const activeWanted = useMemo(() => wanted.filter((post) => wantedHistoryBucket(post) === 'active'), [wanted]);
+  const pastWanted = useMemo(() => wanted.filter((post) => wantedHistoryBucket(post) === 'past'), [wanted]);
+  const visible: (MyListing | WantedPost)[] = kind === 'selling'
+    ? (tab === 'active' ? active : past)
+    : (tab === 'active' ? activeWanted : pastWanted);
+  const visibleCounts: Record<Tab, number> = kind === 'selling'
+    ? counts
+    : { active: activeWanted.length, past: pastWanted.length };
 
   if (state === 'loading') {
     return (
@@ -65,6 +84,10 @@ export default function MyListings() {
   const emptyCopy =
     state === 'error'
       ? 'Couldn’t load your listings.'
+      : kind === 'wanted'
+        ? tab === 'active'
+          ? 'No active requests. Post what you need from the Wanted tab.'
+          : 'Completed and expired requests land here.'
       : tab === 'active'
         ? 'Nothing up right now. Post something to get started.'
         : 'Nothing sold yet. Listings you mark sold land here.';
@@ -74,6 +97,13 @@ export default function MyListings() {
       <ScreenHeader />
       <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
         <Text style={{ fontFamily: F.black, fontSize: 22, color: T.ink, letterSpacing: -0.6 }}>My Listings</Text>
+      </View>
+
+      <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: T.rule }}>
+        {(['selling', 'wanted'] as Kind[]).map((item) => {
+          const on = kind === item;
+          return <Pressable key={item} onPress={() => { setKind(item); setTab('active'); }} style={{ marginRight: 22, paddingBottom: 7, borderBottomWidth: 2, borderBottomColor: on ? T.cardinal : 'transparent' }}><Text style={{ fontFamily: on ? F.bold : F.medium, color: on ? T.ink : T.muted, fontSize: 15 }}>{item === 'selling' ? 'Selling' : 'Wanted'}</Text></Pressable>;
+        })}
       </View>
 
       {/* Counts are always shown so an empty tab reads as empty rather than
@@ -95,18 +125,18 @@ export default function MyListings() {
               }}
             >
               <Text style={{ fontFamily: F.semibold, fontSize: 13, color: on ? '#fff' : T.ink }}>
-                {t.label} {counts[t.id]}
+                {t.label} {visibleCounts[t.id]}
               </Text>
             </Pressable>
           );
         })}
       </View>
 
-      <FlatList
+      <FlatList<MyListing | WantedPost>
         // Remount on tab change so the grid scrolls back to the top and
         // numColumns doesn't reuse the other tab's row layout.
         key={tab}
-        data={tab === 'active' ? active : past}
+        data={visible}
         keyExtractor={(l) => l.id}
         numColumns={2}
         style={{ backgroundColor: T.bg }}
@@ -123,9 +153,9 @@ export default function MyListings() {
             </Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <ListingCard listing={item} onPress={() => router.push(`/listing/${item.id}`)} />
-        )}
+        renderItem={({ item }) => kind === 'selling'
+          ? <ListingCard listing={item as MyListing} onPress={() => router.push(`/listing/${item.id}`)} />
+          : <WantedCard post={item as WantedPost} onPress={() => router.push(`/wanted/${item.id}`)} />}
       />
     </SafeAreaView>
   );

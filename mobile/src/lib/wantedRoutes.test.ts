@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const source = (relative: string) => readFileSync(new URL(relative, import.meta.url), 'utf8');
+const source = (relative: string) => readFileSync(
+  new URL(relative, import.meta.url) as unknown as Parameters<typeof readFileSync>[0],
+  'utf8',
+);
 
 describe('mobile Wanted route contract', () => {
   it('registers the five approved tabs and hides Notifications', () => {

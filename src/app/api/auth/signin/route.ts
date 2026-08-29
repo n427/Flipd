@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   const { email } = await req.json().catch(() => ({}));
   if (typeof email !== 'string' || !isUscEmail(email)) {
     return NextResponse.json(
-      { error: 'Flipd is USC-only for now. Enter your @usc.edu address.' },
+      { error: 'Enter your @usc.edu or @alumni.usc.edu address.' },
       { status: 400 },
     );
   }

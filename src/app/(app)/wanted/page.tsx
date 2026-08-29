@@ -42,7 +42,7 @@ export default function WantedPage() {
 
   return (
     <main className="wanted-page">
-      <header className="wanted-hero"><div><span className="t-eyebrow">FLIP THE MARKET</span><h1>Wanted</h1><p>Post what you need. Let nearby sellers come to you.</p></div><Link href="/wanted/post" className="btn btn-primary">Post a request</Link></header>
+      <header className="wanted-feed-head"><h1>Wanted<span>.</span></h1><Link href="/wanted/post" className="btn btn-primary">Post a request</Link></header>
       <div className="wanted-filters">
         <input className="field" aria-label="Search Wanted posts" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search what people need" />
         <select className="field" aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value as typeof category)}><option value="all">All categories</option><option value="goods">Goods</option><option value="services">Services</option><option value="housing">Housing</option></select>

@@ -13,6 +13,12 @@ describe('isUscEmail', () => {
     expect(isUscEmail('@usc.edu')).toBe(false);
     expect(isUscEmail('')).toBe(false);
   });
+  it('accepts official USC alumni addresses but rejects lookalike subdomains', () => {
+    expect(isUscEmail('trojan@alumni.usc.edu')).toBe(true);
+    expect(isUscEmail('Trojan@ALUMNI.USC.EDU')).toBe(true);
+    expect(isUscEmail('trojan@fake.alumni.usc.edu')).toBe(false);
+    expect(isUscEmail('trojan@alumni.usc.edu.example.com')).toBe(false);
+  });
 });
 
 describe('effectiveRevealStatus', () => {

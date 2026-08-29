@@ -9,7 +9,7 @@ import { isUscEmail } from '@/lib/validation';
 export async function POST(req: NextRequest) {
   const { email, code } = await req.json().catch(() => ({}));
   if (typeof email !== 'string' || !isUscEmail(email)) {
-    return NextResponse.json({ error: 'Enter your @usc.edu address.' }, { status: 400 });
+    return NextResponse.json({ error: 'Enter your @usc.edu or @alumni.usc.edu address.' }, { status: 400 });
   }
   if (typeof code !== 'string' || !/^\d{6,8}$/.test(code.trim())) {
     return NextResponse.json({ error: 'Enter the sign-in code from your email.' }, { status: 400 });

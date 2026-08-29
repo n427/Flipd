@@ -1,6 +1,5 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import {
@@ -16,8 +15,14 @@ import { SessionProvider, useSession } from '@/lib/session';
 import { openDeepLink } from '@/lib/nav';
 import { routeAllowedDuringOnboarding } from '@/lib/onboardingRoute';
 import { UnreadProvider } from '@/lib/unread';
-import { T } from '@/lib/theme';
 import { wantedPushNotificationDestination } from '@/lib/wanted';
+import * as SplashScreen from 'expo-splash-screen';
+import { shouldHideSplash } from '@/lib/splashReady';
+
+// Keep the single native Flipd wordmark visible until fonts and auth routing
+// are ready. Calling this in module scope avoids the native screen hiding
+// before React can take control.
+void SplashScreen.preventAutoHideAsync();
 
 // Show a banner even when the app is foregrounded.
 Notifications.setNotificationHandler({
@@ -91,6 +96,16 @@ function AuthWatcher() {
   );
 }
 
+function SplashController({ fontsLoaded }: { fontsLoaded: boolean }) {
+  const { session, loading, onboarded } = useSession();
+  useEffect(() => {
+    if (shouldHideSplash({ fontsLoaded, sessionLoading: loading, onboarded, signedIn: !!session })) {
+      void SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, loading, onboarded, session]);
+  return null;
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Figtree_400Regular,
@@ -101,19 +116,12 @@ export default function RootLayout() {
     Figtree_900Black,
   });
 
-  // Hold on a white field until Figtree is ready — avoids a flash of the
-  // system font on the first screen someone sees. White matches both the
-  // native splash before it and the wordmark screen after, so the whole
-  // cold start is one uninterrupted background.
-  if (!fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: T.bg }} />;
-  }
-
   return (
     // Required by react-native-gesture-handler: without a root view at the top
     // of the tree every gesture silently does nothing.
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SessionProvider>
+        <SplashController fontsLoaded={fontsLoaded} />
         <UnreadProvider>
           <AuthWatcher />
         </UnreadProvider>

@@ -12,10 +12,9 @@ export function WantedCard({ post }: { post: WantedPostDTO }) {
           : <div className="wanted-card__placeholder" aria-hidden="true">WANTED</div>}
       </div>
       <div className="wanted-card__body">
-        <div className="wanted-card__meta"><span>{post.category}</span><span>Posted {new Date(post.created_at).toLocaleDateString()}</span></div>
         <h2>{post.title}</h2>
-        <p>{post.location}</p>
-        <div className="wanted-card__foot"><strong>{copy.budget}</strong><span>{copy.deadline} · {copy.offers}</span></div>
+        <p>{post.location} · {copy.deadline}</p>
+        <div className="wanted-card__foot"><strong>{copy.budget}</strong><span>{post.status === 'active' ? copy.offers : post.status}</span></div>
       </div>
     </Link>
   );

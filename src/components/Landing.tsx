@@ -107,7 +107,7 @@ function Hero() {
         Buy from trusted<br />students
       </h1>
       <p style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 400ms', fontSize: 17, color: 'var(--muted)', fontWeight: 500, margin: '20px auto 0', maxWidth: 480 }}>
-        Every buyer and seller verified with @usc.edu. No scams or strangers, only fellow Trojans.
+        Every buyer and seller verified with a USC student or alumni email. No strangers, only fellow Trojans.
       </p>
       <div style={{ animation: 'fadeUp .8s cubic-bezier(.2,.7,.3,1) both 550ms', marginTop: 28, display: 'flex', gap: 14, justifyContent: 'center', alignItems: 'center' }}>
         <button className="btn btn-primary" style={{ padding: '13px 28px', fontSize: 14 }} onClick={() => scrollTo('join')}>
@@ -125,7 +125,7 @@ function Hero() {
 
 function HowItWorks() {
   const steps = [
-    { n: '1', title: 'Verify with your USC email', body: '6 digit code emailed straight to your @usc.edu. No password needed!' },
+    { n: '1', title: 'Verify with your USC email', body: 'A 6-digit code goes to your @usc.edu or @alumni.usc.edu address. No password needed!' },
     { n: '2', title: 'Browse the campus feed', body: 'Services, popups, sublets, and goods: every listing from a real USC student.' },
     { n: '3', title: 'Request Contact', body: 'The seller reviews your profile & reviews and has 72 hours to approve. Then you connect and meet up.' },
   ];
@@ -231,7 +231,7 @@ function BothSides() {
 
 function Trust() {
   const stats = [
-    { stat: '100%', label: 'verified @usc.edu accounts' },
+    { stat: '100%', label: 'verified USC accounts' },
     { stat: '0', label: 'anonymous interactions' },
     { stat: '72h', label: 'seller approval window' },
   ];
@@ -311,7 +311,7 @@ function JoinCTA() {
     <section id="join" className="landing-section" style={{ padding: '110px 24px', textAlign: 'center', scrollMarginTop: 60 }}>
       <Reveal>
         <h2 style={{ fontSize: 'clamp(30px, 5vw, 44px)', fontWeight: 800, letterSpacing: '-0.04em', margin: '0 0 12px' }}>
-          Got an @usc.edu email?<br />You&apos;re already in.
+          Got a USC student or alumni email?<br />You&apos;re already in.
         </h2>
         <p style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 500, margin: '0 0 30px' }}>
           Enter it below and we&apos;ll email you a 6-digit sign-in code. That&apos;s the whole sign-up.

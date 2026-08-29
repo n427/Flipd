@@ -59,7 +59,7 @@ const TEST_ALLOW = new Set(['nicolexzha@gmail.com']);
 export function isUscEmail(email: string): boolean {
   const e = email.trim().toLowerCase();
   if (TEST_ALLOW.has(e)) return true;
-  return /^[^\s@]+@usc\.edu$/.test(e);
+  return /^[^\s@]+@(alumni\.)?usc\.edu$/.test(e);
 }
 
 // 72h expiry is computed at read time — a pending request past its

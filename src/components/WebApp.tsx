@@ -14,9 +14,10 @@ import { CATEGORIES } from '@/lib/data';
 import { classYearLabel, filterListings, formatPostedDate, photoCropStyle, useFlipdStore, type FlipdStore } from '@/lib/store';
 import { captureSearch } from '@/lib/digest/capture';
 import { timeLeftLabel, parseEventWindow, formatEventWindow, fillZoom, findContactInfo, profilePath, conversationHref, CONTACT_BLOCKED_MESSAGE } from '@/lib/validation';
-import type { ActivityItem, ActivityStatus, FeedRange, Listing, Profile, RatingSummary } from '@/lib/types';
+import type { ActivityItem, ActivityStatus, FeedRange, Listing, Profile, RatingSummary, WantedPostDTO } from '@/lib/types';
 import { FeedSkeleton } from '@/components/Skeletons';
-import { dismissNotificationWithoutNavigation, wantedNotificationHref, type WantedNotificationEvent } from '@/lib/wanted-client';
+import { dismissNotificationWithoutNavigation, wantedClient, wantedNotificationHref, type WantedNotificationEvent } from '@/lib/wanted-client';
+import { WantedCard } from '@/components/WantedCard';
 import { repostAvailability, repostListingRequest } from '@/lib/repost';
 
 const TITLE_MAX = 80;
@@ -1674,13 +1675,15 @@ function EmptyState({ icon, title, sub }: { icon: string; title: string; sub: st
 export function WebProfile({
   store, onEdit,
 }: { store: FlipdStore; onListing: (l: Listing) => void; onApprove: (id: string) => void; onDecline: (id: string) => void; onEdit: () => void }) {
-  const [tab, setTab] = React.useState<'listings' | 'past' | 'saved' | 'reviews'>('listings');
+  const [tab, setTab] = React.useState<'listings' | 'wanted' | 'past' | 'saved' | 'reviews'>('listings');
+  const [wantedPosts, setWantedPosts] = React.useState<WantedPostDTO[]>([]);
   const displayName = store.me?.display_name ?? 'Your profile';
   const avatarName = store.me?.display_name ?? 'Me';
   const [rating, setRating] = React.useState<ActivityItem | null>(null);
   const [summary, setSummary] = React.useState<RatingSummary>({ average: null, count: 0, reviews: [] });
   const loadSummary = React.useCallback(() => { store.fetchRatings().then(setSummary).catch(() => {}); }, [store]);
   React.useEffect(() => { loadSummary(); }, [loadSummary]);
+  React.useEffect(() => { wantedClient.feed({ mine: true, limit: 100 }).then((result) => setWantedPosts(result.wanted_posts)).catch(() => {}); }, []);
   return (
     <div>
       {/* Banner */}
@@ -1719,6 +1722,7 @@ export function WebProfile({
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '20px 32px 0', display: 'flex', gap: 28 }}>
           {([
             { id: 'listings', label: 'My Listings', count: store.pendingCount || null },
+            { id: 'wanted', label: 'My Wanted', count: wantedPosts.length || null },
             { id: 'past', label: 'Past Listings', count: store.pastListings.length },
             { id: 'saved', label: 'Saved', count: store.savedListings.length },
             { id: 'reviews', label: 'Reviews', count: summary.count || null },
@@ -1759,6 +1763,14 @@ export function WebProfile({
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
               {store.pastListings.map((l) => <ListingCard key={l.id} listing={l} href={`/listing/${l.id}`} />)}
+            </div>
+          ))}
+        {tab === 'wanted' &&
+          (wantedPosts.length === 0 ? (
+            <EmptyState icon="search" title="No Wanted posts yet" sub="Post what you need from the Wanted feed and track it here." />
+          ) : (
+            <div className="wanted-grid">
+              {wantedPosts.map((post) => <WantedCard key={post.id} post={post} />)}
             </div>
           ))}
         {tab === 'saved' &&

@@ -35,7 +35,7 @@ export const TERMS: LegalDoc = {
     {
       heading: 'Who can use Flipd',
       body: [
-        'Flipd is built for current USC students and requires a valid @usc.edu email address to sign in. You must be at least 18 years old, or the age of majority in your state, to use Flipd. You are responsible for keeping your sign-in access secure and for all activity under your account.',
+        'Flipd is built for USC students and alumni and requires a valid @usc.edu or @alumni.usc.edu email address to sign in. You must be at least 18 years old, or the age of majority in your state, to use Flipd. You are responsible for keeping your sign-in access secure and for all activity under your account.',
       ],
     },
     {
@@ -166,7 +166,7 @@ export const SUPPORT: LegalDoc = {
     {
       heading: 'Getting started',
       body: [
-        'Sign-in requires a valid @usc.edu email. Enter your email on the homepage and we’ll send a 6-digit code. Enter the code to sign in, no password needed. If your code doesn’t arrive within a couple minutes, check spam or request a new one.',
+        'Sign-in requires a valid @usc.edu or @alumni.usc.edu email. Enter your email on the homepage and we’ll send a 6-digit code. Enter the code to sign in, no password needed. If your code doesn’t arrive within a couple minutes, check spam or request a new one.',
       ],
     },
     {
@@ -195,7 +195,7 @@ export const SUPPORT: LegalDoc = {
 export const SUPPORT_FAQ: { q: string; a: string }[] = [
   {
     q: 'Why do I need a USC email?',
-    a: 'Every user on Flipd is verified through @usc.edu to keep the marketplace limited to real students and reduce scams.',
+    a: 'Every user verifies with an official @usc.edu or @alumni.usc.edu address to keep Flipd within the Trojan community.',
   },
   {
     q: 'What happens if a seller doesn’t respond in 72 hours?',

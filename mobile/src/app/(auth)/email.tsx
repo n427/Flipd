@@ -16,7 +16,7 @@ export default function EmailScreen() {
 
   const submit = async () => {
     if (!isUscEmail(email)) {
-      setError('Use your @usc.edu email to sign in.');
+      setError('Use your @usc.edu or @alumni.usc.edu email to sign in.');
       return;
     }
     setBusy(true);
@@ -108,7 +108,7 @@ export default function EmailScreen() {
             }}
           />
           <Text accessibilityRole={error ? 'alert' : undefined} style={{ fontFamily: F.regular, fontSize: 13, color: error ? T.danger : T.muted, marginTop: 8, lineHeight: 18 }}>
-            {error || 'Use your @usc.edu address. Personal email won’t work.'}
+            {error || 'Students use @usc.edu. Alumni can use @alumni.usc.edu.'}
           </Text>
 
           <Pressable

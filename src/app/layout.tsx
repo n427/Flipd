@@ -7,7 +7,7 @@ const figtree = Figtree({ subsets: ['latin'], display: 'swap', variable: '--font
 export const metadata: Metadata = {
   title: 'Flipd',
   description:
-    'Flipd is a marketplace only for verified @usc.edu students. Buy and sell services, food, popups, sublets, and goods on campus, without the scams.',
+    'Flipd is a marketplace for verified USC students and alumni. Buy, sell, and post what you need across the Trojan community.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

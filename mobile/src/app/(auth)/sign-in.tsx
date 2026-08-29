@@ -84,7 +84,7 @@ export default function SignIn() {
               marginTop: 16,
             }}
           >
-            Every buyer and seller verified with @usc.edu. No scams or strangers, only fellow Trojans.
+            Every buyer and seller verified with a USC student or alumni email. No strangers, only fellow Trojans.
           </Text>
 
           {/* Overlapped product showcase */}
