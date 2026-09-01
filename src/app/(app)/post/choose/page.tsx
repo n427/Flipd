@@ -18,9 +18,6 @@ const choices = [
 export default function PostChooserPage() {
   return (
     <main style={{ width: 'min(880px, calc(100% - 40px))', margin: '0 auto', padding: '64px 0 88px' }}>
-      <p style={{ margin: '0 0 8px', color: 'var(--accent)', fontSize: 12, fontWeight: 800, letterSpacing: '0.09em', textTransform: 'uppercase' }}>
-        Create a post
-      </p>
       <h1 style={{ margin: 0, color: 'var(--ink)', fontSize: 34, lineHeight: 1.1, letterSpacing: '-0.035em' }}>
         What would you like to do?
       </h1>

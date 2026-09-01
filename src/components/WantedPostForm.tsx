@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { LocationPicker } from './LocationPicker';
+import { WantedPhotoPicker } from './WantedPhotoPicker';
 import { Button } from './ui';
 import { wantedClient } from '@/lib/wanted-client';
 import { losAngelesEndOfDayUtc, minimumWantedDate, wantedDateInput, wantedRequiredFieldHints } from '@/lib/wanted-presentation';
@@ -50,21 +51,60 @@ export function WantedPostForm({ initial, submitLabel = 'Post request', onSubmit
   }
 
   const totalPhotos = existingPhotos.length + files.length;
+  const photoItems = [
+    ...existingPhotos.map((url, index) => ({ url, alt: `Existing reference photo ${index + 1}` })),
+    ...previews.map((url, index) => ({ url, alt: `New reference photo ${index + 1}` })),
+  ];
+  const addFiles = (incoming: File[]) => {
+    setFiles((current) => [
+      ...current,
+      ...incoming.filter((file) => file.type.startsWith('image/')),
+    ].slice(0, 6 - existingPhotos.length));
+  };
+  const removePhoto = (index: number) => {
+    if (index < existingPhotos.length) {
+      setExistingPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index));
+      return;
+    }
+    const fileIndex = index - existingPhotos.length;
+    setFiles((current) => current.filter((_, photoIndex) => photoIndex !== fileIndex));
+  };
   return (
     <form className="wanted-form" onSubmit={submit}>
-      <div className="wanted-form__head"><div><h1>{initial ? 'Edit request' : 'What are you looking for?'}</h1><p>Tell nearby sellers what would be a good fit.</p></div></div>
-      <label>Title<input className="field" value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder="Standing desk, moving help…" /></label>
-      <div className="wanted-form__split">
-        <label>Category<select className="field" value={category} onChange={(e) => setCategory(e.target.value as WantedPostInput['category'])}><option value="goods">Goods</option><option value="services">Services</option><option value="housing">Housing</option></select></label>
-        <label>Maximum budget ($)<input className="field" type="number" min="1" step="1" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value)} /></label>
+      <div className="wanted-form__head">
+        <h1>{initial ? 'Edit your request' : 'What are you looking for?'}</h1>
+        <Button type="button" kind="secondary" size="sm" onClick={onCancel}>Exit</Button>
       </div>
-      <label>Meetup area<LocationPicker value={location} onChange={setLocation} /></label>
-      <label>Description<textarea className="field wanted-textarea" value={description} maxLength={2000} onChange={(e) => setDescription(e.target.value)} placeholder="Size, condition, timing, or anything else sellers should know." /></label>
-      <label>Needed by<input className="field" type="date" min={minimumDate} value={date} onChange={(e) => setDate(e.target.value)} /></label>
-      <label>Reference photos <span className="wanted-optional">optional, up to 6</span><input className="field" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple disabled={totalPhotos >= 6} onChange={(e) => setFiles((current) => [...current, ...Array.from(e.target.files ?? [])].slice(0, 6 - existingPhotos.length))} /></label>
-      {totalPhotos > 0 && <div className="wanted-photo-grid">{existingPhotos.map((url) => <button type="button" key={url} aria-label="Remove photo" onClick={() => setExistingPhotos((all) => all.filter((item) => item !== url))}><img src={url} alt="" /></button>)}{previews.map((url, index) => <button type="button" key={url} aria-label="Remove photo" onClick={() => setFiles((all) => all.filter((_, i) => i !== index))}><img src={url} alt="" /></button>)}</div>}
+
+      <div className="wanted-form__grid">
+        <section>
+          <label className="field-label">Reference photos <span className="wanted-optional">optional</span></label>
+          <WantedPhotoPicker photos={photoItems} disabled={totalPhotos >= 6} onFiles={addFiles} onRemove={removePhoto} />
+          <p className="wanted-photo-tip">A photo helps sellers understand the size, style, or condition you want.</p>
+        </section>
+
+        <section className="wanted-form__details">
+          <label className="field-label">It’s in the category of…<span className="wanted-required"> *</span></label>
+          <div className="wanted-form__categories">
+            {(['goods', 'services', 'housing'] as const).map((value) => <button key={value} type="button" className={category === value ? 'is-active' : ''} aria-pressed={category === value} onClick={() => setCategory(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}
+          </div>
+
+          <div className="wanted-form__label-row"><label className="field-label">Give it a title<span className="wanted-required"> *</span></label><span>{title.length}/60</span></div>
+          <input className="field" value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Mini fridge for an apartment" />
+
+          <div className="wanted-form__label-row"><label className="field-label">Describe what you need<span className="wanted-required"> *</span></label><span>{description.length}/2000</span></div>
+          <textarea className="field wanted-textarea" value={description} maxLength={2000} onChange={(e) => setDescription(e.target.value)} placeholder="Size, condition, timing, or anything else sellers should know." />
+
+          <div className="wanted-form__split">
+            <label>Maximum budget ($)<input className="field" type="number" min="1" step="1" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="100" /></label>
+            <label>Needed by<input className="field" type="date" min={minimumDate} value={date} onChange={(e) => setDate(e.target.value)} /></label>
+          </div>
+          <label>Where you’ll meet<LocationPicker value={location} onChange={setLocation} /></label>
+        </section>
+      </div>
       {error && <div className="wanted-error" role="alert">{error}</div>}
-      <div className="wanted-form__actions"><Button type="button" kind="ghost" onClick={onCancel}>Cancel</Button><Button type="submit" disabled={busy}>{busy ? 'Saving…' : submitLabel}</Button></div>
+      <hr className="rule" />
+      <div className="wanted-form__actions"><Button type="submit" size="lg" disabled={busy} progress={busy ? 'indeterminate' : undefined}>{busy ? 'Almost there…' : submitLabel}</Button></div>
     </form>
   );
 }
