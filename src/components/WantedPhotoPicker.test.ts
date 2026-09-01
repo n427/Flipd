@@ -14,5 +14,6 @@ describe('WantedPhotoPicker', () => {
     expect(html).toContain('aria-label="Add reference photos"');
     expect(html).toContain('Add reference photos');
     expect(html).toMatch(/type="file"[^>]*style="display:none"/);
+    expect(html.match(/aria-label="Add reference photo"/g)).toHaveLength(4);
   });
 });

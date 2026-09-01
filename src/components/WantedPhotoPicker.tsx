@@ -49,7 +49,7 @@ export function WantedPhotoPicker({
       )}
 
       <div className="wanted-photo-picker__thumbs">
-        {Array.from({ length: 6 }).map((_, index) => photos[index] ? (
+        {Array.from({ length: photos.length > 4 ? 8 : 4 }).map((_, index) => photos[index] ? (
           <div className="wanted-photo-picker__thumb" key={`${photos[index].url}-${index}`}>
             <img src={photos[index].url} alt={photos[index].alt ?? `Reference photo ${index + 1}`} />
             {index > 0 && <button type="button" aria-label={`Remove reference photo ${index + 1}`} onClick={() => onRemove(index)}><Icon name="x" size={9} /></button>}

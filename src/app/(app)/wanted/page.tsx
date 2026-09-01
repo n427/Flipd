@@ -57,7 +57,7 @@ export default function WantedPage() {
     <main className="wanted-page">
       <header className="wanted-feed-head">
         <div>
-          <h1>What campus needs<span>.</span></h1>
+          <h1>What campus needs</h1>
         </div>
         <Link href="/wanted/post" className="btn btn-primary"><Icon name="plus" size={16} /> Post a request</Link>
       </header>
