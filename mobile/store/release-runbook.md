@@ -1,113 +1,84 @@
-# TestFlight and App Store Release Runbook
+# Flipd App Store Checklist
 
-This is an operator checklist. Automated source gates can be recorded here; Apple-account, production-service, and physical-device gates remain unchecked until a human performs them against the exact submitted build.
+Use this checklist for Flipd `1.0.0 (10)`.
 
-## 1. Source and production configuration
+## Already done
 
-- [ ] Merge the reviewed mobile release branch.
-- [x] Deploy database migrations `036_legal_acceptance.sql`, `037_account_deletion.sql`, and `038_thread_reports.sql` to production.
-- [x] Deploy the web API containing `DELETE /api/me/delete` and conversation reporting before distributing the matching mobile build.
-- [ ] Confirm production `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, maps/places configuration, web API origin, EAS project ID, and push credentials.
-- [ ] Confirm no service-role key, Apple credential, review credential, or private token is present in the mobile bundle or repository.
-- [ ] Decide iPhone-only versus iPad support from the generated native target.
-- [ ] Increment iOS build number; retain marketing version `1.0.0` for the first release.
+- [x] Production website and API are deployed.
+- [x] Required database features are live.
+- [x] Automated web and mobile tests pass.
+- [x] App Store text and configuration pass validation.
+- [x] Production iOS build 10 was signed and built.
+- [x] Apple processed build 10 successfully.
+- [x] Build 10 is available in TestFlight.
 
-## 2. Automated source gates
+## 1. Test build 10 on your iPhone
 
-- [x] Full root Vitest suite.
-- [x] Root TypeScript, ESLint, production build, and production dependency audit.
-- [x] Mobile TypeScript and Expo lint.
-- [x] Expo Doctor.
-- [x] `npm run store:validate` from `mobile/`.
-- [x] Public Expo config contains the branded splash, camera/photo usage descriptions, bundle ID, version, and encryption declaration.
-- [x] Production iOS Expo export succeeds using production-shaped public environment variables.
-- [ ] Git diff and secret/large-file checks are clean.
+- [ ] Install Flipd `1.0.0 (10)` from TestFlight.
+- [ ] Confirm the Flipd splash screen appears.
+- [ ] Sign in with a USC email and confirm you stay signed in after reopening the app.
+- [ ] Test Feed, Search, Listings, Wanted, Requests, Saved, and Profile.
+- [ ] Create, edit, and delete a listing and a Wanted request.
+- [ ] Send a request, approve it, and exchange messages and attachments.
+- [ ] Test camera and photo-library access, including tapping “Don’t Allow.”
+- [ ] Enable notifications and confirm tapping one opens the correct screen.
+- [ ] Report a listing, profile, Wanted request, and conversation.
+- [ ] Block a user and confirm their content and contact options disappear.
+- [ ] Delete a test account and confirm it can no longer sign in.
+- [ ] Check that the keyboard does not cover buttons or fields.
 
-Record fresh evidence in **Verification evidence** below immediately before submission.
+## 2. Check accessibility
 
-## 3. Production build
+- [ ] Turn on VoiceOver and test sign-in, posting, messaging, reporting, and account deletion.
+- [ ] Set Text Size to the largest setting and check for clipped or hidden content.
+- [ ] Confirm buttons have clear names when using Voice Control.
+- [ ] Confirm important information does not rely on color alone.
 
-From `mobile/`, authenticate to the correct Expo organization and run:
+Only claim accessibility features in App Store Connect if they pass these checks.
 
-```bash
-eas build --platform ios --profile production
-```
+## 3. Take App Store screenshots
 
-- [x] Distribution signing succeeds.
-- [x] App Store Connect processes the build without icon, privacy manifest, entitlement, or architecture warnings.
-- [x] Select the processed build for internal TestFlight.
+- [ ] Use build 10 and a dedicated screenshot account with safe sample content.
+- [ ] Capture the five screens listed in `screenshots.md`.
+- [ ] Use one accepted 6.9-inch portrait size: 1260×2736, 1290×2796, or 1320×2868.
+- [ ] Remove private messages, email addresses, phone numbers, codes, and real personal data.
+- [ ] Confirm Flipd is iPhone-only. If iPad support is enabled, test iPad and add its screenshots.
 
-## 4. TestFlight device pass
+## 4. Finish App Store Connect
 
-- [ ] Fresh install and upgrade install both launch with the branded splash.
-- [ ] OTP sign-in and session restoration work on production services.
-- [ ] New and existing users complete current Terms/Privacy acceptance correctly.
-- [ ] Feed, search, filters, listing detail, saves, requests, approvals, messages, and attachments work.
-- [ ] Camera and photo prompts use the declared copy and denial has a usable fallback.
-- [ ] Flipd’s notification explainer appears before Apple’s prompt; Not now and Settings paths work.
-- [ ] Push delivery opens the correct Requests destination from foreground, background, and cold start.
-- [ ] SecureStore keeps the intended account signed in and removes the session on sign-out/deletion.
-- [ ] Listing, profile, and conversation reports reach the production moderation queue.
-- [ ] Blocking prevents further contact and hides the expected marketplace activity.
-- [ ] Account deletion removes access, public identity/content, storage media, and push tokens; retained rows are anonymized.
-- [ ] Keyboard, safe-area, back gesture, rotation policy, and largest supported device layouts are correct.
+- [ ] Add the name, subtitle, description, keywords, category, and public URLs from `metadata.md`.
+- [ ] Upload the screenshots.
+- [ ] Complete the privacy questions using `privacy-labels.md`.
+- [ ] Complete the age-rating questions using `age-rating.md` and apply the planned 18+ override.
+- [ ] Confirm Flipd has permission to show every image included in the screenshots.
+- [ ] Confirm the encryption answer is correct.
+- [ ] Set the app’s price, tax category, and countries or regions.
+- [ ] Add a review contact and a dedicated reviewer account privately in App Store Connect.
+- [ ] Paste the instructions from `review-notes.md` and verify every path against build 10.
+- [ ] Choose manual release for the first launch.
 
-## 5. Accessibility Nutrition Labels and device checks
+## 5. Submit and release
 
-- [ ] VoiceOver: every primary control has a meaningful name, role, state, and focus order.
-- [ ] Larger Text/Dynamic Type: no clipped controls or inaccessible fixed-height content.
-- [ ] Voice Control: tappable controls have distinct speakable names.
-- [ ] Sufficient Contrast and Differentiate Without Color Alone are checked across primary flows.
-- [ ] Reduced Motion behavior remains usable.
-- [ ] Declare only the accessibility features that pass Apple’s current evaluation criteria in the submitted build.
+- [ ] Select build `1.0.0 (10)` for the App Store version.
+- [ ] Click **Add for Review**, then **Submit for Review**.
+- [ ] Answer any questions from Apple.
+- [ ] After approval, run one last test on the production app.
+- [ ] Release the app manually.
+- [ ] Watch sign-in, crashes, notifications, reports, and account-deletion failures after launch.
 
-## 6. Store assets and information
+## Known follow-ups
 
-- [ ] Capture the five real screenshots in `screenshots.md` at one accepted 6.9-inch size.
-- [ ] Enter validated metadata and public URLs.
-- [ ] Complete and publish the privacy answers from `privacy-labels.md` after production SDK verification.
-- [ ] Complete the live age-rating questionnaire and apply an 18+ override if needed to match Flipd’s Terms.
-- [ ] Confirm content rights for every screenshot and seeded listing image.
-- [ ] Confirm export compliance; `ITSAppUsesNonExemptEncryption` is false only if the submitted binary qualifies.
-- [ ] Add review contact and dedicated review credentials privately in App Store Connect.
-- [ ] Paste and re-check the review notes against the final build.
-- [ ] Select manual release for the first launch.
+- Google Places autocomplete is disabled because `EXPO_PUBLIC_GOOGLE_PLACES_KEY` is not configured. Campus location buttons and the map still work.
+- Supabase migration history does not correctly record local migrations 036–038, although their production database objects are live. Repair the history separately; do not reapply those migrations.
+- The mobile dependency audit reports transitive issues that require a tested Expo upgrade. Do not run `npm audit fix --force` immediately before release.
 
-## 7. Submit and release
+## Release record
 
-- [ ] Submit the processed build and required metadata to App Review.
-- [ ] Respond to App Review questions using the same review account and documented paths.
-- [ ] After approval, run one final production smoke test before manual release.
-- [ ] Monitor authentication, deletion failures, reports, crashes, and push delivery after launch.
-
-## Verification evidence
-
-Submitted 2026-09-06 from commit `c470cc7`:
-
-- EAS production build `1.0.0 (10)` completed with active App Store distribution credentials.
-- EAS Submit delivered build 10 to App Store Connect under submission `8d28a332-e05d-48ab-8de3-631552d004ef`.
-- App Store Connect finished processing the binary with state `VALID`; internal TestFlight state is `IN_BETA_TESTING` and external state is `READY_FOR_BETA_SUBMISSION`.
-
-Recorded 2026-09-06 against source commit `06bc693` on `flipd-v1`, with the
-uncommitted Wanted release delta still present in the working tree:
-
-- Root Vitest passed 63 files and 333 tests; ESLint and the Next.js production build passed.
-- Mobile Vitest passed 24 files and 90 tests; TypeScript, Expo lint, Expo Doctor 18/18, and the six-file store-package validator passed.
-- `npx expo config --type public` confirmed version `1.0.0`, bundle ID `com.flipd.app`, branded icon/splash configuration, camera/photo usage descriptions, and `ITSAppUsesNonExemptEncryption: false`.
-- `npx expo export --platform ios --output-dir /tmp/flipd-ios-export-current` completed and emitted the iOS Hermes bundle. This verifies bundling, not signing or device behavior.
-- The linked production Supabase schema exposes `legal_acceptances`, `reports.target_thread_id`, and `cleanup_deleted_account(uuid)`; the cleanup function correctly rejects the anonymous role. The Supabase migration ledger does not associate local versions 036-038 with remote history even though their schema objects are live. Repair the history separately; do not reapply those non-idempotent DDL files to production.
-- Vercel production is Ready at commit `06bc693`; its build contains `DELETE /api/me/delete`, `POST /api/reports`, and `/api/blocks`. Anonymous probes returned `401 unauthorized`, confirming the deployed routes and authentication gate without mutating production data.
-- EAS production has the Supabase URL, Supabase publishable key, and Google Maps key configured. `EXPO_PUBLIC_GOOGLE_PLACES_KEY` is absent, so free-text Places autocomplete is disabled while campus chips and the static map remain available. Push credentials still require an authenticated build/device check.
-- The latest finished EAS iOS production artifact remains build 9 at commit `cdd86ff`; it does not contain this release delta. A fresh build is still required after the working tree is finalized.
-
-Recorded 2026-08-20 against source commit `b390c9b` on
-`feature/mobile-app-store-readiness`:
-
-- `npm test && npx tsc --noEmit && npm run lint && npm run build` at the repository root exited successfully: 22 test files and 172 tests passed, TypeScript and ESLint passed, and the Next.js production build completed.
-- `npm test && npx tsc --noEmit && npm run lint && npm run store:validate && npx expo-doctor` in `mobile/` exited successfully: 8 test files and 35 tests passed, TypeScript and Expo lint passed, all six store documents validated, and Expo Doctor passed 18/18 checks.
-- `npx expo config --type public --json` confirmed app version `1.0.0`, bundle ID `com.flipd.app`, branded icon/splash configuration, camera/photo usage descriptions, and `ITSAppUsesNonExemptEncryption: false`.
-- `npx expo export --platform ios` succeeded with production-shaped placeholder public environment variables at `/tmp/flipd-final-export.6BFZWD`. This proves bundling only; it does not validate real production credentials or services.
-- Root `npm audit --omit=dev` reported 0 vulnerabilities. Mobile `npm audit --omit=dev` reported 27 transitive findings (14 moderate, 13 high); the available npm remediations require an Expo SDK major upgrade and must be handled as a separately tested upgrade rather than a forced pre-release change. The full mobile audit reported one additional moderate development-only finding through `@expo/ngrok`.
-- `git diff --check` passed. The tracked-file credential-pattern scan found only environment-variable names/examples and server-side references, not committed values. The largest tracked file was 581 KB; no unexpectedly large release artifact was found.
-
-Remaining operator gates: deploy the three migrations and matching web API, supply and verify real production public configuration/signing/push credentials, make a signed EAS build, complete the TestFlight device and accessibility passes, capture real screenshots, verify privacy and age-rating answers in App Store Connect, add private review credentials/contact details, and submit the processed build. Do not mark those checkboxes complete from source verification alone.
+- Release code commit: `c470cc7`
+- Checklist commit before this rewrite: `9fb056d`
+- EAS build: `1.0.0 (10)`
+- EAS build ID: `35a92824-e504-4514-9da2-4834e9d38c8d`
+- EAS submission ID: `8d28a332-e05d-48ab-8de3-631552d004ef`
+- Apple processing state: `VALID`
+- TestFlight state: internal testing
+- Last verified: 2026-09-06
