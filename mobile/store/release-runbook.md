@@ -33,9 +33,9 @@ From `mobile/`, authenticate to the correct Expo organization and run:
 eas build --platform ios --profile production
 ```
 
-- [ ] Distribution signing succeeds.
-- [ ] App Store Connect processes the build without icon, privacy manifest, entitlement, or architecture warnings.
-- [ ] Select the processed build for internal TestFlight.
+- [x] Distribution signing succeeds.
+- [x] App Store Connect processes the build without icon, privacy manifest, entitlement, or architecture warnings.
+- [x] Select the processed build for internal TestFlight.
 
 ## 4. TestFlight device pass
 
@@ -81,6 +81,12 @@ eas build --platform ios --profile production
 - [ ] Monitor authentication, deletion failures, reports, crashes, and push delivery after launch.
 
 ## Verification evidence
+
+Submitted 2026-09-06 from commit `c470cc7`:
+
+- EAS production build `1.0.0 (10)` completed with active App Store distribution credentials.
+- EAS Submit delivered build 10 to App Store Connect under submission `8d28a332-e05d-48ab-8de3-631552d004ef`.
+- App Store Connect finished processing the binary with state `VALID`; internal TestFlight state is `IN_BETA_TESTING` and external state is `READY_FOR_BETA_SUBMISSION`.
 
 Recorded 2026-09-06 against source commit `06bc693` on `flipd-v1`, with the
 uncommitted Wanted release delta still present in the working tree:
