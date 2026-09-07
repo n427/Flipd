@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { losAngelesEndOfDayUtc, referencePhotoPath, wantedActionState, wantedCardCopy, wantedOfferActions, wantedOfferEntryState, wantedOfferMutationId, wantedOfferStatusLabel } from './wantedPresentation';
+import { losAngelesEndOfDayUtc, referencePhotoPath, wantedActionState, wantedCardCopy, wantedDetailCopy, wantedFormState, wantedOfferActions, wantedOfferEntryState, wantedOfferMutationId, wantedOfferStatusLabel } from './wantedPresentation';
 
 describe('mobile Wanted presentation', () => {
   it('formats the same public card copy as web', () => {
@@ -7,6 +7,34 @@ describe('mobile Wanted presentation', () => {
       .toEqual({ budget: 'Up to $1,250', deadline: 'Needed by Sep 1', offers: 'No offers yet' });
     expect(wantedCardCopy({ max_budget: 20, needed_by: '2026-08-24T06:59:59.000Z', offer_count: 2 }, new Date('2026-08-25T12:00:00Z')).deadline)
       .toBe('Expired');
+  });
+
+  it('presents Wanted details in the same semantic sections as a marketplace listing', () => {
+    expect(wantedDetailCopy({
+      category: 'services',
+      location: 'USC Village',
+      needed_by: '2026-09-02T06:59:59.000Z',
+      max_budget: 1250,
+      offer_count: 2,
+    }, new Date('2026-08-25T12:00:00.000Z'))).toEqual({
+      budget: 'Up to $1,250',
+      deadline: 'Needed by Sep 1',
+      category: 'Services',
+      detailsLabel: 'Details',
+      locationLabel: 'Where you’ll meet',
+      requesterLabel: 'Requester',
+      profileFallback: 'A Trojan',
+      profileMetaFallback: 'USC',
+    });
+  });
+
+  it('drives Wanted form progress and the next required-field hint', () => {
+    expect(wantedFormState({ photoCount: 0, title: '', category: '', budget: '', location: '', description: '', date: '' }))
+      .toEqual({ steps: 0, ready: false, hint: 'Add a title to post' });
+    expect(wantedFormState({ photoCount: 1, title: 'Desk', category: 'goods', budget: '125', location: 'USC Village', description: 'Adjustable standing desk', date: '2026-09-12' }))
+      .toEqual({ steps: 4, ready: true, hint: null });
+    expect(wantedFormState({ photoCount: 0, title: 'Desk', category: 'goods', budget: '12.50', location: 'USC Village', description: 'Adjustable standing desk', date: '2026-09-12' }))
+      .toEqual({ steps: 3, ready: false, hint: 'Add a whole-dollar maximum budget' });
   });
 
   it('labels every offer status', () => {

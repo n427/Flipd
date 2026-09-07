@@ -9,6 +9,55 @@ export function wantedCardCopy(source: { max_budget: number; needed_by: string; 
   };
 }
 
+export function wantedDetailCopy(source: {
+  category: string;
+  location: string;
+  needed_by: string;
+  max_budget: number;
+  offer_count: number;
+}, now = new Date()) {
+  const card = wantedCardCopy(source, now);
+  return {
+    budget: card.budget,
+    deadline: card.deadline,
+    category: source.category.charAt(0).toUpperCase() + source.category.slice(1),
+    detailsLabel: 'Details',
+    locationLabel: 'Where you’ll meet',
+    requesterLabel: 'Requester',
+    profileFallback: 'A Trojan',
+    profileMetaFallback: 'USC',
+  };
+}
+
+export function wantedFormState(input: {
+  photoCount: number;
+  title: string;
+  category: string;
+  budget: string;
+  location: string;
+  description: string;
+  date: string;
+}) {
+  const amount = Number(input.budget);
+  const validBudget = Number.isSafeInteger(amount) && amount > 0;
+  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(input.date);
+  const steps = [input.photoCount > 0, !!input.title.trim(), !!input.category, !!input.location.trim()].filter(Boolean).length;
+  const hint = !input.title.trim()
+    ? 'Add a title to post'
+    : !input.category
+      ? 'Pick a category to post'
+      : !validBudget
+        ? 'Add a whole-dollar maximum budget'
+        : !input.location.trim()
+          ? 'Add a meetup spot so sellers know where to go'
+          : !input.description.trim()
+            ? 'Add details about what you need'
+            : !validDate
+              ? 'Add a needed-by date'
+              : null;
+  return { steps, ready: hint === null, hint };
+}
+
 const OFFER_LABELS: Record<WantedOfferStatus, string> = {
   pending: 'Pending', accepted: 'Accepted', declined: 'Declined', withdrawn: 'Withdrawn', expired: 'Expired',
 };

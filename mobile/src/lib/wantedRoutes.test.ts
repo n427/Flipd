@@ -20,6 +20,6 @@ describe('mobile Wanted route contract', () => {
     expect(chooser).toContain("router.push('/wanted/post')");
     expect(source('../app/(tabs)/wanted.tsx')).toContain('HeaderNotificationButton');
     expect(source('../app/wanted/post.tsx')).toContain('WantedPostFormScreen');
-    expect(source('../app/wanted/post.tsx')).toContain('<Field');
+    expect(source('../app/wanted/post.tsx')).toContain('<TextInput');
   });
 });

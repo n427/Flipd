@@ -5,8 +5,8 @@ This is an operator checklist. Automated source gates can be recorded here; Appl
 ## 1. Source and production configuration
 
 - [ ] Merge the reviewed mobile release branch.
-- [ ] Deploy database migrations `036_legal_acceptance.sql`, `037_account_deletion.sql`, and `038_thread_reports.sql` to production.
-- [ ] Deploy the web API containing `DELETE /api/me/delete` and conversation reporting before distributing the matching mobile build.
+- [x] Deploy database migrations `036_legal_acceptance.sql`, `037_account_deletion.sql`, and `038_thread_reports.sql` to production.
+- [x] Deploy the web API containing `DELETE /api/me/delete` and conversation reporting before distributing the matching mobile build.
 - [ ] Confirm production `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, maps/places configuration, web API origin, EAS project ID, and push credentials.
 - [ ] Confirm no service-role key, Apple credential, review credential, or private token is present in the mobile bundle or repository.
 - [ ] Decide iPhone-only versus iPad support from the generated native target.
@@ -14,13 +14,13 @@ This is an operator checklist. Automated source gates can be recorded here; Appl
 
 ## 2. Automated source gates
 
-- [ ] Full root Vitest suite.
-- [ ] Root TypeScript, ESLint, production build, and production dependency audit.
-- [ ] Mobile TypeScript and Expo lint.
-- [ ] Expo Doctor.
-- [ ] `npm run store:validate` from `mobile/`.
-- [ ] Public Expo config contains the branded splash, camera/photo usage descriptions, bundle ID, version, and encryption declaration.
-- [ ] Production iOS Expo export succeeds using production-shaped public environment variables.
+- [x] Full root Vitest suite.
+- [x] Root TypeScript, ESLint, production build, and production dependency audit.
+- [x] Mobile TypeScript and Expo lint.
+- [x] Expo Doctor.
+- [x] `npm run store:validate` from `mobile/`.
+- [x] Public Expo config contains the branded splash, camera/photo usage descriptions, bundle ID, version, and encryption declaration.
+- [x] Production iOS Expo export succeeds using production-shaped public environment variables.
 - [ ] Git diff and secret/large-file checks are clean.
 
 Record fresh evidence in **Verification evidence** below immediately before submission.
@@ -81,6 +81,18 @@ eas build --platform ios --profile production
 - [ ] Monitor authentication, deletion failures, reports, crashes, and push delivery after launch.
 
 ## Verification evidence
+
+Recorded 2026-09-06 against source commit `06bc693` on `flipd-v1`, with the
+uncommitted Wanted release delta still present in the working tree:
+
+- Root Vitest passed 63 files and 333 tests; ESLint and the Next.js production build passed.
+- Mobile Vitest passed 24 files and 90 tests; TypeScript, Expo lint, Expo Doctor 18/18, and the six-file store-package validator passed.
+- `npx expo config --type public` confirmed version `1.0.0`, bundle ID `com.flipd.app`, branded icon/splash configuration, camera/photo usage descriptions, and `ITSAppUsesNonExemptEncryption: false`.
+- `npx expo export --platform ios --output-dir /tmp/flipd-ios-export-current` completed and emitted the iOS Hermes bundle. This verifies bundling, not signing or device behavior.
+- The linked production Supabase schema exposes `legal_acceptances`, `reports.target_thread_id`, and `cleanup_deleted_account(uuid)`; the cleanup function correctly rejects the anonymous role. The Supabase migration ledger does not associate local versions 036-038 with remote history even though their schema objects are live. Repair the history separately; do not reapply those non-idempotent DDL files to production.
+- Vercel production is Ready at commit `06bc693`; its build contains `DELETE /api/me/delete`, `POST /api/reports`, and `/api/blocks`. Anonymous probes returned `401 unauthorized`, confirming the deployed routes and authentication gate without mutating production data.
+- EAS production has the Supabase URL, Supabase publishable key, and Google Maps key configured. `EXPO_PUBLIC_GOOGLE_PLACES_KEY` is absent, so free-text Places autocomplete is disabled while campus chips and the static map remain available. Push credentials still require an authenticated build/device check.
+- The latest finished EAS iOS production artifact remains build 9 at commit `cdd86ff`; it does not contain this release delta. A fresh build is still required after the working tree is finalized.
 
 Recorded 2026-08-20 against source commit `b390c9b` on
 `feature/mobile-app-store-readiness`:

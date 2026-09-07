@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -46,17 +46,37 @@ export default function WantedFeed() {
   const refresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
   const loadMore = async () => { if (!next || more) return; const cursor = next; const generation = requestGeneration.current; const requestFilters = filters; setMore(true); try { const result = await fetchWantedFeed({ ...requestFilters, cursor }); if (generation !== requestGeneration.current || cursor !== next) return; setPosts((old) => [...old, ...result.wanted_posts.filter((post) => !old.some((item) => item.id === post.id))]); setNext(result.next_cursor); setLoadError(''); } catch { if (generation === requestGeneration.current) setLoadError('Couldn’t load more. Try again.'); } finally { if (generation === requestGeneration.current) setMore(false); } };
 
-  return <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
-    <View style={{ paddingHorizontal: S.gutter, paddingTop: S.screenTop, flex: 1 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text style={{ fontFamily: F.black, fontSize: 28, color: T.ink, letterSpacing: -0.8 }}>Wanted<Text style={{ color: T.cardinal }}>.</Text></Text><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Pressable accessibilityRole="button" accessibilityLabel="Post a Wanted request" onPress={() => router.push('/wanted/post')} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: T.cardinal, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="add" size={23} color="#fff" /></Pressable><HeaderNotificationButton /></View></View>
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-        <Field accessibilityLabel="Search Wanted posts" value={query} onChangeText={(value) => { invalidateRequests(); setQuery(value); }} placeholder="Search campus requests" returnKeyType="search" style={{ flex: 1, height: 46, paddingHorizontal: 14, fontFamily: F.medium, fontSize: 15, color: T.ink, backgroundColor: T.fieldbg, borderRadius: 13 }} containerStyle={{ flex: 1 }} />
-        <Pressable accessibilityRole="button" accessibilityLabel="Open filters" onPress={() => setFiltersOpen(true)} style={{ width: 46, height: 46, borderRadius: 13, backgroundColor: T.fieldbg, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="options-outline" size={20} color={T.ink} /></Pressable>
-      </View>
-      <View style={{ flexDirection: 'row', gap: 8, marginVertical: 13 }}><Chip label="Explore" active={!mine} onPress={() => { if (mine) { invalidateRequests(); setMine(false); } }} /><Chip label="My Wanted" active={mine} onPress={() => { if (!mine) { invalidateRequests(); setMine(true); } }} /></View>
-      {loadError && state === 'ready' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry loading Wanted" onPress={load}><Text style={{ fontFamily: F.medium, color: T.cardinal, fontSize: 13, marginBottom: 8 }}>{loadError}</Text></Pressable> : null}
-      {state === 'loading' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}><SkeletonCard /><SkeletonCard /></View> : state === 'error' ? <Empty title="Couldn’t load Wanted" action="Retry" onPress={load} /> : <FlatList data={posts} keyExtractor={(item) => item.id} numColumns={2} style={{ marginHorizontal: -6 }} renderItem={({ item }) => <WantedCard post={item} onPress={() => router.push(`/wanted/${item.id}`)} />} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={T.cardinal} />} onEndReached={loadMore} onEndReachedThreshold={0.35} ListFooterComponent={more ? <ActivityIndicator color={T.cardinal} /> : null} ListEmptyComponent={<Empty title={mine ? 'No Wanted history yet' : 'No requests match these filters'} action="Post a request" onPress={() => router.push('/wanted/post')} />} contentContainerStyle={{ paddingBottom: 110, flexGrow: posts.length ? undefined : 1 }} />}
+  const header = <View style={{ paddingHorizontal: 6, paddingTop: S.screenTop }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}><Text style={{ fontFamily: F.black, fontSize: 28, color: T.ink, letterSpacing: -1 }}>Wanted<Text style={{ color: T.cardinal }}>.</Text></Text><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Pressable accessibilityRole="button" accessibilityLabel="Post a Wanted request" onPress={() => router.push('/wanted/post')} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: T.cardinal, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="add" size={23} color="#fff" /></Pressable><HeaderNotificationButton /></View></View>
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      <Field accessibilityLabel="Search Wanted posts" value={query} onChangeText={(value) => { invalidateRequests(); setQuery(value); }} placeholder="Search Wanted" returnKeyType="search" style={{ flex: 1, height: 46, paddingHorizontal: 14, fontFamily: F.medium, fontSize: 15, color: T.ink, backgroundColor: T.fieldbg, borderRadius: 14 }} containerStyle={{ flex: 1 }} />
+      <Pressable accessibilityRole="button" accessibilityLabel="Open filters" onPress={() => setFiltersOpen(true)} style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: T.fieldbg, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="options-outline" size={20} color={T.ink} /></Pressable>
     </View>
+    <View style={{ paddingTop: 16, paddingBottom: 4 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -6 }} contentContainerStyle={{ gap: 7, paddingHorizontal: 6 }}>
+        {categories.map((item) => <CategoryChip key={item.value} label={item.label} active={category === item.value} onPress={() => { if (category !== item.value) { invalidateRequests(); setCategory(item.value); } }} />)}
+      </ScrollView>
+    </View>
+    <View style={{ flexDirection: 'row', gap: 7, paddingTop: 12, paddingBottom: 14 }}><Chip label="Explore" active={!mine} onPress={() => { if (mine) { invalidateRequests(); setMine(false); } }} /><Chip label="My Wanted" active={mine} onPress={() => { if (!mine) { invalidateRequests(); setMine(true); } }} /></View>
+    {loadError && state === 'ready' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry loading Wanted" onPress={load}><Text style={{ fontFamily: F.medium, color: T.cardinal, fontSize: 13, marginBottom: 8 }}>{loadError}</Text></Pressable> : null}
+  </View>;
+  const skeletonGrid = <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>{Array.from({ length: 6 }).map((_, index) => <View key={index} style={{ width: '50%' }}><SkeletonCard /></View>)}</View>;
+
+  return <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }} edges={['top']}>
+    <FlatList
+      data={state === 'ready' ? posts : []}
+      keyExtractor={(item) => item.id}
+      numColumns={2}
+      style={{ backgroundColor: T.bg }}
+      contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: S.screenBottom, flexGrow: state === 'ready' && !posts.length ? 1 : undefined }}
+      ListHeaderComponent={header}
+      renderItem={({ item }) => <WantedCard post={item} onPress={() => router.push(`/wanted/${item.id}`)} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={T.cardinal} />}
+      onEndReached={loadMore}
+      onEndReachedThreshold={0.35}
+      ListFooterComponent={more ? <ActivityIndicator color={T.cardinal} style={{ marginVertical: 20 }} /> : null}
+      ListEmptyComponent={state === 'loading' ? skeletonGrid : state === 'error' ? <Empty title="Couldn’t load Wanted" action="Retry" onPress={load} /> : <Empty title={mine ? 'No Wanted history yet' : 'No requests match these filters'} action="Post a request" onPress={() => router.push('/wanted/post')} />}
+    />
     <Sheet visible={filtersOpen} onClose={() => setFiltersOpen(false)}>
       <SheetGrabber />
       <Text style={{ fontFamily: F.extrabold, fontSize: 20, color: T.ink, marginBottom: 14 }}>Filter Wanted</Text>
@@ -71,6 +91,7 @@ export default function WantedFeed() {
 }
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) { return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} onPress={onPress} style={{ paddingVertical: 8, paddingHorizontal: 13, borderRadius: 999, backgroundColor: active ? T.ink : T.fieldbg }}><Text style={{ fontFamily: F.bold, color: active ? '#fff' : T.muted, fontSize: 13 }}>{label}</Text></Pressable>; }
+function CategoryChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) { return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} onPress={onPress} style={{ paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: active ? T.ink : T.rule, backgroundColor: active ? T.ink : '#fff' }}><Text style={{ fontFamily: F.semibold, fontSize: 13, color: active ? '#fff' : T.ink }}>{label}</Text></Pressable>; }
 function Empty({ title, action, onPress }: { title: string; action: string; onPress: () => void }) { return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14 }}><Text style={{ fontFamily: F.medium, color: T.muted, textAlign: 'center' }}>{title}</Text><Pressable onPress={onPress} style={primary}><Text style={primaryText}>{action}</Text></Pressable></View>; }
 const label = { fontFamily: F.bold, fontSize: 13, color: T.ink, marginTop: 15, marginBottom: 7 } as const;
 const input = { height: 48, backgroundColor: T.fieldbg, borderRadius: 12, paddingHorizontal: 14, fontFamily: F.medium, color: T.ink, fontSize: 15 } as const;
