@@ -96,10 +96,10 @@ export function WantedPostForm({ initial, submitLabel = 'Post request', onSubmit
           <textarea className="field wanted-textarea" value={description} maxLength={2000} onChange={(e) => setDescription(e.target.value)} placeholder="Size, condition, timing, or anything else sellers should know." />
 
           <div className="wanted-form__split">
-            <label>Maximum budget ($)<input className="field" type="number" min="1" step="1" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="100" /></label>
-            <label>Needed by<input className="field" type="date" min={minimumDate} value={date} onChange={(e) => setDate(e.target.value)} /></label>
+            <label><span>Maximum budget ($)<span className="wanted-required"> *</span></span><input className="field" type="number" min="1" step="1" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="100" /></label>
+            <label><span>Needed by<span className="wanted-required"> *</span></span><input className="field" type="date" min={minimumDate} value={date} onChange={(e) => setDate(e.target.value)} /></label>
           </div>
-          <label>Where you’ll meet<LocationPicker value={location} onChange={setLocation} /></label>
+          <label><span>Where you’ll meet<span className="wanted-required"> *</span></span><LocationPicker value={location} onChange={setLocation} /></label>
         </section>
       </div>
       {error && <div className="wanted-error" role="alert">{error}</div>}

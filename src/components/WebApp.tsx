@@ -1683,7 +1683,7 @@ export function WebProfile({
   const [summary, setSummary] = React.useState<RatingSummary>({ average: null, count: 0, reviews: [] });
   const loadSummary = React.useCallback(() => { store.fetchRatings().then(setSummary).catch(() => {}); }, [store]);
   React.useEffect(() => { loadSummary(); }, [loadSummary]);
-  React.useEffect(() => { wantedClient.feed({ mine: true, limit: 100 }).then((result) => setWantedPosts(result.wanted_posts)).catch(() => {}); }, []);
+  React.useEffect(() => { wantedClient.mine().then((result) => setWantedPosts(result.wanted_posts)).catch(() => {}); }, []);
   return (
     <div>
       {/* Banner */}
@@ -1950,7 +1950,7 @@ export function WebApp({ onExit }: { onExit?: () => void }) {
   const goFeed = () => { setView('feed'); setSelected(null); };
   const goDetail = (l: Listing) => { setSelected(l); setView('detail'); };
   // captureSearch is debounced and fire-and-forget — it records the query for
-  // the daily digest and never blocks or fails the search itself.
+  // the weekly digest and never blocks or fails the search itself.
   const onSearch = (q: string) => { setQuery(q); captureSearch(q); if (view !== 'feed') setView('feed'); };
   const approve = (id: string) => store.respondReveal(id, 'approve');
   const decline = (id: string) => store.respondReveal(id, 'decline');

@@ -1,4 +1,4 @@
-// Search capture for the daily listing-match digest.
+// Search capture for the weekly listing-match digest.
 //
 // The search inputs on both clients fire per keystroke, so this cannot post
 // directly from the change handler — typing "desk lamp" would be nine

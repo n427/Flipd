@@ -104,6 +104,11 @@ export const wantedClient = {
   async feed(filters: WantedFeedFilters = {}) {
     return requestJson<{ wanted_posts: WantedPostDTO[]; next_cursor: string | null }>(wantedFeedUrl(filters));
   },
+  async mine() {
+    return requestJson<{ wanted_posts: WantedPostDTO[]; next_cursor: string | null }>(
+      wantedFeedUrl({ mine: true, limit: 50 }),
+    );
+  },
   async getPost(id: string) {
     return requestJson<{ wanted_post: WantedPostDTO; buyer?: WantedBuyerSummary; management?: { buyer_id: string; updated_at: string; resolved_at: string | null } }>(`/api/wanted/${id}`);
   },

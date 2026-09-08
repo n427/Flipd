@@ -488,7 +488,7 @@ a, button, input, select, textarea, [tabindex] { outline-color: var(--accent); }
 
 /* Wanted marketplace */
 .wanted-page { max-width: 1280px; margin: 0 auto; padding: 32px 32px 64px; }
-.wanted-detail { max-width: 1120px; margin: 0 auto; padding: 36px 32px 96px; }
+.wanted-detail { max-width: 1100px; margin: 0 auto; padding: 24px 32px 64px; }
 .wanted-editor { max-width: 1100px; margin: 0 auto; padding: 24px 32px 80px; }
 .wanted-feed-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
 .wanted-feed-head h1 { margin: 0; color: var(--ink); font-size: 26px; line-height: 1.1; font-weight: 800; letter-spacing: -.03em; }
@@ -576,10 +576,10 @@ a, button, input, select, textarea, [tabindex] { outline-color: var(--accent); }
 .wanted-form > .rule { margin: 36px 0 20px; }
 .wanted-form__actions { display: flex; justify-content: flex-end; gap: 10px; }
 .wanted-back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 13px; margin-bottom: 22px; }
-.wanted-detail__layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, .75fr); gap: 42px; }
-.wanted-detail__layout > aside { position: sticky; top: 90px; display: grid; gap: 12px; }
+.wanted-detail__layout { display: grid; grid-template-columns: minmax(320px, 500px) minmax(0, 1fr); gap: 48px; align-items: start; }
+.wanted-detail__layout > aside { display: block; min-width: 0; }
 .wanted-detail__gallery { margin-bottom: 24px; }
-.wanted-detail__cover { position: relative; width: 100%; aspect-ratio: 1.2; display: block; padding: 0; overflow: hidden; border: 0; border-radius: 16px; background: var(--surface); }
+.wanted-detail__cover { position: relative; width: 100%; aspect-ratio: 1; display: block; padding: 0; overflow: hidden; border: 0; border-radius: 16px; background: var(--surface); }
 .wanted-detail__cover img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .wanted-detail__cover span { position: absolute; left: 14px; bottom: 14px; border-radius: 8px; padding: 5px 10px; background: rgba(255,255,255,.92); color: var(--ink); font-size: 12px; font-weight: 700; }
 .wanted-detail__cover--empty { display: grid; place-items: center; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .16em; }
@@ -597,9 +597,10 @@ a, button, input, select, textarea, [tabindex] { outline-color: var(--accent); }
 .wanted-buyer strong a { color: var(--ink); text-decoration: none; }
 .wanted-buyer span { color: var(--muted); font-size: 12px; }
 .wanted-detail__description p { white-space: pre-wrap; line-height: 1.7; color: var(--ink-2); }
-.wanted-detail__summary { display: grid; gap: 5px; padding: 20px 20px 6px; }
+.wanted-detail__summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; padding: 0; margin: 24px 0 0; }
 .wanted-detail__summary strong { color: var(--ink); font-size: 23px; letter-spacing: -.02em; }
 .wanted-detail__summary span { color: var(--muted); font-size: 12.5px; }
+.wanted-detail__actions { margin-top: 22px; }
 .wanted-action-card, .wanted-offer-form { position: static; display: grid; gap: 14px; padding: 22px; border: 1px solid var(--rule); border-radius: 16px; background: #fff; box-shadow: var(--shadow); }
 .wanted-action-card h2, .wanted-offer-form h2 { margin: 0; font-size: 19px; }
 .wanted-action-card p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0; }
@@ -612,7 +613,7 @@ a, button, input, select, textarea, [tabindex] { outline-color: var(--accent); }
 .wanted-lightbox > span { position: absolute; bottom: 22px; color: #fff; font-size: 13px; font-weight: 700; }
 .wanted-detail-skeleton, .wanted-editor-skeleton { min-height: 620px; }
 .wanted-skeleton-photo, .wanted-skeleton-line, .wanted-skeleton-field, .wanted-skeleton-button { display: block; border-radius: 10px; background: linear-gradient(100deg, var(--surface) 30%, #fff 50%, var(--surface) 70%); background-size: 220% 100%; animation: wanted-shimmer 1.2s linear infinite; }
-.wanted-skeleton-photo { width: 100%; aspect-ratio: 1.2; border-radius: 16px; }
+.wanted-skeleton-photo { width: 100%; aspect-ratio: 1; border-radius: 16px; }
 .wanted-skeleton-line { height: 12px; margin-top: 12px; }
 .wanted-skeleton-line--back { width: 110px; height: 10px; margin: 0 0 22px; }
 .wanted-skeleton-line--title { width: 65%; height: 28px; }

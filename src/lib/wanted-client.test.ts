@@ -14,6 +14,18 @@ describe('Wanted web client', () => {
       .toBe('/api/wanted?q=desk&category=goods&budget=80');
   });
 
+  it('loads profile Wanted posts within the API page-size limit', async () => {
+    const originalFetch = globalThis.fetch;
+    const fetcher = vi.fn(async () => Response.json({ wanted_posts: [], next_cursor: null }));
+    globalThis.fetch = fetcher as typeof fetch;
+    try {
+      await wantedClient.mine();
+      expect(fetcher).toHaveBeenCalledWith('/api/wanted?mine=1&limit=50', undefined);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('trims create payload text without mutating the caller input', () => {
     const input = {
       title: '  Standing desk  ',
